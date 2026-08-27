@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Elegir Cliente</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        .container {
+            max-width: 500px;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .cliente-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+        .cliente-item:hover {
+            background-color: #f0f0f0;
+        }
+        label {
+            display: block;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .resultado {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            font-size: 18px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Seleccionar un Cliente</h1>
+    
+    <form method="POST" action="">
+        {% csrf_token %}
+        <div class="cliente-item">
+            <label>
+                <input type="radio" name="cliente_seleccionado" value="Juan Pérez" {% if seleccionado == "Juan Pérez" %}checked{% endif %}>
+                Juan Pérez
+            </label>
+        </div>
+        <div class="cliente-item">
+            <label>
+                <input type="radio" name="cliente_seleccionado" value="María Rodríguez" {% if seleccionado == "María Rodríguez" %}checked{% endif %}>
+                María Rodríguez
+            </label>
+        </div>
+        <div class="cliente-item">
+            <label>
+                <input type="radio" name="cliente_seleccionado" value="Carlos Gómez" {% if seleccionado == "Carlos Gómez" %}checked{% endif %}>
+                Carlos Gómez
+            </label>
+        </div>
+        <div class="cliente-item">
+            <label>
+                <input type="radio" name="cliente_seleccionado" value="Ana Martínez" {% if seleccionado == "Ana Martínez" %}checked{% endif %}>
+                Ana Martínez
+            </label>
+        </div>
+        <div class="cliente-item">
+            <label>
+                <input type="radio" name="cliente_seleccionado" value="Luis Fernández" {% if seleccionado == "Luis Fernández" %}checked{% endif %}>
+                Luis Fernández
+            </label>
+        </div>
+        
+        <button type="submit">Confirmar Selección</button>
+    </form>
+
+    {% if seleccionado %}
+        <div class="resultado">
+            <strong>Cliente seleccionado:</strong> {{ seleccionado }}
+        </div>
+    {% endif %}
+</div>
+
+</body>
+</html>
