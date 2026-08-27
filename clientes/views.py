@@ -33,5 +33,3 @@ def consultar_cliente(request, cliente_id):
         'cliente': cliente,
         'mensaje': mensaje
     })
-
-

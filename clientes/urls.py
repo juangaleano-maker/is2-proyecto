@@ -6,3 +6,4 @@ urlpatterns = [
     path('consultarClienteAsignado/<int:cliente_id>/', views.consultar_cliente, name='consultar_cliente'),
 ]
 
+
