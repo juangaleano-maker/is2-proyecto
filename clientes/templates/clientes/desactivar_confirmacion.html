@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Desactivar cliente</h2>
+
+<p>
+    ¿Estás seguro de que querés desactivar a <strong>{{ cliente }}</strong>?
+</p>
+<p>
+    El cliente quedará inactivo y <strong>no podrá operar</strong>, pero su registro
+    se conservará en el sistema y podrá ser reactivado en el futuro.
+</p>
+
+<ul>
+    <li><strong>Documento:</strong> {{ cliente.documento }}</li>
+    <li><strong>Tipo:</strong> {{ cliente.get_tipo_persona_display }}</li>
+    <li><strong>Segmento:</strong> {{ cliente.get_segmento_display }}</li>
+    <li><strong>Email:</strong> {{ cliente.email }}</li>
+</ul>
+
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">Confirmar desactivación</button>
+    <a href="{% url 'clientes:detalle' cliente.pk %}">Cancelar</a>
+</form>
+
+{% endblock %}

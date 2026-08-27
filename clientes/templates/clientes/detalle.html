@@ -1,12 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
+
 <h2>{{ cliente }}</h2>
-<p>Documento: {{ cliente.documento }}</p>
-<p>Tipo: {{ cliente.get_tipo_persona_display }}</p>
-<p>Segmento: {{ cliente.get_segmento_display }}</p>
-<p>Email: {{ cliente.email }}</p>
-<p>Teléfono: {{ cliente.telefono }}</p>
-<p>Dirección: {{ cliente.direccion }}</p>
+
+<p><strong>Documento:</strong> {{ cliente.documento }}</p>
+<p><strong>Tipo:</strong> {{ cliente.get_tipo_persona_display }}</p>
+<p><strong>Segmento:</strong> {{ cliente.get_segmento_display }}</p>
+<p><strong>Email:</strong> {{ cliente.email }}</p>
+<p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
+<p><strong>Dirección:</strong> {{ cliente.direccion }}</p>
+<p>
+    <strong>Estado:</strong>
+    {% if cliente.activo %}
+        ✅ Activo
+    {% else %}
+        ❌ Inactivo
+    {% endif %}
+</p>
+
 <a href="{% url 'clientes:editar' cliente.pk %}">Editar</a>
-<a href="{% url 'clientes:listado' %}">Volver</a>
+
+{% if cliente.activo %}
+    <a href="{% url 'clientes:desactivar' cliente.pk %}">Desactivar</a>
+{% endif %}
+
+<a href="{% url 'clientes:listado' %}">Volver al listado</a>
+
 {% endblock %}

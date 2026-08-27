@@ -8,10 +8,23 @@
     <select name="segmento" onchange="this.form.submit()">
         <option value="">Todos los segmentos</option>
         {% for value, label in segmentos %}
-        <option value="{{ value }}">{{ label }}</option>
+        <option value="{{ value }}" {% if request.GET.segmento == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
     </select>
+    {% if ver_inactivos %}
+        <input type="hidden" name="ver_inactivos" value="1">
+    {% endif %}
 </form>
+
+{% if ver_inactivos %}
+    <p>Mostrando todos los clientes (activos e inactivos).
+        <a href="?">Ver solo activos</a>
+    </p>
+{% else %}
+    <p>Mostrando clientes activos.
+        <a href="?ver_inactivos=1">Ver también inactivos</a>
+    </p>
+{% endif %}
 
 <table border="1">
     <tr>
@@ -19,6 +32,7 @@
         <th>Nombre/Razón Social</th>
         <th>Tipo</th>
         <th>Segmento</th>
+        <th>Estado</th>
         <th>Acciones</th>
     </tr>
     {% for cliente in clientes %}
@@ -27,15 +41,18 @@
         <td>{{ cliente }}</td>
         <td>{{ cliente.get_tipo_persona_display }}</td>
         <td>{{ cliente.get_segmento_display }}</td>
+        <td>{% if cliente.activo %}✅ Activo{% else %}❌ Inactivo{% endif %}</td>
         <td>
             <a href="{% url 'clientes:detalle' cliente.pk %}">Ver</a> |
-            <a href="{% url 'clientes:editar' cliente.pk %}">Editar</a> |
-            <a href="{% url 'clientes:eliminar' cliente.pk %}">Eliminar</a>
+            <a href="{% url 'clientes:editar' cliente.pk %}">Editar</a>
+            {% if cliente.activo %}
+                | <a href="{% url 'clientes:desactivar' cliente.pk %}">Desactivar</a>
+            {% endif %}
         </td>
     </tr>
     {% empty %}
     <tr>
-        <td colspan="5">No hay clientes registrados.</td>
+        <td colspan="6">No hay clientes registrados.</td>
     </tr>
     {% endfor %}
 </table>
