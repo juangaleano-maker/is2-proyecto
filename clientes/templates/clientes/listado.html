@@ -62,17 +62,14 @@
         <select name="segmento" class="filter-select" onchange="this.form.submit()">
             <option value="">Todos los segmentos</option>
             {% for value, label in segmentos %}
-            <option value="{{ value }}" {% if filtro_segmento==value or request.GET.segmento==value %}selected{% endif
-                %}>{{ label }}</option>
+            <option value="{{ value }}" {% if filtro_segmento == value or request.GET.segmento == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
-
 
         <select name="tipo" class="filter-select" onchange="this.form.submit()">
             <option value="">Todos los tipos</option>
             {% for value, label in tipos %}
-            <option value="{{ value }}" {% if filtro_tipo==value or request.GET.tipo==value %}selected{% endif %}>{{
-                label }}</option>
+            <option value="{{ value }}" {% if filtro_tipo == value or request.GET.tipo == value %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
 
