@@ -1,59 +1,216 @@
 {% extends "base.html" %}
+
+{% block title %}Panel de Clientes | Global Exchange{% endblock %}
+
 {% block content %}
-<h2>Clientes</h2>
+<!-- Cabecera de la página -->
+<div class="page-header">
+    <div class="page-title-group">
+        <h1>👥 Gestión de Clientes</h1>
+        <p class="page-subtitle">Administración centralizada de cuentas de clientes, segmentos y estados operativos.</p>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'clientes:registrar' %}" class="btn btn-primary">
+            <span>➕</span> Registrar Nuevo Cliente
+        </a>
+    </div>
+</div>
 
-<a href="{% url 'clientes:registrar' %}">+ Nuevo cliente</a>
-
-<form method="get">
-    <select name="segmento" onchange="this.form.submit()">
-        <option value="">Todos los segmentos</option>
-        {% for value, label in segmentos %}
-        <option value="{{ value }}" {% if request.GET.segmento == value %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-    </select>
-    {% if ver_inactivos %}
-        <input type="hidden" name="ver_inactivos" value="1">
-    {% endif %}
-</form>
-
-{% if ver_inactivos %}
-    <p>Mostrando todos los clientes (activos e inactivos).
-        <a href="?">Ver solo activos</a>
-    </p>
-{% else %}
-    <p>Mostrando clientes activos.
-        <a href="?ver_inactivos=1">Ver también inactivos</a>
-    </p>
+<!-- Métricas rápidas / KPIs -->
+{% if stats %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon blue">👥</div>
+        <div class="stat-info">
+            <span class="stat-label">Total Clientes</span>
+            <span class="stat-value">{{ stats.total }}</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-info">
+            <span class="stat-label">Clientes Activos</span>
+            <span class="stat-value">{{ stats.activos }}</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red">⏸️</div>
+        <div class="stat-info">
+            <span class="stat-label">Inactivos</span>
+            <span class="stat-value">{{ stats.inactivos }}</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon purple">⭐</div>
+        <div class="stat-info">
+            <span class="stat-label">Clientes VIP</span>
+            <span class="stat-value">{{ stats.vip }}</span>
+        </div>
+    </div>
+</div>
 {% endif %}
 
-<table border="1">
-    <tr>
-        <th>Documento</th>
-        <th>Nombre/Razón Social</th>
-        <th>Tipo</th>
-        <th>Segmento</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-    </tr>
-    {% for cliente in clientes %}
-    <tr>
-        <td>{{ cliente.documento }}</td>
-        <td>{{ cliente }}</td>
-        <td>{{ cliente.get_tipo_persona_display }}</td>
-        <td>{{ cliente.get_segmento_display }}</td>
-        <td>{% if cliente.activo %}✅ Activo{% else %}❌ Inactivo{% endif %}</td>
-        <td>
-            <a href="{% url 'clientes:detalle' cliente.pk %}">Ver</a> |
-            <a href="{% url 'clientes:editar' cliente.pk %}">Editar</a>
-            {% if cliente.activo %}
-                | <a href="{% url 'clientes:desactivar' cliente.pk %}">Desactivar</a>
-            {% endif %}
-        </td>
-    </tr>
-    {% empty %}
-    <tr>
-        <td colspan="6">No hay clientes registrados.</td>
-    </tr>
-    {% endfor %}
-</table>
+<!-- Barra de filtros y búsqueda -->
+<div class="toolbar-card">
+    <form method="get" class="filter-form">
+        <!-- Campo de búsqueda -->
+        <div class="search-group">
+            <span class="search-icon">🔍</span>
+            <input 
+                type="text" 
+                name="q" 
+                class="search-input" 
+                placeholder="Buscar por documento, nombre, email..." 
+                value="{{ busqueda|default:'' }}"
+            >
+        </div>
+
+        <!-- Filtro por segmento -->
+        <select name="segmento" class="filter-select" onchange="this.form.submit()">
+            <option value="">Todos los segmentos</option>
+            {% for value, label in segmentos %}
+            <option value="{{ value }}" {% if filtro_segmento == value or request.GET.segmento == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <!-- Filtro por tipo de persona -->
+        <select name="tipo" class="filter-select" onchange="this.form.submit()">
+            <option value="">Todos los tipos</option>
+            {% for value, label in tipos %}
+            <option value="{{ value }}" {% if filtro_tipo == value or request.GET.tipo == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <!-- Estado de inactivos -->
+        {% if ver_inactivos %}
+            <input type="hidden" name="ver_inactivos" value="1">
+            <a href="?{% if busqueda %}q={{ busqueda }}&{% endif %}{% if filtro_segmento %}segmento={{ filtro_segmento }}&{% endif %}{% if filtro_tipo %}tipo={{ filtro_tipo }}&{% endif %}" class="toggle-pill active" title="Ocultar inactivos">
+                <span>👁️</span> Mostrando todos (Activos + Inactivos)
+            </a>
+        {% else %}
+            <a href="?ver_inactivos=1{% if busqueda %}&q={{ busqueda }}{% endif %}{% if filtro_segmento %}&segmento={{ filtro_segmento }}{% endif %}{% if filtro_tipo %}&tipo={{ filtro_tipo }}{% endif %}" class="toggle-pill" title="Mostrar inactivos">
+                <span>🔒</span> Ver también inactivos
+            </a>
+        {% endif %}
+
+        {% if busqueda or filtro_segmento or filtro_tipo or ver_inactivos %}
+            <a href="{% url 'clientes:listado' %}" class="btn btn-secondary btn-sm" title="Limpiar todos los filtros">
+                ✕ Limpiar
+            </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Tabla de clientes -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            Listado de Registros ({{ clientes|length }})
+        </h2>
+    </div>
+
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Documento</th>
+                    <th>Cliente / Razón Social</th>
+                    <th>Tipo</th>
+                    <th>Segmento</th>
+                    <th>Estado</th>
+                    <th style="text-align: right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td>
+                        <strong style="font-family: monospace; font-size: 0.95rem; color: #1e293b;">
+                            {{ cliente.documento }}
+                        </strong>
+                    </td>
+                    <td>
+                        <div class="client-name-cell">
+                            <div class="client-avatar {% if cliente.tipo_persona == 'FISICA' %}avatar-fisica{% else %}avatar-juridica{% endif %}">
+                                {% if cliente.tipo_persona == 'FISICA' %}
+                                    {{ cliente.nombre|slice:":1"|upper }}
+                                {% else %}
+                                    🏢
+                                {% endif %}
+                            </div>
+                            <div class="client-details">
+                                <span class="client-main-name">{{ cliente }}</span>
+                                <span class="client-sub-info">
+                                    {{ cliente.email }}{% if cliente.telefono %} • {{ cliente.telefono }}{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        {% if cliente.tipo_persona == 'FISICA' %}
+                            <span class="badge badge-tipo-fisica">👤 Persona Física</span>
+                        {% else %}
+                            <span class="badge badge-tipo-juridica">🏢 Persona Jurídica</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cliente.segmento == 'VIP' %}
+                            <span class="badge badge-seg-vip">⭐ VIP</span>
+                        {% elif cliente.segmento == 'CORPORATIVO' %}
+                            <span class="badge badge-seg-corp">💼 Corporativo</span>
+                        {% else %}
+                            <span class="badge badge-seg-minorista">🛒 Minorista</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if cliente.activo %}
+                            <span class="badge badge-active">● Activo</span>
+                        {% else %}
+                            <span class="badge badge-inactive">● Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="table-actions" style="justify-content: flex-end;">
+                            <a href="{% url 'clientes:detalle' cliente.pk %}" class="btn btn-secondary btn-sm" title="Ver ficha completa">
+                                👁️ Ver
+                            </a>
+                            <a href="{% url 'clientes:editar' cliente.pk %}" class="btn btn-secondary btn-sm" title="Editar cliente">
+                                ✏️ Editar
+                            </a>
+                            {% if cliente.activo %}
+                                <a href="{% url 'clientes:desactivar' cliente.pk %}" class="btn btn-secondary btn-sm" style="color: #dc2626;" title="Desactivar cliente">
+                                    ⏸️ Desactivar
+                                </a>
+                            {% else %}
+                                <a href="{% url 'clientes:reactivar' cliente.pk %}" class="btn btn-secondary btn-sm" style="color: #10b981;" title="Reactivar cliente">
+                                    ▶️ Reactivar
+                                </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="empty-icon">📭</div>
+                            <h3 class="empty-title">No se encontraron clientes</h3>
+                            <p class="empty-desc">
+                                {% if busqueda or filtro_segmento or filtro_tipo %}
+                                    No hay resultados que coincidan con los criterios de búsqueda aplicados.
+                                {% else %}
+                                    Aún no hay clientes dados de alta en el sistema.
+                                {% endif %}
+                            </p>
+                            <a href="{% url 'clientes:registrar' %}" class="btn btn-primary">
+                                ➕ Registrar Primer Cliente
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}

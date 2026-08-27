@@ -1,29 +1,164 @@
 {% extends "base.html" %}
+
+{% block title %}Ficha de {{ cliente }} | Global Exchange{% endblock %}
+
 {% block content %}
+<!-- Cabecera / Perfil del cliente -->
+<div class="detail-header-card">
+    <div class="detail-profile">
+        <div class="detail-avatar">
+            {% if cliente.tipo_persona == 'FISICA' %}
+                {{ cliente.nombre|slice:":1"|upper }}
+            {% else %}
+                🏢
+            {% endif %}
+        </div>
+        <div>
+            <h1 class="detail-name">{{ cliente }}</h1>
+            <div class="detail-meta-list">
+                <span style="color: #94a3b8; font-family: monospace; font-size: 0.95rem;">
+                    📄 {{ cliente.documento }}
+                </span>
+                {% if cliente.tipo_persona == 'FISICA' %}
+                    <span class="badge badge-tipo-fisica">👤 Persona Física</span>
+                {% else %}
+                    <span class="badge badge-tipo-juridica">🏢 Persona Jurídica</span>
+                {% endif %}
 
-<h2>{{ cliente }}</h2>
+                {% if cliente.segmento == 'VIP' %}
+                    <span class="badge badge-seg-vip">⭐ VIP</span>
+                {% elif cliente.segmento == 'CORPORATIVO' %}
+                    <span class="badge badge-seg-corp">💼 Corporativo</span>
+                {% else %}
+                    <span class="badge badge-seg-minorista">🛒 Minorista</span>
+                {% endif %}
 
-<p><strong>Documento:</strong> {{ cliente.documento }}</p>
-<p><strong>Tipo:</strong> {{ cliente.get_tipo_persona_display }}</p>
-<p><strong>Segmento:</strong> {{ cliente.get_segmento_display }}</p>
-<p><strong>Email:</strong> {{ cliente.email }}</p>
-<p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
-<p><strong>Dirección:</strong> {{ cliente.direccion }}</p>
-<p>
-    <strong>Estado:</strong>
-    {% if cliente.activo %}
-        ✅ Activo
-    {% else %}
-        ❌ Inactivo
-    {% endif %}
-</p>
+                {% if cliente.activo %}
+                    <span class="badge badge-active">● Activo</span>
+                {% else %}
+                    <span class="badge badge-inactive">● Inactivo</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 
-<a href="{% url 'clientes:editar' cliente.pk %}">Editar</a>
+    <!-- Botones de acción directa -->
+    <div class="page-actions">
+        <a href="{% url 'clientes:listado' %}" class="btn btn-secondary">
+            ← Volver al Listado
+        </a>
+        <a href="{% url 'clientes:editar' cliente.pk %}" class="btn btn-primary">
+            <span>✏️</span> Editar Datos
+        </a>
+        {% if cliente.activo %}
+            <a href="{% url 'clientes:desactivar' cliente.pk %}" class="btn btn-danger">
+                <span>⏸️</span> Desactivar
+            </a>
+        {% else %}
+            <a href="{% url 'clientes:reactivar' cliente.pk %}" class="btn btn-success">
+                <span>▶️</span> Reactivar Cliente
+            </a>
+        {% endif %}
+    </div>
+</div>
 
-{% if cliente.activo %}
-    <a href="{% url 'clientes:desactivar' cliente.pk %}">Desactivar</a>
-{% endif %}
+<!-- Cuadrícula de Información Detallada -->
+<div class="info-grid">
+    <!-- Bloque 1: Identificación -->
+    <div class="info-box">
+        <h3 class="info-box-title">
+            <span>🪪</span> Identificación Oficial
+        </h3>
+        <div class="info-row">
+            <span class="info-label">Tipo de Documento:</span>
+            <span class="info-value">
+                {% if cliente.tipo_persona == 'FISICA' %}Cédula de Identidad (CI){% else %}RUC{% endif %}
+            </span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Número de Documento:</span>
+            <span class="info-value" style="font-family: monospace;">{{ cliente.documento }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Tipo de Persona:</span>
+            <span class="info-value">{{ cliente.get_tipo_persona_display }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Segmentación:</span>
+            <span class="info-value">{{ cliente.get_segmento_display }}</span>
+        </div>
+    </div>
 
-<a href="{% url 'clientes:listado' %}">Volver al listado</a>
+    <!-- Bloque 2: Información Personal / Comercial -->
+    <div class="info-box">
+        <h3 class="info-box-title">
+            <span>👤</span> Titular Registrado
+        </h3>
+        {% if cliente.tipo_persona == 'FISICA' %}
+        <div class="info-row">
+            <span class="info-label">Nombres:</span>
+            <span class="info-value">{{ cliente.nombre|default:"—" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Apellidos:</span>
+            <span class="info-value">{{ cliente.apellido|default:"—" }}</span>
+        </div>
+        {% else %}
+        <div class="info-row">
+            <span class="info-label">Razón Social:</span>
+            <span class="info-value">{{ cliente.razon_social|default:"—" }}</span>
+        </div>
+        {% endif %}
+        <div class="info-row">
+            <span class="info-label">Estado Operativo:</span>
+            <span class="info-value">
+                {% if cliente.activo %}
+                    <span style="color: #059669; font-weight: 600;">✅ Habilitado para operar</span>
+                {% else %}
+                    <span style="color: #dc2626; font-weight: 600;">❌ Bloqueado / Inactivo</span>
+                {% endif %}
+            </span>
+        </div>
+    </div>
 
+    <!-- Bloque 3: Datos de Contacto -->
+    <div class="info-box">
+        <h3 class="info-box-title">
+            <span>📞</span> Canales de Contacto
+        </h3>
+        <div class="info-row">
+            <span class="info-label">Correo Electrónico:</span>
+            <span class="info-value">
+                <a href="mailto:{{ cliente.email }}">{{ cliente.email }}</a>
+            </span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Teléfono:</span>
+            <span class="info-value">{{ cliente.telefono|default:"No especificado" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Dirección:</span>
+            <span class="info-value">{{ cliente.direccion|default:"No especificada" }}</span>
+        </div>
+    </div>
+
+    <!-- Bloque 4: Auditoría del Sistema -->
+    <div class="info-box">
+        <h3 class="info-box-title">
+            <span>⚙️</span> Auditoría de Sistema
+        </h3>
+        <div class="info-row">
+            <span class="info-label">ID Interno:</span>
+            <span class="info-value">#{{ cliente.pk }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Fecha de Registro:</span>
+            <span class="info-value">{{ cliente.creado_en|date:"d/m/Y H:i" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Última Modificación:</span>
+            <span class="info-value">{{ cliente.actualizado_en|date:"d/m/Y H:i" }}</span>
+        </div>
+    </div>
+</div>
 {% endblock %}

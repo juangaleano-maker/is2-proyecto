@@ -1,9 +1,27 @@
 {% extends "base.html" %}
+
+{% block title %}Eliminar Cliente | Global Exchange{% endblock %}
+
 {% block content %}
-<h2>¿Eliminar a {{ cliente }}?</h2>
-<form method="post">
-    {% csrf_token %}
-    <button type="submit">Confirmar</button>
-    <a href="{% url 'clientes:listado' %}">Cancelar</a>
-</form>
+<div class="dialog-card">
+    <div class="dialog-icon danger">🗑️</div>
+    
+    <h1 class="dialog-title">¿Eliminar a {{ cliente }}?</h1>
+    
+    <p class="dialog-desc">
+        ¿Estás seguro de que querés eliminar definitivamente a <strong>{{ cliente }}</strong>? Esta acción no se puede deshacer.
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="dialog-actions">
+            <a href="{% url 'clientes:listado' %}" class="btn btn-secondary">
+                Cancelar
+            </a>
+            <button type="submit" class="btn btn-danger">
+                <span>🗑️</span> Confirmar Eliminación
+            </button>
+        </div>
+    </form>
+</div>
 {% endblock %}

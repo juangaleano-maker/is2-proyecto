@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Desactivar Cliente | Global Exchange{% endblock %}
+{% block title %}Reactivar Cliente | Global Exchange{% endblock %}
 
 {% block content %}
 <div class="dialog-card">
-    <div class="dialog-icon warning">⚠️</div>
+    <div class="dialog-icon success">▶️</div>
     
-    <h1 class="dialog-title">¿Desactivar este cliente?</h1>
+    <h1 class="dialog-title">¿Reactivar este cliente?</h1>
     
     <p class="dialog-desc">
-        Estás a punto de desactivar a <strong>{{ cliente }}</strong>. El cliente pasará a estado <strong>inactivo</strong> y quedará inhabilitado para realizar transacciones u operaciones, pero sus datos y registros históricos se conservarán íntegros en el sistema.
+        Estás a punto de reactivar la cuenta de <strong>{{ cliente }}</strong>. El cliente volverá a estar <strong>activo</strong> y podrá operar con normalidad en todos los servicios de Global Exchange.
     </p>
 
     <div class="dialog-summary">
@@ -37,8 +37,8 @@
             <a href="{% url 'clientes:detalle' cliente.pk %}" class="btn btn-secondary">
                 Cancelar
             </a>
-            <button type="submit" class="btn btn-danger">
-                <span>⏸️</span> Confirmar Desactivación
+            <button type="submit" class="btn btn-success">
+                <span>✅</span> Confirmar Reactivación
             </button>
         </div>
     </form>
