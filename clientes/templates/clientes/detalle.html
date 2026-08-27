@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ cliente }}</h2>
+<p>Documento: {{ cliente.documento }}</p>
+<p>Tipo: {{ cliente.get_tipo_persona_display }}</p>
+<p>Segmento: {{ cliente.get_segmento_display }}</p>
+<p>Email: {{ cliente.email }}</p>
+<p>Teléfono: {{ cliente.telefono }}</p>
+<p>Dirección: {{ cliente.direccion }}</p>
+<a href="{% url 'clientes:editar' cliente.pk %}">Editar</a>
+<a href="{% url 'clientes:listado' %}">Volver</a>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Clientes</h2>
+
+<a href="{% url 'clientes:registrar' %}">+ Nuevo cliente</a>
+
+<form method="get">
+    <select name="segmento" onchange="this.form.submit()">
+        <option value="">Todos los segmentos</option>
+        {% for value, label in segmentos %}
+        <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+    </select>
+</form>
+
+<table border="1">
+    <tr>
+        <th>Documento</th>
+        <th>Nombre/Razón Social</th>
+        <th>Tipo</th>
+        <th>Segmento</th>
+        <th>Acciones</th>
+    </tr>
+    {% for cliente in clientes %}
+    <tr>
+        <td>{{ cliente.documento }}</td>
+        <td>{{ cliente }}</td>
+        <td>{{ cliente.get_tipo_persona_display }}</td>
+        <td>{{ cliente.get_segmento_display }}</td>
+        <td>
+            <a href="{% url 'clientes:detalle' cliente.pk %}">Ver</a> |
+            <a href="{% url 'clientes:editar' cliente.pk %}">Editar</a> |
+            <a href="{% url 'clientes:eliminar' cliente.pk %}">Eliminar</a>
+        </td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="5">No hay clientes registrados.</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
