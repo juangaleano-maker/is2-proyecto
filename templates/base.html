@@ -1,6 +1,7 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,9 +9,9 @@
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
+
 <body>
 
-    <!-- Barra de navegación administrativa -->
     <nav class="navbar">
         <a href="{% url 'clientes:listado' %}" class="navbar-brand">
             <span class="brand-icon">🌐</span>
@@ -32,13 +33,12 @@
         </ul>
     </nav>
 
-    <!-- Contenido principal -->
     <main class="main-container">
-        <!-- Notificaciones y mensajes -->
         {% if messages %}
         <div class="messages-container">
             {% for message in messages %}
-            <div class="alert alert-{% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% else %}success{% endif %}">
+            <div
+                class="alert alert-{% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% else %}success{% endif %}">
                 <div class="alert-content">
                     <span class="alert-icon">
                         {% if message.tags == 'error' %}🚫
@@ -63,4 +63,5 @@
 
     {% block extra_js %}{% endblock %}
 </body>
+
 </html>

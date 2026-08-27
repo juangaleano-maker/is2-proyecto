@@ -4,10 +4,6 @@ from django.urls import reverse
 from .models import Cliente
 
 
-# ─────────────────────────────────────────────
-#  Helper
-# ─────────────────────────────────────────────
-
 def crear_cliente(**kwargs):
     """Crea un cliente en BD saltando la validación del formulario (útil para setup de tests)."""
     defaults = {
@@ -22,9 +18,7 @@ def crear_cliente(**kwargs):
     return Cliente.objects.create(**defaults)
 
 
-# ─────────────────────────────────────────────
 #  HU: Desactivar Cliente
-# ─────────────────────────────────────────────
 
 class DesactivarClienteTests(TestCase):
 
@@ -73,10 +67,6 @@ class DesactivarClienteTests(TestCase):
         self.assertEqual(len(clientes), 2)
 
 
-# ─────────────────────────────────────────────
-#  HU: Reactivar Cliente
-# ─────────────────────────────────────────────
-
 class ReactivarClienteTests(TestCase):
 
     def test_reactivar_pone_activo_en_true(self):
@@ -100,10 +90,6 @@ class ReactivarClienteTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, cliente.nombre)
 
-
-# ─────────────────────────────────────────────
-#  HU: Búsqueda y Filtros en Panel
-# ─────────────────────────────────────────────
 
 class BusquedaFiltrosTests(TestCase):
 
@@ -330,9 +316,7 @@ class ValidacionesPorTipoTests(TestCase):
                                    nombre="Otro", apellido="Y", email="b@b.com")
 
 
-# ─────────────────────────────────────────────
 #  API REST
-# ─────────────────────────────────────────────
 
 class ApiClientesTests(TestCase):
 

@@ -4,36 +4,38 @@
 
 {% block content %}
 <div style="max-width: 800px; margin: 0 auto;">
-    <!-- Encabezado de página -->
+
     <div class="page-header">
         <div class="page-title-group">
             <h1>📝 {{ titulo }}</h1>
-            <p class="page-subtitle">Completá los campos requeridos para {% if cliente %}actualizar{% else %}dar de alta{% endif %} el cliente en la plataforma.</p>
+            <p class="page-subtitle">Completá los campos requeridos para {% if cliente %}actualizar{% else %}dar de
+                alta{% endif %} el cliente en la plataforma.</p>
         </div>
         <div class="page-actions">
             {% if cliente %}
-                <a href="{% url 'clientes:detalle' cliente.pk %}" class="btn btn-secondary">
-                    ← Volver a Detalle
-                </a>
+            <a href="{% url 'clientes:detalle' cliente.pk %}" class="btn btn-secondary">
+                ← Volver a Detalle
+            </a>
             {% else %}
-                <a href="{% url 'clientes:listado' %}" class="btn btn-secondary">
-                    ← Volver al Listado
-                </a>
+            <a href="{% url 'clientes:listado' %}" class="btn btn-secondary">
+                ← Volver al Listado
+            </a>
             {% endif %}
         </div>
     </div>
 
-    <!-- Advertencia si el cliente está inactivo -->
+
     {% if cliente and not cliente.activo %}
     <div class="alert alert-warning" style="margin-bottom: 1.5rem;">
         <div class="alert-content">
             <span class="alert-icon">⚠️</span>
-            <span>Este cliente se encuentra <strong>inactivo</strong>. Podés modificar y guardar sus datos igualmente.</span>
+            <span>Este cliente se encuentra <strong>inactivo</strong>. Podés modificar y guardar sus datos
+                igualmente.</span>
         </div>
     </div>
     {% endif %}
 
-    <!-- Tarjeta del formulario -->
+
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Datos del Formulario</h2>
@@ -49,7 +51,7 @@
                         <span class="alert-icon">🚫</span>
                         <div>
                             {% for error in form.non_field_errors %}
-                                <p>{{ error }}</p>
+                            <p>{{ error }}</p>
                             {% endfor %}
                         </div>
                     </div>
@@ -57,7 +59,7 @@
                 {% endif %}
 
                 <div class="form-grid">
-                    <!-- Sección 1: Clasificación -->
+
                     <div class="form-section-title">1. Identificación y Clasificación</div>
 
                     <div class="form-group">
@@ -66,7 +68,7 @@
                         </label>
                         {{ form.tipo_persona }}
                         {% if form.tipo_persona.errors %}
-                            <div class="field-error">⚠️ {{ form.tipo_persona.errors.0 }}</div>
+                        <div class="field-error">⚠️ {{ form.tipo_persona.errors.0 }}</div>
                         {% endif %}
                     </div>
 
@@ -76,7 +78,7 @@
                         </label>
                         {{ form.segmento }}
                         {% if form.segmento.errors %}
-                            <div class="field-error">⚠️ {{ form.segmento.errors.0 }}</div>
+                        <div class="field-error">⚠️ {{ form.segmento.errors.0 }}</div>
                         {% endif %}
                     </div>
 
@@ -87,11 +89,11 @@
                         </label>
                         {{ form.documento }}
                         {% if form.documento.errors %}
-                            <div class="field-error">⚠️ {{ form.documento.errors.0 }}</div>
+                        <div class="field-error">⚠️ {{ form.documento.errors.0 }}</div>
                         {% endif %}
                     </div>
 
-                    <!-- Sección 2A: Persona Física -->
+
                     <div id="campos-fisica" class="form-full" style="display: contents;">
                         <div class="form-section-title">2. Datos de la Persona Física</div>
 
@@ -101,7 +103,7 @@
                             </label>
                             {{ form.nombre }}
                             {% if form.nombre.errors %}
-                                <div class="field-error">⚠️ {{ form.nombre.errors.0 }}</div>
+                            <div class="field-error">⚠️ {{ form.nombre.errors.0 }}</div>
                             {% endif %}
                         </div>
 
@@ -111,12 +113,12 @@
                             </label>
                             {{ form.apellido }}
                             {% if form.apellido.errors %}
-                                <div class="field-error">⚠️ {{ form.apellido.errors.0 }}</div>
+                            <div class="field-error">⚠️ {{ form.apellido.errors.0 }}</div>
                             {% endif %}
                         </div>
                     </div>
 
-                    <!-- Sección 2B: Persona Jurídica -->
+
                     <div id="campos-juridica" class="form-full" style="display: contents;">
                         <div class="form-section-title">2. Datos de la Empresa</div>
 
@@ -126,12 +128,12 @@
                             </label>
                             {{ form.razon_social }}
                             {% if form.razon_social.errors %}
-                                <div class="field-error">⚠️ {{ form.razon_social.errors.0 }}</div>
+                            <div class="field-error">⚠️ {{ form.razon_social.errors.0 }}</div>
                             {% endif %}
                         </div>
                     </div>
 
-                    <!-- Sección 3: Contacto -->
+
                     <div class="form-section-title">3. Información de Contacto</div>
 
                     <div class="form-group form-full">
@@ -140,7 +142,7 @@
                         </label>
                         {{ form.email }}
                         {% if form.email.errors %}
-                            <div class="field-error">⚠️ {{ form.email.errors.0 }}</div>
+                        <div class="field-error">⚠️ {{ form.email.errors.0 }}</div>
                         {% endif %}
                     </div>
 
@@ -150,7 +152,7 @@
                         </label>
                         {{ form.telefono }}
                         {% if form.telefono.errors %}
-                            <div class="field-error">⚠️ {{ form.telefono.errors.0 }}</div>
+                        <div class="field-error">⚠️ {{ form.telefono.errors.0 }}</div>
                         {% endif %}
                     </div>
 
@@ -160,7 +162,7 @@
                         </label>
                         {{ form.direccion }}
                         {% if form.direccion.errors %}
-                            <div class="field-error">⚠️ {{ form.direccion.errors.0 }}</div>
+                        <div class="field-error">⚠️ {{ form.direccion.errors.0 }}</div>
                         {% endif %}
                     </div>
                 </div>
@@ -169,13 +171,13 @@
 
             <div class="card-footer">
                 {% if cliente %}
-                    <a href="{% url 'clientes:detalle' cliente.pk %}" class="btn btn-secondary">
-                        Cancelar
-                    </a>
+                <a href="{% url 'clientes:detalle' cliente.pk %}" class="btn btn-secondary">
+                    Cancelar
+                </a>
                 {% else %}
-                    <a href="{% url 'clientes:listado' %}" class="btn btn-secondary">
-                        Cancelar
-                    </a>
+                <a href="{% url 'clientes:listado' %}" class="btn btn-secondary">
+                    Cancelar
+                </a>
                 {% endif %}
                 <button type="submit" class="btn btn-primary">
                     <span>💾</span> Guardar Cliente
@@ -186,7 +188,7 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const selectTipo = document.getElementById('id_tipo_persona');
         const camposFisica = document.getElementById('campos-fisica');
         const camposJuridica = document.getElementById('campos-juridica');

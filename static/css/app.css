@@ -1,47 +1,45 @@
-/* ==========================================================================
-   GLOBAL EXCHANGE - SISTEMA DE GESTIÓN Y PANEL ADMINISTRATIVO
-   ========================================================================== */
+/*GLOBAL EXCHANGE - SISTEMA DE GESTIÓN Y PANEL ADMINISTRATIVO */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
     --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    
+
     /* Paleta Principal */
     --primary: #2563eb;
     --primary-hover: #1d4ed8;
     --primary-light: #eff6ff;
     --primary-border: #bfdbfe;
-    
+
     /* Neutros */
     --bg-page: #f8fafc;
     --bg-card: #ffffff;
     --bg-alt: #f1f5f9;
     --border-color: #e2e8f0;
     --border-focus: #3b82f6;
-    
+
     /* Textos */
     --text-main: #0f172a;
     --text-muted: #64748b;
     --text-light: #94a3b8;
-    
+
     /* Estados y badges */
     --success-bg: #ecfdf5;
     --success-text: #065f46;
     --success-border: #a7f3d0;
-    
+
     --danger-bg: #fef2f2;
     --danger-text: #991b1b;
     --danger-border: #fecaca;
-    
+
     --warning-bg: #fffbeb;
     --warning-text: #92400e;
     --warning-border: #fde68a;
-    
+
     --info-bg: #f0f9ff;
     --info-text: #075985;
     --info-border: #bae6fd;
-    
+
     --purple-bg: #f5f3ff;
     --purple-text: #5b21b6;
     --purple-border: #ddd6fe;
@@ -56,7 +54,9 @@
     --radius-full: 9999px;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
@@ -83,9 +83,7 @@ a:hover {
     color: var(--primary-hover);
 }
 
-/* ==========================================================================
-   BARRA DE NAVEGACIÓN SUPERIOR (NAVBAR)
-   ========================================================================== */
+/*BARRA DE NAVEGACIÓN SUPERIOR */
 .navbar {
     background-color: #0f172a;
     color: #ffffff;
@@ -94,7 +92,7 @@ a:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: sticky;
     top: 0;
     z-index: 100;
@@ -158,7 +156,8 @@ a:hover {
     gap: 0.4rem;
 }
 
-.nav-link:hover, .nav-link.active {
+.nav-link:hover,
+.nav-link.active {
     color: #ffffff;
     background-color: #1e293b;
 }
@@ -176,9 +175,7 @@ a:hover {
     box-shadow: 0 4px 6px rgba(37, 99, 235, 0.4);
 }
 
-/* ==========================================================================
-   LAYOUT Y CONTENEDOR PRINCIPAL
-   ========================================================================== */
+/*LAYOUT Y CONTENEDOR PRINCIPAL */
 .main-container {
     max-width: 1240px;
     width: 100%;
@@ -218,9 +215,7 @@ a:hover {
     gap: 0.75rem;
 }
 
-/* ==========================================================================
-   SISTEMA DE NOTIFICACIONES / MENSAJES FLASH
-   ========================================================================== */
+/*SISTEMA DE NOTIFICACIONES / MENSAJES FLASH */
 .messages-container {
     margin-bottom: 1.5rem;
     display: flex;
@@ -242,8 +237,15 @@ a:hover {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .alert-content {
@@ -262,7 +264,8 @@ a:hover {
     border-color: var(--success-border);
 }
 
-.alert-error, .alert-danger {
+.alert-error,
+.alert-danger {
     background-color: var(--danger-bg);
     color: var(--danger-text);
     border-color: var(--danger-border);
@@ -280,9 +283,7 @@ a:hover {
     border-color: var(--info-border);
 }
 
-/* ==========================================================================
-   TARJETAS DE MÉTRICAS / KPIS
-   ========================================================================== */
+/*TARJETAS DE MÉTRICAS / KPIS */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -318,10 +319,25 @@ a:hover {
     flex-shrink: 0;
 }
 
-.stat-icon.blue { background-color: var(--primary-light); color: var(--primary); }
-.stat-icon.green { background-color: var(--success-bg); color: var(--success-text); }
-.stat-icon.red { background-color: var(--danger-bg); color: var(--danger-text); }
-.stat-icon.purple { background-color: var(--purple-bg); color: var(--purple-text); }
+.stat-icon.blue {
+    background-color: var(--primary-light);
+    color: var(--primary);
+}
+
+.stat-icon.green {
+    background-color: var(--success-bg);
+    color: var(--success-text);
+}
+
+.stat-icon.red {
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
+}
+
+.stat-icon.purple {
+    background-color: var(--purple-bg);
+    color: var(--purple-text);
+}
 
 .stat-info {
     display: flex;
@@ -344,9 +360,7 @@ a:hover {
     margin-top: 2px;
 }
 
-/* ==========================================================================
-   TARJETAS Y CONTENEDORES (CARDS)
-   ========================================================================== */
+/*TARJETAS Y CONTENEDOREs */
 .card {
     background-color: var(--bg-card);
     border-radius: var(--radius-lg);
@@ -384,9 +398,7 @@ a:hover {
     gap: 0.75rem;
 }
 
-/* ==========================================================================
-   FILTROS Y BARRA DE BÚSQUEDA
-   ========================================================================== */
+/*FILTROS Y BARRA DE BÚSQUEDA*/
 .toolbar-card {
     background-color: var(--bg-card);
     border-radius: var(--radius-md);
@@ -490,9 +502,7 @@ a:hover {
     font-weight: 600;
 }
 
-/* ==========================================================================
-   TABLA DE DATOS ADMINISTRATIVA
-   ========================================================================== */
+/* TABLA DE DATOS ADMINISTRATIVA */
 .table-responsive {
     width: 100%;
     overflow-x: auto;
@@ -554,8 +564,15 @@ a:hover {
     flex-shrink: 0;
 }
 
-.avatar-fisica { background-color: var(--primary-light); color: var(--primary); }
-.avatar-juridica { background-color: var(--purple-bg); color: var(--purple-text); }
+.avatar-fisica {
+    background-color: var(--primary-light);
+    color: var(--primary);
+}
+
+.avatar-juridica {
+    background-color: var(--purple-bg);
+    color: var(--purple-text);
+}
 
 .client-details {
     display: flex;
@@ -572,9 +589,7 @@ a:hover {
     color: var(--text-muted);
 }
 
-/* ==========================================================================
-   BADGES Y ESTILOS DE ETIQUETAS
-   ========================================================================== */
+/* BADGES Y ESTILOS DE ETIQUETAS*/
 .badge {
     display: inline-flex;
     align-items: center;
@@ -629,9 +644,7 @@ a:hover {
     border: 1px solid #cbd5e1;
 }
 
-/* ==========================================================================
-   BOTONES
-   ========================================================================== */
+/* BOTONES */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -710,9 +723,7 @@ a:hover {
     gap: 0.4rem;
 }
 
-/* ==========================================================================
-   FORMULARIOS Y CAMPOS
-   ========================================================================== */
+/*FORMULARIOS Y CAMPOS */
 .form-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -802,9 +813,7 @@ textarea:focus {
     margin-top: 0;
 }
 
-/* ==========================================================================
-   DETALLE DE CLIENTE / FICHA
-   ========================================================================== */
+/* DETALLE DE CLIENTE / FICHA */
 .detail-header-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     color: #ffffff;
@@ -835,7 +844,7 @@ textarea:focus {
     justify-content: center;
     font-size: 1.75rem;
     font-weight: 700;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .detail-name {
@@ -900,9 +909,7 @@ textarea:focus {
     text-align: right;
 }
 
-/* ==========================================================================
-   CONFIRMACIÓN / ACCIONES PELIGROSAS
-   ========================================================================== */
+/* CONFIRMACIÓN / ACCIONES PELIGROSAS */
 .dialog-card {
     max-width: 580px;
     margin: 2rem auto;
@@ -926,9 +933,20 @@ textarea:focus {
     margin: 0 auto 1.25rem;
 }
 
-.dialog-icon.warning { background-color: var(--warning-bg); color: var(--warning-text); }
-.dialog-icon.danger { background-color: var(--danger-bg); color: var(--danger-text); }
-.dialog-icon.success { background-color: var(--success-bg); color: var(--success-text); }
+.dialog-icon.warning {
+    background-color: var(--warning-bg);
+    color: var(--warning-text);
+}
+
+.dialog-icon.danger {
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
+}
+
+.dialog-icon.success {
+    background-color: var(--success-bg);
+    color: var(--success-text);
+}
 
 .dialog-title {
     font-size: 1.4rem;
@@ -966,9 +984,7 @@ textarea:focus {
     gap: 1rem;
 }
 
-/* ==========================================================================
-   ESTADO VACÍO (EMPTY STATE)
-   ========================================================================== */
+/* ESTADO VACÍO (EMPTY STATE)*/
 .empty-state {
     text-align: center;
     padding: 3.5rem 1.5rem;
@@ -993,9 +1009,7 @@ textarea:focus {
     margin-bottom: 1.25rem;
 }
 
-/* ==========================================================================
-   FOOTER
-   ========================================================================== */
+/* FOOTER */
 .footer {
     background-color: #ffffff;
     border-top: 1px solid var(--border-color);
@@ -1005,28 +1019,32 @@ textarea:focus {
     color: var(--text-muted);
 }
 
-/* ==========================================================================
-   RESPONSIVE
-   ========================================================================== */
+/* RESPONSIVE */
 @media (max-width: 768px) {
     .form-grid {
         grid-template-columns: 1fr;
     }
+
     .page-header {
         flex-direction: column;
         align-items: flex-start;
     }
+
     .filter-form {
         flex-direction: column;
         align-items: stretch;
     }
-    .search-group, .filter-select {
+
+    .search-group,
+    .filter-select {
         width: 100%;
     }
+
     .detail-header-card {
         flex-direction: column;
         align-items: flex-start;
     }
+
     .detail-profile {
         flex-direction: column;
         align-items: flex-start;

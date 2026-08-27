@@ -8,13 +8,10 @@ from .forms import ClienteForm
 from .models import Cliente
 
 
-# ─────────────────────────────────────────────
 #  Vistas HTML (Panel Administrativo)
-# ─────────────────────────────────────────────
 
 def listado_clientes(request):
     """Panel principal y listado de clientes con estadísticas, búsqueda y filtros."""
-    # Parámetros de filtrado
     ver_inactivos = request.GET.get("ver_inactivos") == "1"
     segmento = request.GET.get("segmento", "").strip()
     tipo = request.GET.get("tipo", "").strip()
@@ -42,7 +39,6 @@ def listado_clientes(request):
             | Q(telefono__icontains=busqueda)
         )
 
-    # Estadísticas para el panel administrativo
     todos = Cliente.objects.all()
     stats = {
         "total": todos.count(),
@@ -108,7 +104,6 @@ def desactivar_cliente(request, pk):
     """Baja lógica: marca el cliente como inactivo sin eliminar el registro."""
     cliente = get_object_or_404(Cliente, pk=pk)
 
-    # Si ya está inactivo, no hacer nada
     if not cliente.activo:
         messages.warning(request, "El cliente ya se encuentra inactivo.")
         return redirect("clientes:detalle", pk=cliente.pk)
@@ -142,9 +137,7 @@ def reactivar_cliente(request, pk):
     return render(request, "clientes/reactivar_confirmacion.html", {"cliente": cliente})
 
 
-# ─────────────────────────────────────────────
-#  API REST (JSON — sin DRF)
-# ─────────────────────────────────────────────
+#  API REST
 
 def _cliente_a_dict(cliente):
     """Serializa un Cliente a dict para la API."""

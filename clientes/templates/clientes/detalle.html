@@ -3,14 +3,13 @@
 {% block title %}Ficha de {{ cliente }} | Global Exchange{% endblock %}
 
 {% block content %}
-<!-- Cabecera / Perfil del cliente -->
 <div class="detail-header-card">
     <div class="detail-profile">
         <div class="detail-avatar">
             {% if cliente.tipo_persona == 'FISICA' %}
-                {{ cliente.nombre|slice:":1"|upper }}
+            {{ cliente.nombre|slice:":1"|upper }}
             {% else %}
-                🏢
+            🏢
             {% endif %}
         </div>
         <div>
@@ -20,23 +19,23 @@
                     📄 {{ cliente.documento }}
                 </span>
                 {% if cliente.tipo_persona == 'FISICA' %}
-                    <span class="badge badge-tipo-fisica">👤 Persona Física</span>
+                <span class="badge badge-tipo-fisica">👤 Persona Física</span>
                 {% else %}
-                    <span class="badge badge-tipo-juridica">🏢 Persona Jurídica</span>
+                <span class="badge badge-tipo-juridica">🏢 Persona Jurídica</span>
                 {% endif %}
 
                 {% if cliente.segmento == 'VIP' %}
-                    <span class="badge badge-seg-vip">⭐ VIP</span>
+                <span class="badge badge-seg-vip">⭐ VIP</span>
                 {% elif cliente.segmento == 'CORPORATIVO' %}
-                    <span class="badge badge-seg-corp">💼 Corporativo</span>
+                <span class="badge badge-seg-corp">💼 Corporativo</span>
                 {% else %}
-                    <span class="badge badge-seg-minorista">🛒 Minorista</span>
+                <span class="badge badge-seg-minorista">🛒 Minorista</span>
                 {% endif %}
 
                 {% if cliente.activo %}
-                    <span class="badge badge-active">● Activo</span>
+                <span class="badge badge-active">● Activo</span>
                 {% else %}
-                    <span class="badge badge-inactive">● Inactivo</span>
+                <span class="badge badge-inactive">● Inactivo</span>
                 {% endif %}
             </div>
         </div>
@@ -51,20 +50,18 @@
             <span>✏️</span> Editar Datos
         </a>
         {% if cliente.activo %}
-            <a href="{% url 'clientes:desactivar' cliente.pk %}" class="btn btn-danger">
-                <span>⏸️</span> Desactivar
-            </a>
+        <a href="{% url 'clientes:desactivar' cliente.pk %}" class="btn btn-danger">
+            <span>⏸️</span> Desactivar
+        </a>
         {% else %}
-            <a href="{% url 'clientes:reactivar' cliente.pk %}" class="btn btn-success">
-                <span>▶️</span> Reactivar Cliente
-            </a>
+        <a href="{% url 'clientes:reactivar' cliente.pk %}" class="btn btn-success">
+            <span>▶️</span> Reactivar Cliente
+        </a>
         {% endif %}
     </div>
 </div>
 
-<!-- Cuadrícula de Información Detallada -->
 <div class="info-grid">
-    <!-- Bloque 1: Identificación -->
     <div class="info-box">
         <h3 class="info-box-title">
             <span>🪪</span> Identificación Oficial
@@ -89,7 +86,6 @@
         </div>
     </div>
 
-    <!-- Bloque 2: Información Personal / Comercial -->
     <div class="info-box">
         <h3 class="info-box-title">
             <span>👤</span> Titular Registrado
@@ -113,15 +109,14 @@
             <span class="info-label">Estado Operativo:</span>
             <span class="info-value">
                 {% if cliente.activo %}
-                    <span style="color: #059669; font-weight: 600;">✅ Habilitado para operar</span>
+                <span style="color: #059669; font-weight: 600;">✅ Habilitado para operar</span>
                 {% else %}
-                    <span style="color: #dc2626; font-weight: 600;">❌ Bloqueado / Inactivo</span>
+                <span style="color: #dc2626; font-weight: 600;">❌ Bloqueado / Inactivo</span>
                 {% endif %}
             </span>
         </div>
     </div>
 
-    <!-- Bloque 3: Datos de Contacto -->
     <div class="info-box">
         <h3 class="info-box-title">
             <span>📞</span> Canales de Contacto
@@ -142,7 +137,6 @@
         </div>
     </div>
 
-    <!-- Bloque 4: Auditoría del Sistema -->
     <div class="info-box">
         <h3 class="info-box-title">
             <span>⚙️</span> Auditoría de Sistema
