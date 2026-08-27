@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'clientes',
     'usuarios',
+    'agregar_usuario',
 ]
 
 MIDDLEWARE = [

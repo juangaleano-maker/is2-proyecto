@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Agregar Usuario a Cliente</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        .container {
+            max-width: 560px;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 6px;
+        }
+        .subtitulo {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        input[type="text"],
+        input[type="email"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        select {
+            background-color: #fafafa;
+        }
+        button[type="submit"] {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        button[type="submit"]:hover {
+            background-color: #219a52;
+        }
+        .alerta-ok {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            font-size: 15px;
+        }
+        .resumen {
+            margin-top: 18px;
+            padding: 15px;
+            background-color: #eaf4fb;
+            border: 1px solid #aed6f1;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        .resumen strong {
+            display: inline-block;
+            width: 90px;
+            color: #555;
+        }
+        .separador {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 22px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Agregar Usuario a Cliente</h1>
+    <p class="subtitulo">Completá los datos del nuevo usuario y seleccioná el cliente al que pertenece.</p>
+
+    {% if mensaje %}
+        <div class="alerta-ok">✅ {{ mensaje }}</div>
+    {% endif %}
+
+    {% if usuario_creado %}
+    <div class="resumen">
+        <p><strong>Nombre:</strong> {{ usuario_creado.nombre }} {{ usuario_creado.apellido }}</p>
+        <p><strong>Email:</strong> {{ usuario_creado.email }}</p>
+        <p><strong>Rol:</strong> {{ usuario_creado.rol }}</p>
+        <p><strong>Cliente:</strong> {{ usuario_creado.cliente.nombre }}</p>
+    </div>
+    <hr class="separador">
+    {% endif %}
+
+    <form method="POST" action="">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="cliente_id">Cliente al que pertenece:</label>
+            <select id="cliente_id" name="cliente_id" required>
+                <option value="">-- Seleccioná un cliente --</option>
+                {% for cliente in clientes %}
+                    <option value="{{ cliente.id }}">{{ cliente.nombre }}</option>
+                {% empty %}
+                    <option disabled>No hay clientes registrados</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="nombre">Nombre:</label>
+            <input type="text" id="nombre" name="nombre" placeholder="Ej: Ana" required>
+        </div>
+
+        <div class="form-group">
+            <label for="apellido">Apellido:</label>
+            <input type="text" id="apellido" name="apellido" placeholder="Ej: García">
+        </div>
+
+        <div class="form-group">
+            <label for="email">Correo Electrónico:</label>
+            <input type="email" id="email" name="email" placeholder="Ej: ana@empresa.com" required>
+        </div>
+
+        <div class="form-group">
+            <label for="rol">Rol:</label>
+            <select id="rol" name="rol">
+                <option value="Empleado">Empleado</option>
+                <option value="Administrador">Administrador</option>
+                <option value="Operador">Operador</option>
+                <option value="Supervisor">Supervisor</option>
+            </select>
+        </div>
+
+        <button type="submit">Agregar Usuario</button>
+    </form>
+</div>
+
+</body>
+</html>
