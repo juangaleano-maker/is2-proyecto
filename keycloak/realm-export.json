@@ -1,0 +1,31 @@
+{
+  "realm": "global-exchange",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "verifyEmail": true,
+  "resetPasswordAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "sslRequired": "external",
+  "clients": [
+    {
+      "clientId": "django-app",
+      "name": "Global Exchange - Django",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "CHANGE_ME_IN_ENV",
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8000/oidc/callback/"
+      ],
+      "webOrigins": [
+        "http://localhost:8000"
+      ],
+      "fullScopeAllowed": true
+    }
+  ]
+}
