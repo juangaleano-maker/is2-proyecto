@@ -17,6 +17,13 @@
       { "name": "cliente", "description": "Cliente autoregistrado" }
     ]
   },
+  "defaultRole": {
+    "name": "default-roles-global-exchange",
+    "composite": true,
+    "composites": {
+      "realm": ["cliente"]
+    }
+  },
   "clients": [
     {
       "clientId": "django-app",
