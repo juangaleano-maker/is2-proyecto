@@ -8,6 +8,15 @@
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "sslRequired": "external",
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Administrador del sistema" },
+      { "name": "operador", "description": "Operador de mesa de cambio" },
+      { "name": "supervisor", "description": "Supervisor de operaciones" },
+      { "name": "empleado", "description": "Empleado interno" },
+      { "name": "cliente", "description": "Cliente autoregistrado" }
+    ]
+  },
   "clients": [
     {
       "clientId": "django-app",
