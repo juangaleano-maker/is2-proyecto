@@ -1,0 +1,59 @@
+{% extends 'usuarios/base_auth.html' %}
+
+{% block title %}Cuenta Verificada — Global Exchange{% endblock %}
+
+{% block content %}
+<div class="auth-card" style="text-align: center;">
+    <div style="width: 72px; height: 72px; background: #ecfdf5; color: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 20px auto; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25);">
+        <i class="fa-solid fa-circle-check"></i>
+    </div>
+
+    <div style="display: inline-block; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 4px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; margin-bottom: 12px;">
+        <i class="fa-solid fa-check"></i> ESTADO: ACTIVO Y HABILITADO
+    </div>
+
+    <h1 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 8px;">¡Verificación Completada!</h1>
+
+    <p style="color: #475569; font-size: 0.92rem; line-height: 1.5; margin-bottom: 24px;">
+        Tu dirección de correo ha sido validada satisfactoriamente. Tu cuenta se encuentra activa y lista para operar en Global Exchange.
+    </p>
+
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; text-align: left; margin-bottom: 24px; font-size: 0.86rem;">
+        <div style="font-weight: 700; color: #0f172a; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+            <i class="fa-solid fa-id-card" style="color: #2563eb;"></i> Detalle de la Cuenta
+        </div>
+
+        <div style="display: grid; grid-template-columns: 130px 1fr; gap: 8px 12px; color: #334155;">
+            <div><strong>Usuario:</strong></div>
+            <div style="color: #0f172a; font-weight: 600;">{{ user.username }}</div>
+
+            <div><strong>Nombre:</strong></div>
+            <div>{{ user.get_full_name|default:user.username }}</div>
+
+            <div><strong>Correo:</strong></div>
+            <div>{{ user.email }}</div>
+
+            <div><strong>Keycloak ID:</strong></div>
+            <div style="font-family: monospace; font-size: 0.78rem; color: #64748b;">
+                {{ perfil.keycloak_id|default:"Sincronizado vía SSO" }}
+            </div>
+
+            <div><strong>Estado:</strong></div>
+            <div>
+                <span style="background: #10b981; color: white; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">
+                    <i class="fa-solid fa-bolt"></i> ACTIVO
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <a href="{% url 'usuarios:registro' %}" class="btn-primary">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Continuar al Portal de Operaciones
+        </a>
+        <a href="{% url 'usuarios:estado_cuenta' %}?q={{ user.username }}" class="btn-secondary">
+            <i class="fa-solid fa-shield-halved"></i> Ver Estado de Cuenta
+        </a>
+    </div>
+</div>
+{% endblock %}

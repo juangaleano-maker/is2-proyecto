@@ -1,0 +1,91 @@
+{% extends 'usuarios/base_auth.html' %}
+
+{% block title %}Consulta de Estado de Cuenta — Global Exchange{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <div class="card-header">
+        <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #eff6ff; color: #2563eb; border-radius: 16px; font-size: 1.5rem; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15);">
+            <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h1>Estado de Usuario</h1>
+        <p>Verifica el estado de activación y verificación de correo de cualquier usuario en el sistema.</p>
+    </div>
+
+    <form method="get" action="{% url 'usuarios:estado_cuenta' %}" style="margin-bottom: 24px;">
+        <div class="form-group">
+            <label for="q"><i class="fa-solid fa-magnifying-glass"></i> Nombre de Usuario o Correo Electrónico</label>
+            <input type="text" name="q" id="q" value="{{ query }}" class="form-control" placeholder="Ej. jperez o usuario@dominio.com" required>
+        </div>
+        <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-search"></i> Consultar Estado
+        </button>
+    </form>
+
+    {% if error %}
+        <div class="alert alert-error">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <div>{{ error }}</div>
+        </div>
+    {% endif %}
+
+    {% if perfil %}
+        <div style="background: #f8fafc; border: 1.5px solid var(--border-color); border-radius: 14px; padding: 20px; text-align: left; animation: fadeIn 0.3s ease-out;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                <div style="font-weight: 800; font-size: 1.05rem; color: #0f172a;">
+                    {{ perfil.user.username }}
+                </div>
+                {% if perfil.estado == 'ACTIVO' %}
+                    <span style="background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+                        <i class="fa-solid fa-circle-check"></i> ACTIVO
+                    </span>
+                {% elif perfil.estado == 'PENDIENTE_VERIFICACION' %}
+                    <span style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+                        <i class="fa-solid fa-clock"></i> PENDIENTE VERIFICACIÓN
+                    </span>
+                {% else %}
+                    <span style="background: #ef4444; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+                        <i class="fa-solid fa-ban"></i> {{ perfil.get_estado_display }}
+                    </span>
+                {% endif %}
+            </div>
+
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 10px; font-size: 0.86rem; color: #334155;">
+                <div><strong>Nombre completo:</strong></div>
+                <div>{{ perfil.user.get_full_name|default:"-" }}</div>
+
+                <div><strong>Correo:</strong></div>
+                <div>{{ perfil.user.email }}</div>
+
+                <div><strong>Correo verificado:</strong></div>
+                <div>
+                    {% if perfil.email_verificado %}
+                        <span style="color: #059669; font-weight: 600;"><i class="fa-solid fa-check"></i> Sí, verificado</span>
+                    {% else %}
+                        <span style="color: #d97706; font-weight: 600;"><i class="fa-solid fa-xmark"></i> No verificado</span>
+                    {% endif %}
+                </div>
+
+                <div><strong>Keycloak ID:</strong></div>
+                <div style="font-family: monospace; font-size: 0.75rem; color: #64748b; word-break: break-all;">
+                    {{ perfil.keycloak_id|default:"Sincronizado vía SSO" }}
+                </div>
+
+                <div><strong>Fecha de registro:</strong></div>
+                <div>{{ perfil.creado_en|date:"d/m/Y H:i:s" }}</div>
+            </div>
+
+            {% if perfil.estado == 'PENDIENTE_VERIFICACION' %}
+                <div style="margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border-color); text-align: center;">
+                    <p style="font-size: 0.82rem; color: #92400e; margin-bottom: 10px;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Esta cuenta aún no puede operar hasta verificar su correo.
+                    </p>
+                    <a href="{% url 'usuarios:reenviar_correo' %}?email={{ perfil.user.email }}" class="btn-secondary" style="font-size: 0.82rem; padding: 8px 14px;">
+                        <i class="fa-solid fa-paper-plane"></i> Reenviar correo de activación
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
