@@ -41,7 +41,49 @@
       "webOrigins": [
         "http://localhost:8000"
       ],
-      "fullScopeAllowed": true
+      "fullScopeAllowed": true,
+      "protocolMappers": [
+        {
+          "name": "realm-roles-in-token",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin.demo",
+      "email": "admin.demo@globalexchange.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Carlos",
+      "lastName": "González",
+      "credentials": [
+        { "type": "password", "value": "Admin123!", "temporary": true }
+      ],
+      "realmRoles": ["admin"]
+    },
+    {
+      "username": "operador.demo",
+      "email": "operador.demo@globalexchange.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Jorge",
+      "lastName": "Ramírez",
+      "credentials": [
+        { "type": "password", "value": "Operador123!", "temporary": true }
+      ],
+      "realmRoles": ["operador"]
     }
   ]
 }
