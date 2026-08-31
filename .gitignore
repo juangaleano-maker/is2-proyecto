@@ -141,3 +141,8 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+.env
+db.sqlite3
+__pycache__/
+*.pyc
+venv/

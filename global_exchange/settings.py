@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 
+from decouple import config
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -40,6 +42,8 @@ INSTALLED_APPS = [
     'clientes',
     'usuarios',
     'agregar_usuario',
+    'mozilla_django_oidc',
+    'authentication',
 ]
 
 MIDDLEWARE = [
@@ -50,7 +54,32 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'authentication.middleware.RolesMiddleware',
 ]
+
+AUTHENTICATION_BACKENDS = (
+    'authentication.backends.KeycloakOIDCBackend',
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'menu'
+LOGOUT_REDIRECT_URL = 'login'
+
+# --- Keycloak / OIDC ---
+OIDC_RP_CLIENT_ID = config('OIDC_RP_CLIENT_ID', default='django-app')
+OIDC_RP_CLIENT_SECRET = config('OIDC_RP_CLIENT_SECRET', default='CHANGE_ME_IN_ENV')
+OIDC_RP_SIGN_ALGO = 'RS256'
+
+KEYCLOAK_BASE_URL = config('KEYCLOAK_BASE_URL', default='http://localhost:8080')
+KEYCLOAK_REALM = config('KEYCLOAK_REALM', default='global-exchange')
+_KEYCLOAK_ISSUER = f'{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}'
+
+OIDC_OP_AUTHORIZATION_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/auth'
+OIDC_OP_TOKEN_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/token'
+OIDC_OP_USER_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/userinfo'
+OIDC_OP_JWKS_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/certs'
+OIDC_OP_LOGOUT_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/logout'
 
 ROOT_URLCONF = 'global_exchange.urls'
 
@@ -64,8 +93,11 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                
             ],
+        
         },
+        'DIRS': [BASE_DIR / 'templates'],
     },
 ]
 
@@ -122,6 +154,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
 
 
 # Email
