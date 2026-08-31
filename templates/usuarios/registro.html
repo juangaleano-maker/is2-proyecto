@@ -1,0 +1,141 @@
+{% extends 'usuarios/base_auth.html' %}
+
+{% block title %}Autoregistro de Usuario — Global Exchange{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+    <div class="card-header">
+        <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; background: #eff6ff; color: #2563eb; border-radius: 16px; font-size: 1.5rem; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15);">
+            <i class="fa-solid fa-user-plus"></i>
+        </div>
+        <h1>Crear nueva cuenta</h1>
+        <p>Regístrate en Global Exchange para acceder a la plataforma digital de compra y venta de divisas.</p>
+    </div>
+
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px 14px; border-radius: 10px; margin-bottom: 20px; font-size: 0.82rem; color: #166534; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-envelope-circle-check" style="font-size: 1rem;"></i>
+        <span><strong>Verificación obligatoria:</strong> Al registrarte, recibirás un correo para activar tu cuenta antes de comenzar a operar (RF1).</span>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="alert alert-error">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <div>
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'usuarios:registro' %}" id="registerForm" novalidate>
+        {% csrf_token %}
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="{{ form.first_name.id_for_label }}"><i class="fa-regular fa-user"></i> {{ form.first_name.label }}</label>
+                {{ form.first_name }}
+                {% if form.first_name.errors %}
+                    <div class="error-text"><i class="fa-solid fa-circle-exclamation"></i> {{ form.first_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.last_name.id_for_label }}"><i class="fa-regular fa-user"></i> {{ form.last_name.label }}</label>
+                {{ form.last_name }}
+                {% if form.last_name.errors %}
+                    <div class="error-text"><i class="fa-solid fa-circle-exclamation"></i> {{ form.last_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.username.id_for_label }}"><i class="fa-solid fa-at"></i> {{ form.username.label }}</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+                <div class="error-text"><i class="fa-solid fa-circle-exclamation"></i> {{ form.username.errors.0 }}</div>
+            {% else %}
+                <div class="form-text">{{ form.username.help_text }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.email.id_for_label }}"><i class="fa-regular fa-envelope"></i> {{ form.email.label }}</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+                <div class="error-text"><i class="fa-solid fa-circle-exclamation"></i> {{ form.email.errors.0 }}</div>
+            {% else %}
+                <div class="form-text">{{ form.email.help_text }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.password.id_for_label }}"><i class="fa-solid fa-lock"></i> {{ form.password.label }}</label>
+            {{ form.password }}
+            {% if form.password.errors %}
+                <div class="error-text"><i class="fa-solid fa-circle-exclamation"></i> {{ form.password.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="password-requirements" id="passwordRules">
+            <div style="font-weight: 600; color: #475569; margin-bottom: 4px;">Requisitos de seguridad (RNF24):</div>
+            <ul>
+                <li id="rule-len"><i class="fa-solid fa-circle-dot" style="color: #94a3b8;"></i> Mínimo 8 caracteres</li>
+                <li id="rule-upper"><i class="fa-solid fa-circle-dot" style="color: #94a3b8;"></i> 1 letra mayúscula</li>
+                <li id="rule-num"><i class="fa-solid fa-circle-dot" style="color: #94a3b8;"></i> 1 número</li>
+                <li id="rule-spec"><i class="fa-solid fa-circle-dot" style="color: #94a3b8;"></i> 1 carácter especial</li>
+            </ul>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.password_confirm.id_for_label }}"><i class="fa-solid fa-lock"></i> {{ form.password_confirm.label }}</label>
+            {{ form.password_confirm }}
+            {% if form.password_confirm.errors %}
+                <div class="error-text"><i class="fa-solid fa-circle-exclamation"></i> {{ form.password_confirm.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <button type="submit" class="btn-primary" id="btnSubmit">
+            <i class="fa-solid fa-user-plus"></i> Registrarse y Enviar Verificación
+        </button>
+    </form>
+
+    <div style="margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border-color); text-align: center; font-size: 0.85rem; color: var(--text-muted);">
+        ¿Ya tienes cuenta o necesitas reenviar el correo? <br>
+        <a href="{% url 'usuarios:reenviar_correo' %}" style="color: var(--primary); font-weight: 600; text-decoration: none;">Reenviar enlace de activación</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const passwordInput = document.getElementById('{{ form.password.id_for_label }}');
+    const ruleLen = document.getElementById('rule-len');
+    const ruleUpper = document.getElementById('rule-upper');
+    const ruleNum = document.getElementById('rule-num');
+    const ruleSpec = document.getElementById('rule-spec');
+
+    function updateRule(elem, isValid) {
+        const icon = elem.querySelector('i');
+        if (isValid) {
+            icon.className = 'fa-solid fa-circle-check';
+            icon.style.color = '#10b981';
+            elem.style.color = '#065f46';
+        } else {
+            icon.className = 'fa-solid fa-circle-dot';
+            icon.style.color = '#94a3b8';
+            elem.style.color = '#64748b';
+        }
+    }
+
+    if (passwordInput) {
+        passwordInput.addEventListener('input', function() {
+            const val = this.value;
+            updateRule(ruleLen, val.length >= 8);
+            updateRule(ruleUpper, /[A-Z]/.test(val));
+            updateRule(ruleNum, /[0-9]/.test(val));
+            updateRule(ruleSpec, /[^A-Za-z0-9]/.test(val));
+        });
+    }
+</script>
+{% endblock %}

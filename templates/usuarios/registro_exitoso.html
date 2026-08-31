@@ -1,0 +1,42 @@
+{% extends 'usuarios/base_auth.html' %}
+
+{% block title %}Verificación Pendiente — Global Exchange{% endblock %}
+
+{% block content %}
+<div class="auth-card" style="text-align: center;">
+    <div style="width: 72px; height: 72px; background: #fef3c7; color: #d97706; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin: 0 auto 20px auto; box-shadow: 0 4px 15px rgba(217, 119, 6, 0.2);">
+        <i class="fa-solid fa-envelope-open-text"></i>
+    </div>
+
+    <div style="display: inline-block; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 4px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; margin-bottom: 12px;">
+        <i class="fa-solid fa-clock"></i> ESTADO: PENDIENTE DE VERIFICACIÓN
+    </div>
+
+    <h1 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 10px;">¡Revisa tu correo electrónico!</h1>
+
+    <p style="color: #475569; font-size: 0.95rem; line-height: 1.5; margin-bottom: 24px;">
+        Hemos enviado un enlace de activación a:<br>
+        <strong style="color: #1e293b; font-size: 1.05rem;">{{ email }}</strong>
+    </p>
+
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; text-align: left; margin-bottom: 24px; font-size: 0.88rem; color: #334155;">
+        <div style="font-weight: 700; color: #0f172a; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-list-check" style="color: #2563eb;"></i> Pasos para completar tu registro:
+        </div>
+        <ol style="padding-left: 20px; line-height: 1.7;">
+            <li>Abre tu bandeja de entrada (o carpeta de <em>Spam / Correo no deseado</em>).</li>
+            <li>Busca el correo remitido por <strong>Global Exchange</strong>.</li>
+            <li>Haz clic en el botón <strong>"Activar mi cuenta"</strong> para habilitar las operaciones.</li>
+        </ol>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <a href="{% url 'usuarios:reenviar_correo' %}" class="btn-secondary" style="width: 100%;">
+            <i class="fa-solid fa-rotate-right"></i> ¿No recibiste el correo? Reenviar enlace
+        </a>
+        <a href="{% url 'usuarios:estado_cuenta' %}" class="btn-secondary" style="width: 100%; border: none; background: transparent; color: #64748b;">
+            <i class="fa-solid fa-magnifying-glass"></i> Consultar estado de mi cuenta
+        </a>
+    </div>
+</div>
+{% endblock %}

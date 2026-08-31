@@ -1,0 +1,37 @@
+{% extends 'usuarios/base_auth.html' %}
+
+{% block title %}Error de Verificación — Global Exchange{% endblock %}
+
+{% block content %}
+<div class="auth-card" style="text-align: center;">
+    <div style="width: 72px; height: 72px; background: #fef2f2; color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.2rem; margin: 0 auto 20px auto; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.25);">
+        <i class="fa-solid fa-circle-xmark"></i>
+    </div>
+
+    <div style="display: inline-block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 4px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; margin-bottom: 12px;">
+        <i class="fa-solid fa-triangle-exclamation"></i> ENLACE NO VÁLIDO O EXPIRADO
+    </div>
+
+    <h1 style="font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 8px;">No se pudo verificar la cuenta</h1>
+
+    <p style="color: #475569; font-size: 0.92rem; line-height: 1.5; margin-bottom: 24px;">
+        {{ motivo|default:"El token de verificación proporcionado no es válido, ha caducado o ya ha sido utilizado previamente." }}
+    </p>
+
+    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 16px; text-align: left; margin-bottom: 24px; font-size: 0.86rem; color: #92400e;">
+        <strong><i class="fa-solid fa-lightbulb"></i> ¿Qué puedes hacer?</strong>
+        <p style="margin-top: 6px; line-height: 1.4;">
+            Por motivos de seguridad, los enlaces de activación tienen una vigencia limitada. Puedes solicitar un nuevo correo de verificación inmediatamente.
+        </p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <a href="{% url 'usuarios:reenviar_correo' %}{% if email %}?email={{ email }}{% endif %}" class="btn-primary">
+            <i class="fa-solid fa-paper-plane"></i> Solicitar Nuevo Enlace de Activación
+        </a>
+        <a href="{% url 'usuarios:registro' %}" class="btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver al Formulario de Registro
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Global Exchange — Autenticación & Registro{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #eff6ff;
+            --primary-dark: #1e3a8a;
+            --secondary: #0f172a;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            --card-bg: rgba(255, 255, 255, 0.96);
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 16px;
+        }
+
+        /* Top Bar & Branding */
+        .header-nav {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 24px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 999px;
+            margin-bottom: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 1.15rem;
+            letter-spacing: -0.02em;
+        }
+
+        .brand-icon {
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #cbd5e1;
+            text-decoration: none;
+            font-size: 0.88rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            padding: 6px 12px;
+            border-radius: 8px;
+        }
+
+        .nav-links a:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .badge-sso {
+            font-size: 0.75rem;
+            background: rgba(6, 182, 212, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Main Container & Cards */
+        .main-container {
+            width: 100%;
+            max-width: 520px;
+            margin: auto;
+        }
+
+        .auth-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 36px 32px;
+            box-shadow: var(--shadow-xl);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            position: relative;
+            overflow: hidden;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #2563eb, #06b6d4, #10b981);
+        }
+
+        .card-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .card-header h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--secondary);
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .card-header p {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            line-height: 1.4;
+        }
+
+        /* Form elements */
+        .form-group {
+            margin-bottom: 18px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 6px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 0.92rem;
+            color: var(--text-main);
+            background-color: #f8fafc;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .form-control:focus {
+            background-color: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+
+        .form-text {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.3;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .error-text {
+            font-size: 0.8rem;
+            color: var(--danger);
+            margin-top: 4px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            width: 100%;
+            padding: 13px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 0.96rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            margin-top: 8px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 18px;
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            border-radius: var(--radius-md);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            color: var(--secondary);
+        }
+
+        /* Alerts & Messages */
+        .alert {
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            margin-bottom: 20px;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            line-height: 1.4;
+        }
+
+        .alert-success {
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+        }
+
+        .alert-error, .alert-danger {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+
+        .alert-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+        }
+
+        /* Password strength tips */
+        .password-requirements {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            margin-bottom: 16px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .password-requirements ul {
+            list-style: none;
+            margin-top: 4px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+
+        .password-requirements li {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        footer a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 540px) {
+            .form-row { grid-template-columns: 1fr; }
+            .auth-card { padding: 24px 20px; }
+            .header-nav { border-radius: 16px; flex-direction: column; gap: 12px; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header class="header-nav">
+        <a href="{% url 'usuarios:registro' %}" class="brand">
+            <div class="brand-icon">
+                <i class="fa-solid fa-coins"></i>
+            </div>
+            <span>Global Exchange</span>
+        </a>
+
+        <div class="nav-links">
+            <a href="{% url 'usuarios:registro' %}"><i class="fa-solid fa-user-plus"></i> Registro</a>
+            <a href="{% url 'usuarios:reenviar_correo' %}"><i class="fa-solid fa-paper-plane"></i> Reenviar Correo</a>
+            <a href="{% url 'usuarios:estado_cuenta' %}"><i class="fa-solid fa-shield-halved"></i> Consultar Estado</a>
+            <span class="badge-sso"><i class="fa-solid fa-lock"></i> Keycloak Admin API</span>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-container">
+        <!-- Django Messages Notifications -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check{% elif message.tags == 'error' or message.tags == 'danger' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+                    <div>{{ message }}</div>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>© 2026 Global Exchange — Sistema de Gestión y Cambio de Divisas</p>
+        <p style="margin-top: 4px; font-size: 0.74rem;">Ingeniería de Software 2 — FPUNA | Integrante 2: Autoregistro & Keycloak</p>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
