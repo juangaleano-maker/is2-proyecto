@@ -111,10 +111,10 @@ class BusquedaFiltrosTests(TestCase):
         self.assertEqual(len(clientes), 1)
         self.assertEqual(clientes[0].razon_social, "Tech SA")
 
-    def test_raiz_redirige_a_clientes(self):
-        """GET / debe redirigir a /clientes/."""
+    def test_raiz_redirige_a_login(self):
+        """GET / redirige al login cuando el usuario no está autenticado."""
         response = self.client.get("/")
-        self.assertRedirects(response, reverse("clientes:listado"))
+        self.assertRedirects(response, reverse("login"))
 
 
 # ─────────────────────────────────────────────
