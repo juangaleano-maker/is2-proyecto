@@ -11,9 +11,19 @@ def login_view(request):
     return redirect('oidc_authentication_init')
 
 
+from django.conf import settings
+
 def logout_view(request):
+    # Guardamos el token antes de destruir la sesión de Django
+    id_token = request.session.get('oidc_id_token', '')
     django_logout(request)
-    return redirect('login')
+    # Redirigir al endpoint de logout de Keycloak
+    keycloak_logout = f"{settings.OIDC_OP_LOGOUT_ENDPOINT}?client_id={settings.OIDC_RP_CLIENT_ID}"
+    if id_token:
+        # Con el id_token, Keycloak nos permite volver automáticamente sin dejar la pantalla gris
+        redirect_uri = request.build_absolute_uri('/oidc/callback/')
+        keycloak_logout += f"&post_logout_redirect_uri={redirect_uri}&id_token_hint={id_token}"
+    return redirect(keycloak_logout)
 
 
 def menu(request):

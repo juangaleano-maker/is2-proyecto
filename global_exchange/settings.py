@@ -47,6 +47,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'authentication.middleware.CanonicalHostMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -82,22 +83,20 @@ OIDC_OP_JWKS_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/certs'
 OIDC_OP_LOGOUT_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/logout'
 
 ROOT_URLCONF = 'global_exchange.urls'
+OIDC_STORE_ID_TOKEN = True
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                
             ],
-        
         },
-        'DIRS': [BASE_DIR / 'templates'],
     },
 ]
 
@@ -112,7 +111,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'global_exchange',
         'USER': 'postgres',
-        'PASSWORD': 'postgres',
+        'PASSWORD': '123456',
         'HOST': '127.0.0.1',
         'PORT': '5432',
     }

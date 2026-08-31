@@ -19,12 +19,11 @@ from django.urls import path, include
 from django.views.generic import RedirectView
 
 urlpatterns = [
-    path('', RedirectView.as_view(pattern_name='clientes:listado', permanent=False)),
+    path('', RedirectView.as_view(pattern_name='login', permanent=False)),
     path('admin/', admin.site.urls),
-    path('', include('clientes.urls')),
-    path('', include('usuarios.urls')),
-    path('', include('agregar_usuario.urls')),
-    path("clientes/", include("clientes.urls")),
+    path('clientes/', include('clientes.urls')),
+    path('usuarios/', include('usuarios.urls')),
+    path('agregar_usuario/', include('agregar_usuario.urls')),
     path('oidc/', include('mozilla_django_oidc.urls')),
     path('', include('authentication.urls')),
 ]

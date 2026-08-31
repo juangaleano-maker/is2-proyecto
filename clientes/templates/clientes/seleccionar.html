@@ -89,7 +89,7 @@
         <div class="resultado">
             <strong>Cliente seleccionado:</strong> {{ seleccionado.nombre }}
             <br><br>
-            <a href="{% url 'consultar_cliente' seleccionado.id %}" style="display: inline-block; background-color: #2ecc71; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 15px; font-weight: bold;">
+            <a href="{% url 'clientes:consultar_cliente' seleccionado.id %}" style="display: inline-block; background-color: #2ecc71; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 15px; font-weight: bold;">
                 Consultar/Modificar datos de {{ seleccionado.nombre }}
             </a>
         </div>
