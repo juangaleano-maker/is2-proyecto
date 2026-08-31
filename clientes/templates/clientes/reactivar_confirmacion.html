@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Reactivar Cliente | Global Exchange{% endblock %}
+
+{% block content %}
+<div class="dialog-card">
+    <div class="dialog-icon success">▶️</div>
+    
+    <h1 class="dialog-title">¿Reactivar este cliente?</h1>
+    
+    <p class="dialog-desc">
+        Estás a punto de reactivar la cuenta de <strong>{{ cliente }}</strong>. El cliente volverá a estar <strong>activo</strong> y podrá operar con normalidad en todos los servicios de Global Exchange.
+    </p>
+
+    <div class="dialog-summary">
+        <div class="dialog-summary-row">
+            <span class="info-label">Documento:</span>
+            <strong style="font-family: monospace;">{{ cliente.documento }}</strong>
+        </div>
+        <div class="dialog-summary-row">
+            <span class="info-label">Tipo:</span>
+            <span>{{ cliente.get_tipo_persona_display }}</span>
+        </div>
+        <div class="dialog-summary-row">
+            <span class="info-label">Segmento:</span>
+            <span>{{ cliente.get_segmento_display }}</span>
+        </div>
+        <div class="dialog-summary-row">
+            <span class="info-label">Email:</span>
+            <span>{{ cliente.email }}</span>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="dialog-actions">
+            <a href="{% url 'clientes:detalle' cliente.pk %}" class="btn btn-secondary">
+                Cancelar
+            </a>
+            <button type="submit" class="btn btn-success">
+                <span>✅</span> Confirmar Reactivación
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

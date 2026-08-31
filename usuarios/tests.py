@@ -304,3 +304,6 @@ class UsuariosAPITests(TestCase):
         data = response.json()
         self.assertEqual(data['estado'], 'ACTIVO')
         self.assertTrue(data['email_verificado'])
+
+
+# Create your tests here.

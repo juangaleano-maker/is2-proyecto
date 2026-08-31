@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Global Exchange - Menú</title>
+</head>
+<body>
+    <h1>Bienvenido, {{ request.user.first_name }} {{ request.user.last_name }}</h1>
+    <p>Email: {{ request.user.email }}</p>
+    <p>Roles detectados desde Keycloak: {{ roles|join:", " }}</p>
+
+    {% if mensaje %}
+        <p><strong>{{ mensaje }}</strong></p>
+    {% endif %}
+
+    <a href="{% url 'solo_admin' %}">Ver sección solo-admin</a><br>
+    <a href="{% url 'logout' %}">Cerrar sesión</a>
+</body>
+</html>

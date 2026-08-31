@@ -16,4 +16,7 @@ urlpatterns = [
     path('api/verificar-correo/', views.APIVerificarCorreoView.as_view(), name='api_verificar_correo'),
     path('api/reenviar-verificacion/', views.APIReenviarVerificacionView.as_view(), name='api_reenviar_verificacion'),
     path('api/estado/', views.APIEstadoUsuarioView.as_view(), name='api_estado_usuario'),
+
+    path('modificarUsuario/', views.listar_usuarios, name='listar_usuarios'),
+    path('modificarUsuario/<int:usuario_id>/', views.modificar_usuario, name='modificar_usuario'),
 ]

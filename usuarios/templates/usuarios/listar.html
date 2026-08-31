@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Seleccionar Usuario a Modificar</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        .container {
+            max-width: 500px;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin: 0 auto;
+        }
+        h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .usuario-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+        .usuario-item:hover {
+            background-color: #f0f0f0;
+        }
+        .usuario-info {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .usuario-rol {
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+        .btn-modificar {
+            background-color: #e67e22;
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .btn-modificar:hover {
+            background-color: #d35400;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Usuarios del Sistema</h1>
+
+    {% for usuario in usuarios %}
+    <div class="usuario-item">
+        <div>
+            <span class="usuario-info">{{ usuario.nombre }} {{ usuario.apellido }}</span>
+            <br>
+            <span class="usuario-rol">{{ usuario.rol }} &mdash; {{ usuario.email }}</span>
+        </div>
+        <a href="{% url 'modificar_usuario' usuario.id %}" class="btn-modificar">Modificar</a>
+    </div>
+    {% empty %}
+    <p>No hay usuarios registrados en el sistema.</p>
+    {% endfor %}
+</div>
+
+</body>
+</html>

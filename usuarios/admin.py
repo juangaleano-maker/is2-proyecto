@@ -23,3 +23,5 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
             perfil.user.is_active = False
             perfil.user.save(update_fields=['is_active'])
         self.message_user(request, f"{queryset.count()} usuario(s) desactivado(s).")
+
+# Register your models here.
