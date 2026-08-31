@@ -39,7 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'clientes'
+    'clientes',
+    'usuarios',
+    'agregar_usuario',
     'mozilla_django_oidc',
     'authentication',
 ]

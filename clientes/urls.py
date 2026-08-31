@@ -1,4 +1,3 @@
-
 from django.urls import path
 from . import views
 
@@ -14,4 +13,6 @@ urlpatterns = [
     path("<int:pk>/reactivar/", views.reactivar_cliente, name="reactivar"),
     path("api/", views.api_clientes, name="api_listado"),
     path("api/<int:pk>/", views.api_cliente_detalle, name="api_detalle"),
+    path('seleccionarCliente/', views.elegir_cliente, name='elegir_cliente'),
+    path('consultarClienteAsignado/<int:cliente_id>/', views.consultar_cliente, name='consultar_cliente'),
 ]
