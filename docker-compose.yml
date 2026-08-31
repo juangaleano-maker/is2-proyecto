@@ -1,4 +1,80 @@
 services:
+  # ==========================================
+  # BASE DE DATOS DE LA APLICACIÓN (db-dev)
+  # ==========================================
+  db-dev:
+    image: postgres:16
+    container_name: db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-global_exchange}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-global_exchange}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # SERVIDOR SMTP DE PRUEBA (mail-dev)
+  # ==========================================
+  mail-dev:
+    image: mailhog/mailhog:latest
+    container_name: mail-dev
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # Puerto SMTP
+      - "8025:8025" # Interfaz Web Mailhog
+    logging:
+      driver: 'none'
+
+  # ==========================================
+  # APLICACIÓN DJANGO (web-dev)
+  # ==========================================
+  web-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: web-dev
+    restart: unless-stopped
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - DB_NAME=${DB_NAME:-global_exchange}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-123456}
+      - DB_HOST=db-dev
+      - DB_PORT=5432
+      - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      - EMAIL_HOST=mail-dev
+      - EMAIL_PORT=1025
+      - DEFAULT_FROM_EMAIL=noreply@globalexchange.com
+      - KEYCLOAK_BASE_URL=http://localhost:8080
+      - KEYCLOAK_SERVER_URL=http://keycloak:8080
+      - KEYCLOAK_REALM=global-exchange
+      - OIDC_RP_CLIENT_ID=${OIDC_RP_CLIENT_ID:-django-app}
+      - OIDC_RP_CLIENT_SECRET=${OIDC_RP_CLIENT_SECRET:-maie fyxm kzlx tyur}
+      - APP_BASE_URL=http://localhost:8000
+    depends_on:
+      db-dev:
+        condition: service_healthy
+      mail-dev:
+        condition: service_started
+      keycloak:
+        condition: service_started
+
+  # ==========================================
+  # SERVIDOR DE IDENTIDAD SSO (Keycloak & DB)
+  # ==========================================
   keycloak-db:
     image: postgres:16
     container_name: keycloak-db
@@ -9,6 +85,11 @@ services:
       POSTGRES_PASSWORD: keycloak
     volumes:
       - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   keycloak:
     build: ./keycloak
@@ -27,12 +108,9 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - keycloak-db
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/auth/realms/master/.well-known/openid-configuration"]
-      interval: 5s
-      timeout: 3s
-      retries: 12
+      keycloak-db:
+        condition: service_healthy
 
 volumes:
+  db_dev_data:
   keycloak_db_data:

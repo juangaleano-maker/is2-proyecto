@@ -70,19 +70,24 @@ LOGIN_REDIRECT_URL = 'menu'
 LOGOUT_REDIRECT_URL = 'login'
 
 # --- Keycloak / OIDC ---
-OIDC_RP_CLIENT_ID = config('OIDC_RP_CLIENT_ID', default='django-app')
-OIDC_RP_CLIENT_SECRET = config('OIDC_RP_CLIENT_SECRET', default='CHANGE_ME_IN_ENV')
+OIDC_RP_CLIENT_ID = os.getenv('OIDC_RP_CLIENT_ID', config('OIDC_RP_CLIENT_ID', default='django-app'))
+OIDC_RP_CLIENT_SECRET = os.getenv('OIDC_RP_CLIENT_SECRET', config('OIDC_RP_CLIENT_SECRET', default='maie fyxm kzlx tyur'))
 OIDC_RP_SIGN_ALGO = 'RS256'
 
-KEYCLOAK_BASE_URL = config('KEYCLOAK_BASE_URL', default='http://localhost:8080')
-KEYCLOAK_REALM = config('KEYCLOAK_REALM', default='global-exchange')
-_KEYCLOAK_ISSUER = f'{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}'
+KEYCLOAK_BASE_URL = os.getenv('KEYCLOAK_BASE_URL', config('KEYCLOAK_BASE_URL', default='http://localhost:8080'))
+KEYCLOAK_SERVER_URL = os.getenv('KEYCLOAK_SERVER_URL', config('KEYCLOAK_SERVER_URL', default=KEYCLOAK_BASE_URL))
+KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM', config('KEYCLOAK_REALM', default='global-exchange'))
 
-OIDC_OP_AUTHORIZATION_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/auth'
-OIDC_OP_TOKEN_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/token'
-OIDC_OP_USER_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/userinfo'
-OIDC_OP_JWKS_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/certs'
-OIDC_OP_LOGOUT_ENDPOINT = f'{_KEYCLOAK_ISSUER}/protocol/openid-connect/logout'
+# Endpoints para el navegador (frontend / auth redirect)
+_KEYCLOAK_FRONTEND_ISSUER = f'{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}'
+OIDC_OP_AUTHORIZATION_ENDPOINT = f'{_KEYCLOAK_FRONTEND_ISSUER}/protocol/openid-connect/auth'
+OIDC_OP_LOGOUT_ENDPOINT = f'{_KEYCLOAK_FRONTEND_ISSUER}/protocol/openid-connect/logout'
+
+# Endpoints internos servidor a servidor (token exchange, userinfo, certs)
+_KEYCLOAK_BACKEND_ISSUER = f'{KEYCLOAK_SERVER_URL}/realms/{KEYCLOAK_REALM}'
+OIDC_OP_TOKEN_ENDPOINT = f'{_KEYCLOAK_BACKEND_ISSUER}/protocol/openid-connect/token'
+OIDC_OP_USER_ENDPOINT = f'{_KEYCLOAK_BACKEND_ISSUER}/protocol/openid-connect/userinfo'
+OIDC_OP_JWKS_ENDPOINT = f'{_KEYCLOAK_BACKEND_ISSUER}/protocol/openid-connect/certs'
 
 ROOT_URLCONF = 'global_exchange.urls'
 OIDC_STORE_ID_TOKEN = True
@@ -110,8 +115,12 @@ WSGI_APPLICATION = 'global_exchange.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', config('DB_NAME', default='global_exchange')),
+        'USER': os.getenv('DB_USER', config('DB_USER', default='postgres')),
+        'PASSWORD': os.getenv('DB_PASSWORD', config('DB_PASSWORD', default='123456')),
+        'HOST': os.getenv('DB_HOST', config('DB_HOST', default='127.0.0.1')),
+        'PORT': os.getenv('DB_PORT', config('DB_PORT', default='5432')),
     }
 }
 
@@ -151,13 +160,38 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
+# Media Files
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Redis & Cache Configuration (Servidor de Cache)
+REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')
+if os.getenv('USE_REDIS_CACHE', 'False').lower() in ('true', '1', 'yes'):
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': REDIS_URL,
+        }
+    }
+
+# Celery Configuration (Servidor de Tareas Async)
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
 # Email Configuration
-# Default to console backend during development / testing
+# Default to console backend during local development / testing, or SMTP when specified
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '1025'))
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@globalexchange.com')
 EMAIL_TOKEN_EXPIRATION_HOURS = int(os.getenv('EMAIL_TOKEN_EXPIRATION_HOURS', '24'))
 

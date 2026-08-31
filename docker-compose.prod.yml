@@ -1,0 +1,175 @@
+services:
+  # ========================================================
+  # 1. SERVIDOR DE BORDE (Nginx Reverse Proxy + Static Files)
+  # ========================================================
+  nginx-prod:
+    image: nginx:1.25-alpine
+    container_name: nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+    depends_on:
+      - web-prod
+
+  # ========================================================
+  # 2. CLUSTER DE SERVIDORES DE APLICACIÓN (Gunicorn + Django)
+  # ========================================================
+  web-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: web-prod
+    restart: always
+    environment:
+      - DEBUG=False
+      - DB_NAME=${DB_NAME:-global_exchange_prod}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-prod_secure_password_2026}
+      - DB_HOST=db-prod
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis-prod:6379/1
+      - USE_REDIS_CACHE=True
+      - CELERY_BROKER_URL=redis://redis-prod:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-prod:6379/0
+      - KEYCLOAK_BASE_URL=${KEYCLOAK_BASE_URL:-http://localhost:8080}
+      - KEYCLOAK_SERVER_URL=http://keycloak-prod:8080
+      - KEYCLOAK_REALM=global-exchange
+      - OIDC_RP_CLIENT_ID=${OIDC_RP_CLIENT_ID:-django-app}
+      - OIDC_RP_CLIENT_SECRET=${OIDC_RP_CLIENT_SECRET:-maie fyxm kzlx tyur}
+      - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      - EMAIL_HOST=${EMAIL_HOST:-smtp.gmail.com}
+      - EMAIL_PORT=${EMAIL_PORT:-587}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-globalexchangegrupo1@gmail.com}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      db-prod:
+        condition: service_healthy
+      redis-prod:
+        condition: service_healthy
+      keycloak-prod:
+        condition: service_started
+
+  # ========================================================
+  # 3. SERVIDOR DE BASE DE DATOS (PostgreSQL 16)
+  # ========================================================
+  db-prod:
+    image: postgres:16
+    container_name: db-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-global_exchange_prod}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-prod_secure_password_2026}
+    volumes:
+      - db_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-global_exchange_prod}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ========================================================
+  # 4. SERVIDOR DE CACHE & BROKER (Redis)
+  # ========================================================
+  redis-prod:
+    image: redis:7-alpine
+    container_name: redis-prod
+    restart: always
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ========================================================
+  # 5. SERVIDOR DE TAREAS ASÍNCRONAS (Celery Worker + Beat)
+  # ========================================================
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: celery-worker
+    restart: always
+    command: celery -A global_exchange worker --loglevel=info
+    environment:
+      - DB_NAME=${DB_NAME:-global_exchange_prod}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-prod_secure_password_2026}
+      - DB_HOST=db-prod
+      - DB_PORT=5432
+      - CELERY_BROKER_URL=redis://redis-prod:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-prod:6379/0
+    depends_on:
+      - db-prod
+      - redis-prod
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: celery-beat
+    restart: always
+    command: celery -A global_exchange beat --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis-prod:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-prod:6379/0
+    depends_on:
+      - redis-prod
+
+  # ========================================================
+  # 6. SERVIDOR DE IDENTIDAD SSO (Keycloak Producción)
+  # ========================================================
+  keycloak-db-prod:
+    image: postgres:16
+    container_name: keycloak-db-prod
+    restart: always
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_prod_password
+    volumes:
+      - keycloak_prod_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  keycloak-prod:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: keycloak-prod
+    restart: always
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db-prod:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_prod_password
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin_prod_password
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
+    depends_on:
+      keycloak-db-prod:
+        condition: service_healthy
+
+volumes:
+  db_prod_data:
+  redis_prod_data:
+  keycloak_prod_db_data:
+  static_volume:
+  media_volume:
