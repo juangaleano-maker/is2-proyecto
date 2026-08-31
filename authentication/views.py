@@ -5,10 +5,11 @@ from .decorators import rol_requerido
 
 
 def login_view(request):
-    """Punto de entrada: si ya está logueado va al menú, si no, dispara el login OIDC."""
+    """Punto de entrada: si ya está logueado va al menú, si no, muestra la pantalla de inicio con opciones de Login y Registro."""
     if request.user.is_authenticated:
         return redirect('menu')
-    return redirect('oidc_authentication_init')
+    # Renderizamos una landing page en lugar de redirigir inmediatamente a Keycloak
+    return render(request, 'authentication/landing.html')
 
 
 from django.conf import settings

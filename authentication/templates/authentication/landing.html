@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Exchange - Inicio</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 10px;
+            text-decoration: none;
+            color: white;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .btn-login {
+            background-color: #007bff;
+        }
+        .btn-login:hover {
+            background-color: #0056b3;
+        }
+        .btn-register {
+            background-color: #28a745;
+        }
+        .btn-register:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bienvenido a Global Exchange</h1>
+        <p>¿Qué deseas hacer hoy?</p>
+        <div>
+            <a href="{% url 'oidc_authentication_init' %}" class="btn btn-login">Iniciar Sesión</a>
+            <a href="{% url 'usuarios:registro' %}" class="btn btn-register">Crear una Cuenta</a>
+        </div>
+    </div>
+</body>
+</html>

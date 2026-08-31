@@ -1,7 +1,7 @@
 {
   "realm": "global-exchange",
   "enabled": true,
-  "registrationAllowed": true,
+  "registrationAllowed": false,
   "registrationEmailAsUsername": true,
   "verifyEmail": true,
   "resetPasswordAllowed": true,

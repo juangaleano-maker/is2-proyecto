@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'usuarios.apps.UsuariosConfig',
     'clientes',
-    'usuarios',
     'agregar_usuario',
     'mozilla_django_oidc',
     'authentication',
