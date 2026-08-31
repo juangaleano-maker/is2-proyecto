@@ -71,7 +71,7 @@ OIDC_RP_CLIENT_ID = config('OIDC_RP_CLIENT_ID', default='django-app')
 OIDC_RP_CLIENT_SECRET = config('OIDC_RP_CLIENT_SECRET', default='CHANGE_ME_IN_ENV')
 OIDC_RP_SIGN_ALGO = 'RS256'
 
-KEYCLOAK_BASE_URL = config('KEYCLOAK_BASE_URL', default='http://localhost:8080')
+KEYCLOAK_BASE_URL = config('KEYCLOAK_BASE_URL', default='http://localhost:8000')
 KEYCLOAK_REALM = config('KEYCLOAK_REALM', default='global-exchange')
 _KEYCLOAK_ISSUER = f'{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}'
 
@@ -112,7 +112,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'global_exchange',
         'USER': 'postgres',
-        'PASSWORD': 'postgres123',
+        'PASSWORD': 'postgres',
         'HOST': '127.0.0.1',
         'PORT': '5432',
     }
