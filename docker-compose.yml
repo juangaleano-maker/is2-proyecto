@@ -11,10 +11,9 @@ services:
       - keycloak_db_data:/var/lib/postgresql/data
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.0
+    build: ./keycloak
     container_name: keycloak
     restart: unless-stopped
-    command: start-dev --import-realm
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
@@ -27,10 +26,13 @@ services:
       KC_HTTP_ENABLED: "true"
     ports:
       - "8080:8080"
-    volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
     depends_on:
       - keycloak-db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/auth/realms/master/.well-known/openid-configuration"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
 volumes:
   keycloak_db_data:
