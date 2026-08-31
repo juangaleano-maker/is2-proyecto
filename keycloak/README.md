@@ -9,13 +9,13 @@ IS2-29 (Crear rol), IS2-30 (Modificar rol), IS2-31 (Asignar rol a usuario).
 docker compose up -d
 ```
 
-Levanta Keycloak en `http://localhost:8000` e importa `keycloak/realm-export.json`:
+Levanta Keycloak en `http://localhost:8080` e importa `keycloak/realm-export.json`:
 realm `global-exchange`, client `django-app`, roles `admin / operador /
 supervisor / empleado / cliente`, `cliente` como rol por defecto para
 autoregistro, autoregistro + verificación de email activados, y 2 usuarios
 demo (`admin.demo`, `operador.demo`) ya con rol asignado.
 
-Consola admin: `http://localhost:8000` → user `admin` / pass `admin`.
+Consola admin: `http://localhost:8080` → user `admin` / pass `admin`.
 
 ## 2. Configurar Django
 

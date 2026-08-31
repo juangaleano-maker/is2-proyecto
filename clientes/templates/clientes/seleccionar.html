@@ -1,100 +1,65 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Elegir Cliente</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            background-color: #f4f6f9;
-            color: #333;
-        }
-        .container {
-            max-width: 500px;
-            background: #fff;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin: 0 auto;
-        }
-        h1 {
-            color: #2c3e50;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .cliente-item {
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: #fafafa;
-        }
-        .cliente-item:hover {
-            background-color: #f0f0f0;
-        }
-        label {
-            display: block;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 15px;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        .resultado {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            border-radius: 4px;
-            font-size: 18px;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
+{% load static %}
 
-<div class="container">
-    <h1>Seleccionar un Cliente</h1>
-    
-    <form method="POST" action="">
-        {% csrf_token %}
-        {% for cliente in clientes %}
-        <div class="cliente-item">
-            <label>
-                <input type="radio" name="cliente_seleccionado" value="{{ cliente.id }}" {% if seleccionado.id == cliente.id %}checked{% endif %}>
-                {{ cliente.nombre }}
-            </label>
+{% block title %}Selector de Cliente Activo | Global Exchange{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+
+    <div class="page-header" style="margin-bottom: 20px;">
+        <div class="page-title-group">
+            <h1>🎯 Selector de Cliente Activo en Sesión</h1>
+            <p class="page-subtitle">Elige el cliente con el que deseas consultar información durante tu sesión actual.</p>
         </div>
-        {% empty %}
-        <p>No hay clientes registrados en la base de datos.</p>
-        {% endfor %}
-        
-        <button type="submit">Confirmar Selección</button>
-    </form>
+    </div>
 
     {% if seleccionado %}
-        <div class="resultado">
-            <strong>Cliente seleccionado:</strong> {{ seleccionado.nombre }}
-            <br><br>
-            <a href="{% url 'clientes:consultar_cliente' seleccionado.id %}" style="display: inline-block; background-color: #2ecc71; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 15px; font-weight: bold;">
-                Consultar/Modificar datos de {{ seleccionado.nombre }}
-            </a>
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-left: 4px solid #10b981; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px;">
+            <span style="font-size: 12px; font-weight: 700; color: #047857; text-transform: uppercase;">Cliente Activo Actual</span>
+            <div style="font-size: 16px; font-weight: 600; color: #065f46; margin-top: 2px;">
+                🏢 {{ seleccionado }}
+            </div>
+            <div style="font-size: 13px; color: #047857; margin-top: 4px;">
+                Doc: {{ seleccionado.documento }} &nbsp;|&nbsp; Segmento: {{ seleccionado.get_segmento_display }}
+            </div>
         </div>
     {% endif %}
-</div>
 
-</body>
-</html>
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 25px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+        <form method="POST" action="">
+            {% csrf_token %}
+
+            <label style="display: block; font-weight: 600; color: #1e293b; margin-bottom: 12px; font-size: 14px;">
+                Selecciona una cuenta de cliente:
+            </label>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px; margin-bottom: 20px;">
+                {% for cliente in clientes %}
+                <label style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid {% if seleccionado.id == cliente.id %}#3b82f6{% else %}#e2e8f0{% endif %}; background: {% if seleccionado.id == cliente.id %}#eff6ff{% else %}#ffffff{% endif %}; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
+                    <input type="radio" name="cliente_seleccionado" value="{{ cliente.id }}" {% if seleccionado.id == cliente.id %}checked{% endif %} style="width: 18px; height: 18px; accent-color: #2563eb;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: #1e293b; font-size: 15px;">{{ cliente }}</div>
+                        <div style="font-size: 12px; color: #64748b;">Doc: {{ cliente.documento }} &nbsp;•&nbsp; {{ cliente.get_tipo_persona_display }} &nbsp;•&nbsp; Segmento: {{ cliente.get_segmento_display }}</div>
+                    </div>
+                    {% if seleccionado.id == cliente.id %}
+                        <span style="font-size: 12px; background: #2563eb; color: white; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Activo</span>
+                    {% endif %}
+                </label>
+                {% empty %}
+                <p style="color: #64748b; font-size: 14px; text-align: center; padding: 20px 0;">No hay clientes disponibles en el sistema.</p>
+                {% endfor %}
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: flex-end; align-items: center;">
+                <a href="{% url 'menu' %}" style="padding: 10px 18px; background: #f1f5f9; color: #475569; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;">
+                    Cancelar
+                </a>
+                <button type="submit" style="padding: 10px 22px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer;">
+                    ✅ Establecer como Activo
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+{% endblock %}

@@ -13,23 +13,44 @@
 <body>
 
     <nav class="navbar">
-        <a href="{% url 'clientes:listado' %}" class="navbar-brand">
+        <a href="{% url 'menu' %}" class="navbar-brand">
             <span class="brand-icon">🌐</span>
             <span>Global Exchange</span>
-            <span class="brand-tag">Panel Admin</span>
+            <span class="brand-tag">Plataforma</span>
         </a>
 
         <ul class="navbar-nav">
             <li>
-                <a href="{% url 'clientes:listado' %}" class="nav-link">
-                    <span>👥</span> Clientes
+                <a href="{% url 'menu' %}" class="nav-link">
+                    <span>🏠</span> Menú
                 </a>
             </li>
             <li>
-                <a href="{% url 'clientes:registrar' %}" class="nav-link nav-cta">
-                    <span>➕</span> Nuevo Cliente
+                <a href="{% url 'clientes:elegir_cliente' %}" class="nav-link">
+                    <span>🎯</span> Selector Cliente
                 </a>
             </li>
+            {% if 'admin' in request.roles or 'supervisor' in request.roles or 'operador' in request.roles or 'empleado' in request.roles or request.user.is_staff %}
+            <li>
+                <a href="{% url 'clientes:listado' %}" class="nav-link">
+                    <span>👥</span> Panel Clientes
+                </a>
+            </li>
+            {% endif %}
+            {% if request.session.cliente_activo_nombre %}
+            <li style="display: flex; align-items: center; padding: 0 10px;">
+                <span style="background: rgba(255,255,255,0.15); color: #ffffff; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                    🏢 {{ request.session.cliente_activo_nombre }}
+                </span>
+            </li>
+            {% endif %}
+            {% if request.user.is_authenticated %}
+            <li>
+                <a href="{% url 'logout' %}" class="nav-link" style="color: #fca5a5;">
+                    <span>🚪</span> Salir
+                </a>
+            </li>
+            {% endif %}
         </ul>
     </nav>
 

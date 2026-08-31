@@ -8,15 +8,38 @@ from .forms import ClienteForm
 from .models import Cliente
 
 def elegir_cliente(request):
-    clientes = Cliente.objects.all().order_by('nombre')
-    seleccionado_id = None
+    """
+    Selector de cliente activo en sesión.
+    Permite al usuario seleccionar el cliente con el que desea operar/consultar durante la sesión.
+    """
+    user_email = request.user.email or request.user.username
+    roles = set(getattr(request, 'roles', []))
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    es_personal = bool(roles.intersection(roles_gestion))
+
+    if es_personal:
+        clientes = Cliente.objects.filter(activo=True).order_by('nombre')
+    else:
+        from agregar_usuario.models import UsuarioCliente
+        from django.db import models
+        clientes_ids = UsuarioCliente.objects.filter(email__iexact=user_email).values_list('cliente_id', flat=True)
+        clientes = Cliente.objects.filter(models.Q(id__in=clientes_ids) | models.Q(email__iexact=user_email), activo=True).order_by('nombre')
+        
     seleccionado = None
-    
+
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    if cliente_activo_id:
+        seleccionado = Cliente.objects.filter(id=cliente_activo_id, activo=True).first()
+
     if request.method == 'POST':
         seleccionado_id = request.POST.get('cliente_seleccionado')
         if seleccionado_id:
-            seleccionado = get_object_or_404(Cliente, id=seleccionado_id)
-            
+            seleccionado = get_object_or_404(Cliente, id=seleccionado_id, activo=True)
+            request.session['cliente_activo_id'] = seleccionado.id
+            request.session['cliente_activo_nombre'] = str(seleccionado)
+            messages.success(request, f"Cliente activo en sesión establecido: «{seleccionado}»")
+            return redirect('menu')
+
     return render(request, 'clientes/seleccionar.html', {
         'clientes': clientes,
         'seleccionado': seleccionado

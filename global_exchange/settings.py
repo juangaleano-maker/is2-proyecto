@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'authentication.middleware.RolesMiddleware',
+    'authentication.middleware.ClientSelectionMiddleware',
 ]
 
 AUTHENTICATION_BACKENDS = (
@@ -73,7 +74,7 @@ OIDC_RP_CLIENT_ID = config('OIDC_RP_CLIENT_ID', default='django-app')
 OIDC_RP_CLIENT_SECRET = config('OIDC_RP_CLIENT_SECRET', default='CHANGE_ME_IN_ENV')
 OIDC_RP_SIGN_ALGO = 'RS256'
 
-KEYCLOAK_BASE_URL = config('KEYCLOAK_BASE_URL', default='http://localhost:8000')
+KEYCLOAK_BASE_URL = config('KEYCLOAK_BASE_URL', default='http://localhost:8080')
 KEYCLOAK_REALM = config('KEYCLOAK_REALM', default='global-exchange')
 _KEYCLOAK_ISSUER = f'{KEYCLOAK_BASE_URL}/realms/{KEYCLOAK_REALM}'
 

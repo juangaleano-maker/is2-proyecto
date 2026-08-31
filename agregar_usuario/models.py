@@ -7,8 +7,11 @@ class UsuarioCliente(models.Model):
     cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='usuarios_asignados')
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
+    email = models.EmailField()
     rol = models.CharField(max_length=50, default='Empleado')
+
+    class Meta:
+        unique_together = ('cliente', 'email')
 
     def __str__(self):
         return f"{self.nombre} {self.apellido} → {self.cliente.nombre}"
