@@ -73,6 +73,11 @@
                         <a href="{% url 'clientes:editar_medio_pago' mp.pk %}" class="btn btn-outline-primary btn-sm flex-fill">
                             <i class="bi bi-pencil me-1"></i> Editar
                         </a>
+                        {% if mp.activo %}
+                        <a href="{% url 'clientes:eliminar_medio_pago' mp.pk %}" class="btn btn-outline-danger btn-sm flex-fill">
+                            <i class="bi bi-trash me-1"></i> Eliminar
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

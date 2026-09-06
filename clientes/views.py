@@ -245,6 +245,50 @@ def listar_medios_pago(request):
     })
 
 
+def eliminar_medio_pago(request, pk):
+    """
+    Baja lógica de un medio de pago (lo marca como inactivo).
+    Si tiene transacciones pendientes, el sistema impide la eliminación.
+    """
+    cliente_activo_id = request.session.get('cliente_activo_id')
+
+    if not cliente_activo_id:
+        messages.error(request, "Debe seleccionar un cliente activo para gestionar medios de pago.")
+        return redirect('menu')
+
+    medio_pago = get_object_or_404(MedioDePago, pk=pk, cliente_id=cliente_activo_id)
+
+    if not medio_pago.activo:
+        messages.warning(request, "Este medio de pago ya se encuentra inactivo.")
+        return redirect("clientes:listar_medios_pago")
+
+    # Simulación de transacciones pendientes (se reemplazará con el módulo real de transacciones)
+    import random
+    tiene_transacciones = random.choice([True, False])
+
+    if request.method == "POST":
+        if tiene_transacciones:
+            # Si tiene transacciones pendientes, se bloquea el intento
+            messages.error(
+                request,
+                f"No se puede eliminar el medio de pago «{medio_pago}» porque tiene transacciones pendientes asociadas."
+            )
+            return redirect("clientes:listar_medios_pago")
+
+        medio_pago.activo = False
+        medio_pago.save()
+        messages.success(request, f"El medio de pago «{medio_pago}» fue desactivado correctamente.")
+        return redirect("clientes:listar_medios_pago")
+
+    # GET: mostrar pantalla de confirmación
+    return render(request, "clientes/medio_pago_eliminar.html", {
+        "medio_pago": medio_pago,
+        "cliente": medio_pago.cliente,
+        "tiene_transacciones": tiene_transacciones,
+        "titulo": "Eliminar Medio de Pago",
+    })
+
+
 
 def desactivar_cliente(request, pk):
     """Baja lógica: marca el cliente como inactivo sin eliminar el registro."""
