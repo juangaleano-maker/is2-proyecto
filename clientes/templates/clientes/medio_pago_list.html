@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">{{ titulo }}</h2>
+            <small class="text-muted">Cliente: <strong>{{ cliente }}</strong></small>
+        </div>
+        <a href="{% url 'clientes:agregar_medio_pago' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> Agregar Medio de Pago
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="alert alert-{{ msg.tags }} alert-dismissible fade show" role="alert">
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if medios_pago %}
+        <div class="row g-3">
+            {% for mp in medios_pago %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 shadow-sm border-0 {% if not mp.activo %}opacity-75{% endif %}">
+                    <div class="card-header d-flex justify-content-between align-items-center
+                        {% if mp.tipo == 'TARJETA_CREDITO' %}bg-info text-white
+                        {% elif mp.tipo == 'TRANSFERENCIA' %}bg-primary text-white
+                        {% else %}bg-secondary text-white{% endif %}">
+                        <span class="fw-semibold">
+                            {% if mp.tipo == 'TARJETA_CREDITO' %}
+                                <i class="bi bi-credit-card me-1"></i>
+                            {% elif mp.tipo == 'TRANSFERENCIA' %}
+                                <i class="bi bi-bank me-1"></i>
+                            {% else %}
+                                <i class="bi bi-cash-stack me-1"></i>
+                            {% endif %}
+                            {{ mp.get_tipo_display }}
+                        </span>
+                        {% if mp.activo %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactivo</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        {% if mp.tipo != 'EFECTIVO' %}
+                            <p class="mb-1">
+                                <span class="text-muted small">Entidad</span><br>
+                                <strong>{{ mp.entidad|default:"—" }}</strong>
+                            </p>
+                            <p class="mb-1">
+                                <span class="text-muted small">Número</span><br>
+                                <strong>{{ mp.numero|default:"—" }}</strong>
+                            </p>
+                            <p class="mb-1">
+                                <span class="text-muted small">Titular</span><br>
+                                <strong>{{ mp.titular|default:"—" }}</strong>
+                            </p>
+                        {% else %}
+                            <p class="text-muted fst-italic">Sin datos adicionales requeridos.</p>
+                        {% endif %}
+                        <p class="mb-0 mt-2">
+                            <span class="text-muted small">Registrado el</span><br>
+                            <strong>{{ mp.creado_en|date:"d/m/Y" }}</strong>
+                        </p>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 d-flex gap-2">
+                        <a href="{% url 'clientes:editar_medio_pago' mp.pk %}" class="btn btn-outline-primary btn-sm flex-fill">
+                            <i class="bi bi-pencil me-1"></i> Editar
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="card shadow-sm border-0 text-center py-5">
+            <div class="card-body">
+                <i class="bi bi-credit-card-2-front text-muted" style="font-size: 3rem;"></i>
+                <h5 class="mt-3 text-muted">No tenés medios de pago registrados</h5>
+                <p class="text-muted">Agregá tu primer medio de pago para usarlo en tus transacciones.</p>
+                <a href="{% url 'clientes:agregar_medio_pago' %}" class="btn btn-primary mt-2">
+                    <i class="bi bi-plus-circle me-1"></i> Agregar Medio de Pago
+                </a>
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -17,4 +17,5 @@ urlpatterns = [
     path('consultarClienteAsignado/<int:cliente_id>/', views.consultar_cliente, name='consultar_cliente'),
     path('medios-pago/agregar/', views.agregar_medio_pago, name='agregar_medio_pago'),
     path('medios-pago/<int:pk>/editar/', views.editar_medio_pago, name='editar_medio_pago'),
+    path('medios-pago/', views.listar_medios_pago, name='listar_medios_pago'),
 ]

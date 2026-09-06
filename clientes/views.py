@@ -228,6 +228,23 @@ def editar_medio_pago(request, pk):
         # Lo haremos en el POST para que intente guardar y salte la alerta como pide el Criterio de Aceptación.
     })
 
+def listar_medios_pago(request):
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    
+    if not cliente_activo_id:
+        messages.error(request, "Debe seleccionar un cliente activo para ver sus medios de pago.")
+        return redirect('menu')
+        
+    cliente = get_object_or_404(Cliente, id=cliente_activo_id)
+    medios_pago = MedioDePago.objects.filter(cliente=cliente).order_by('-creado_en')
+    
+    return render(request, "clientes/medio_pago_list.html", {
+        "cliente": cliente,
+        "medios_pago": medios_pago,
+        "titulo": "Mis Medios de Pago"
+    })
+
+
 
 def desactivar_cliente(request, pk):
     """Baja lógica: marca el cliente como inactivo sin eliminar el registro."""
