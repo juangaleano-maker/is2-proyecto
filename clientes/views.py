@@ -4,8 +4,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .forms import ClienteForm
-from .models import Cliente
+from .forms import ClienteForm, MedioDePagoForm
+from .models import Cliente, MedioDePago
 
 def elegir_cliente(request):
     """
@@ -154,6 +154,34 @@ def editar_cliente(request, pk):
         "form": form,
         "titulo": "Modificar Cliente",
         "cliente": cliente,
+    })
+
+def agregar_medio_pago(request):
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    
+    if not cliente_activo_id:
+        messages.error(request, "Debe seleccionar un cliente activo antes de registrar un medio de pago.")
+        # Redirigir al home o donde tenga sentido
+        return redirect('menu')
+    
+    cliente = get_object_or_404(Cliente, id=cliente_activo_id)
+    
+    if request.method == "POST":
+        form = MedioDePagoForm(request.POST)
+        if form.is_valid():
+            medio_pago = form.save(commit=False)
+            medio_pago.cliente = cliente
+            medio_pago.save()
+            messages.success(request, f"Medio de pago agregado correctamente para el cliente {cliente}.")
+            # Se puede redirigir al detalle del cliente, asumo "clientes:detalle"
+            return redirect("clientes:detalle", pk=cliente.pk)
+    else:
+        form = MedioDePagoForm()
+        
+    return render(request, "clientes/medio_pago_form.html", {
+        "form": form,
+        "cliente": cliente,
+        "titulo": "Agregar Medio de Pago"
     })
 
 

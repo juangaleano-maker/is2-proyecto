@@ -15,4 +15,5 @@ urlpatterns = [
     path("api/<int:pk>/", views.api_cliente_detalle, name="api_detalle"),
     path('seleccionarCliente/', views.elegir_cliente, name='elegir_cliente'),
     path('consultarClienteAsignado/<int:cliente_id>/', views.consultar_cliente, name='consultar_cliente'),
+    path('medios-pago/agregar/', views.agregar_medio_pago, name='agregar_medio_pago'),
 ]
