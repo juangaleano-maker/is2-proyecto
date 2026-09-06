@@ -17,6 +17,21 @@ def login_view(request):
     return render(request, 'authentication/landing.html')
 
 
+from mozilla_django_oidc.views import OIDCAuthenticationCallbackView
+
+class CustomOIDCAuthenticationCallbackView(OIDCAuthenticationCallbackView):
+    """
+    Vista personalizada para evitar el error 'SuspiciousOperation' cuando el usuario
+    presiona el botón de 'Atrás' en el navegador después de haber iniciado sesión.
+    Si el usuario ya está autenticado, simplemente lo redirige al menú.
+    """
+    def get(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect(settings.LOGIN_REDIRECT_URL)
+        return super().get(request, *args, **kwargs)
+
+
+
 def logout_view(request):
     # Guardamos el token antes de destruir la sesión de Django
     id_token = request.session.get('oidc_id_token', '')

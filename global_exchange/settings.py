@@ -207,3 +207,6 @@ KEYCLOAK_ENABLED = os.getenv('KEYCLOAK_ENABLED', 'True').lower() in ('true', '1'
 
 # Base URL for email verification links
 APP_BASE_URL = os.getenv('APP_BASE_URL', 'http://127.0.0.1:8000')
+
+SESSION_COOKIE_SAMESITE = 'Lax'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None

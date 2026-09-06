@@ -37,6 +37,7 @@ def ensure_db_exists():
                         pass
             except ImportError:
                 try:
+                    # pyrefly: ignore [missing-import]
                     import psycopg
                     try:
                         conn = psycopg.connect(dbname=db_name, user=user, password=password, host=host, port=port, connect_timeout=3)

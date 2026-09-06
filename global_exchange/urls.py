@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import path, include
 from django.views.generic import RedirectView
+from authentication import views as authentication_views
 
 urlpatterns = [
     path('', RedirectView.as_view(pattern_name='login', permanent=False)),
@@ -27,6 +28,7 @@ urlpatterns = [
     path('clientes/', include('clientes.urls')),
     path('usuarios/', include('usuarios.urls')),
     path('agregar_usuario/', include('agregar_usuario.urls')),
+    path('oidc/callback/', authentication_views.CustomOIDCAuthenticationCallbackView.as_view(), name='oidc_authentication_callback'),
     path('oidc/', include('mozilla_django_oidc.urls')),
     path('', include('authentication.urls')),
 ]
