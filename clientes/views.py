@@ -184,6 +184,50 @@ def agregar_medio_pago(request):
         "titulo": "Agregar Medio de Pago"
     })
 
+def editar_medio_pago(request, pk):
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    
+    if not cliente_activo_id:
+        messages.error(request, "Debe seleccionar un cliente activo antes de editar un medio de pago.")
+        return redirect('menu')
+        
+    medio_pago = get_object_or_404(MedioDePago, pk=pk, cliente_id=cliente_activo_id)
+    
+    # Simulación de validación de transacciones pendientes (esto se reemplazará en el futuro sprint)
+    # Aquí podríamos hacer un random o fijarlo en True para probar el warning.
+    import random
+    tiene_transacciones = random.choice([True, False])
+    
+    if request.method == "POST":
+        form = MedioDePagoForm(request.POST, instance=medio_pago)
+        confirmacion = request.POST.get('confirmacion_transacciones')
+        
+        if form.is_valid():
+            if tiene_transacciones and confirmacion != 'true':
+                # No ha confirmado, se recarga con advertencia
+                return render(request, "clientes/medio_pago_form.html", {
+                    "form": form,
+                    "cliente": medio_pago.cliente,
+                    "titulo": "Modificar Medio de Pago",
+                    "advertencia_transacciones": True,
+                    "medio_pago": medio_pago
+                })
+            
+            form.save()
+            messages.success(request, f"Medio de pago actualizado correctamente para el cliente {medio_pago.cliente}.")
+            return redirect("clientes:detalle", pk=medio_pago.cliente.pk)
+    else:
+        form = MedioDePagoForm(instance=medio_pago)
+        
+    return render(request, "clientes/medio_pago_form.html", {
+        "form": form,
+        "cliente": medio_pago.cliente,
+        "titulo": "Modificar Medio de Pago",
+        "medio_pago": medio_pago,
+        # Si tiene_transacciones es true la primera vez que entra, podríamos avisar o esperar al POST.
+        # Lo haremos en el POST para que intente guardar y salte la alerta como pide el Criterio de Aceptación.
+    })
+
 
 def desactivar_cliente(request, pk):
     """Baja lógica: marca el cliente como inactivo sin eliminar el registro."""

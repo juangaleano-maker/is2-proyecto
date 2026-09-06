@@ -22,8 +22,20 @@
                         {% endfor %}
                     {% endif %}
 
-                    <form method="post" action="{% url 'clientes:agregar_medio_pago' %}">
+                    <form method="post" action="">
                         {% csrf_token %}
+                        
+                        {% if advertencia_transacciones %}
+                        <div class="alert alert-warning">
+                            <strong>¡Atención!</strong> Este medio de pago tiene transacciones pendientes asociadas. Modificarlo podría afectar operaciones en curso.
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="confirmacion_transacciones" value="true" id="confirmacion_transacciones" required>
+                                <label class="form-check-label" for="confirmacion_transacciones">
+                                    Entiendo los riesgos y deseo guardar los cambios
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
                         
                         {% if form.non_field_errors %}
                         <div class="alert alert-danger">
