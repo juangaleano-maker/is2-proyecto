@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'agregar_usuario',
     'mozilla_django_oidc',
     'authentication',
+    'monedas',
 ]
 
 MIDDLEWARE = [

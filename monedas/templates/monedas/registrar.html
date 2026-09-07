@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Moneda | Global Exchange{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 25px;">
+    <h1 style="font-size: 24px; color: #1e293b; margin-bottom: 5px;">➕ Registrar Nueva Moneda</h1>
+    <p style="color: #64748b; font-size: 14px; margin: 0;">Ingresa los datos para habilitar una nueva divisa en la plataforma.</p>
+</div>
+
+<div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 25px; max-width: 600px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+    
+    {% if form.non_field_errors %}
+        <div style="background-color: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 14px;">
+            {% for error in form.non_field_errors %}
+                <p style="margin: 0;">⚠️ {{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="POST" novalidate>
+        {% csrf_token %}
+
+        <!-- Campo Nombre -->
+        <div style="margin-bottom: 20px;">
+            <label for="{{ form.nombre.id_for_label }}" style="display: block; font-weight: 600; color: #334155; margin-bottom: 6px; font-size: 14px;">
+                {{ form.nombre.label }} <span style="color: #ef4444;">*</span>
+            </label>
+            {{ form.nombre }}
+            {% if form.nombre.errors %}
+                {% for error in form.nombre.errors %}
+                    <div style="color: #ef4444; font-size: 13px; margin-top: 4px; font-weight: 500;">
+                        ⚠️ {{ error }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- Campo Código / Siglas -->
+        <div style="margin-bottom: 25px;">
+            <label for="{{ form.siglas.id_for_label }}" style="display: block; font-weight: 600; color: #334155; margin-bottom: 6px; font-size: 14px;">
+                {{ form.siglas.label }} <span style="color: #ef4444;">*</span>
+            </label>
+            {{ form.siglas }}
+            {% if form.siglas.errors %}
+                {% for error in form.siglas.errors %}
+                    <div style="color: #ef4444; font-size: 13px; margin-top: 4px; font-weight: 500;">
+                        ⚠️ {{ error }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- Botones de Acción -->
+        <div style="display: flex; gap: 12px; justify-content: flex-end; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+            <a href="{% url 'monedas:consultar' %}" style="padding: 10px 18px; background-color: #94a3b8; color: white; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600;">
+                Cancelar
+            </a>
+            <button type="submit" style="padding: 10px 22px; background-color: #10b981; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                💾 Registrar Moneda
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
