@@ -247,6 +247,9 @@
                                 <a href="{% url 'cotizaciones_modificar_frontend' c.id %}" class="btn btn-sm btn-outline-info" style="border-radius: 6px; padding: 4px 10px; font-size: 0.75rem;">
                                     <i class="bi bi-pencil-square"></i> Modificar
                                 </a>
+                                <button onclick="desactivarCotizacion({{ c.id }})" class="btn btn-sm btn-outline-danger ms-1" style="border-radius: 6px; padding: 4px 10px; font-size: 0.75rem;">
+                                    <i class="bi bi-x-circle"></i> Desactivar
+                                </button>
                             {% endif %}
                         </td>
                     </tr>
@@ -268,6 +271,30 @@
         </div>
     </div>
 </div>
-
+{% csrf_token %}
+<script>
+function desactivarCotizacion(id) {
+    if (confirm('¿Estás seguro de que deseas desactivar esta cotización? Dejará de estar disponible para operaciones.')) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        fetch(`/cotizaciones/api/desactivar/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Error al desactivar la cotización.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error de red al desactivar la cotización.');
+        });
+    }
+}
+</script>
 </body>
 </html>

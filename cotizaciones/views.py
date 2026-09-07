@@ -99,3 +99,32 @@ def modificar_cotizacion_api(request, cotizacion_id):
         return JsonResponse({'error': 'Formato JSON inválido.'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@rol_requerido('analista_cambiario', 'admin')
+@require_http_methods(["POST"])
+def desactivar_cotizacion_api(request, cotizacion_id):
+    """Endpoint API para desactivar una cotización."""
+    from django.shortcuts import get_object_or_404
+    try:
+        cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id, activo=True)
+        cotizacion.activo = False
+        cotizacion.save()
+        return JsonResponse({'mensaje': 'Cotización desactivada exitosamente.'}, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_http_methods(["GET"])
+def obtener_tasa_vigente_api(request, origen, destino):
+    """Endpoint público/interno para obtener la tasa activa de un par de monedas."""
+    cotizacion = Cotizacion.objects.filter(moneda_origen=origen.upper(), moneda_destino=destino.upper(), activo=True).first()
+    
+    if not cotizacion:
+        return JsonResponse({'error': 'No hay cotización disponible para operar'}, status=404)
+        
+    return JsonResponse({
+        'moneda_origen': cotizacion.moneda_origen,
+        'moneda_destino': cotizacion.moneda_destino,
+        'compra': str(cotizacion.compra),
+        'venta': str(cotizacion.venta),
+        'fecha': cotizacion.fecha.isoformat()
+    }, status=200)
