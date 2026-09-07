@@ -302,9 +302,9 @@
 
             <div class="result-rate-detail">
                 <span>💱 <strong>Tasa Aplicada:</strong> <span id="res-tasa-detalle">{% if resultado %}{{ resultado.descripcion_tasa }}{% endif %}</span></span>
-                {% if resultado.fecha_tasa %}
-                    <span>&nbsp;|&nbsp; 🕒 <span id="res-fecha">Cotización del {{ resultado.fecha_tasa|date:"d/m/Y H:i" }}</span></span>
-                {% endif %}
+                <span id="res-fecha-wrapper" style="{% if not resultado or not resultado.fecha_tasa %}display: none;{% endif %}">
+                    &nbsp;|&nbsp; 🕒 <span id="res-fecha">{% if resultado and resultado.fecha_tasa %}Cotización del {{ resultado.fecha_tasa|date:"d/m/Y H:i" }}{% endif %}</span>
+                </span>
             </div>
         </div>
 
@@ -324,6 +324,7 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const simuladorForm = document.getElementById('simulador-form');
     const origenSelect = document.getElementById('moneda_origen');
     const destinoSelect = document.getElementById('moneda_destino');
     const montoInput = document.getElementById('monto');
@@ -333,39 +334,66 @@ document.addEventListener('DOMContentLoaded', function() {
     const resMontoDestino = document.getElementById('res-monto-destino');
     const resTasaDetalle = document.getElementById('res-tasa-detalle');
     const resFecha = document.getElementById('res-fecha');
+    const resFechaWrapper = document.getElementById('res-fecha-wrapper');
     const errorContainer = document.getElementById('error-container');
     const errorMessage = document.getElementById('error-message');
 
     let debounceTimer = null;
 
-    // Swap / Invertir monedas
+    // Invertir monedas (Swap)
     btnSwap.addEventListener('click', function() {
         const temp = origenSelect.value;
         origenSelect.value = destinoSelect.value;
         destinoSelect.value = temp;
-        dispararSimulacion();
+        if (montoInput.value && parseFloat(montoInput.value) > 0) {
+            ejecutarSimulacion();
+        }
     });
 
-    origenSelect.addEventListener('change', dispararSimulacion);
-    destinoSelect.addEventListener('change', dispararSimulacion);
+    // Al cambiar de moneda, si ya hay un monto válido, recalcular
+    origenSelect.addEventListener('change', function() {
+        if (montoInput.value && parseFloat(montoInput.value) > 0) {
+            ejecutarSimulacion();
+        }
+    });
+    destinoSelect.addEventListener('change', function() {
+        if (montoInput.value && parseFloat(montoInput.value) > 0) {
+            ejecutarSimulacion();
+        }
+    });
     
+    // Al escribir, solo limpiar errores previos para no molestar mientras se tipea
     montoInput.addEventListener('input', function() {
+        errorContainer.style.display = 'none';
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(dispararSimulacion, 300);
+        const monto = montoInput.value.trim();
+        if (monto && parseFloat(monto) > 0) {
+            // Recálculo automático suave después de 500ms sin escribir
+            debounceTimer = setTimeout(ejecutarSimulacion, 500);
+        } else {
+            resultBox.style.display = 'none';
+        }
     });
 
-    function dispararSimulacion() {
+    // Submit del formulario (botón o tecla Enter)
+    simuladorForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        ejecutarSimulacion();
+    });
+
+    function ejecutarSimulacion() {
         const origen = origenSelect.value;
         const destino = destinoSelect.value;
         const monto = montoInput.value.trim();
 
         if (!monto || parseFloat(monto) <= 0) {
             resultBox.style.display = 'none';
-            errorContainer.style.display = 'none';
+            errorMessage.textContent = 'Por favor, ingrese un monto válido mayor a cero.';
+            errorContainer.style.display = 'block';
             return;
         }
 
-        // Mostrar indicador de carga
+        // Mostrar spinner
         spinner.style.display = 'inline-flex';
         errorContainer.style.display = 'none';
 
@@ -376,34 +404,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.json().then(data => ({ status: response.status, body: data })))
+        .then(response => {
+            return response.json().then(data => ({ status: response.status, body: data }));
+        })
         .then(res => {
             spinner.style.display = 'none';
             if (res.status === 200 && res.body.exito) {
                 const data = res.body;
                 resMontoDestino.textContent = `${data.monto_destino} ${data.moneda_destino}`;
                 resTasaDetalle.textContent = data.descripcion_tasa;
-                if (data.fecha_tasa) {
-                    const fechaObj = new Date(data.fecha_tasa);
-                    resFecha.textContent = `Cotización del ${fechaObj.toLocaleString()}`;
-                } else {
-                    resFecha.textContent = 'Paridad 1:1';
+                
+                if (resFecha && resFechaWrapper) {
+                    if (data.fecha_tasa) {
+                        const fechaObj = new Date(data.fecha_tasa);
+                        resFecha.textContent = `Cotización del ${fechaObj.toLocaleString()}`;
+                        resFechaWrapper.style.display = 'inline';
+                    } else {
+                        resFechaWrapper.style.display = 'none';
+                    }
                 }
+                
                 resultBox.style.display = 'block';
                 errorContainer.style.display = 'none';
             } else {
                 resultBox.style.display = 'none';
-                errorMessage.textContent = res.body.error || 'No fue posible simular la conversión.';
+                errorMessage.textContent = (res.body && res.body.error) ? res.body.error : 'No fue posible simular la conversión.';
                 errorContainer.style.display = 'block';
             }
         })
         .catch(err => {
+            console.error('Error en simulación:', err);
             spinner.style.display = 'none';
             resultBox.style.display = 'none';
-            errorMessage.textContent = 'Error de comunicación al calcular la simulación.';
+            errorMessage.textContent = 'Error al procesar la simulación. Verifique los datos ingresados.';
             errorContainer.style.display = 'block';
         });
     }
 });
 </script>
 {% endblock %}
+

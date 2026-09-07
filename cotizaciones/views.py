@@ -68,9 +68,9 @@ def simulador_conversion_view(request):
     resultado = None
     error = None
     
-    # Soporta parámetros vía GET o POST
-    moneda_origen = request.GET.get('moneda_origen') or request.POST.get('moneda_origen') or 'USD'
-    moneda_destino = request.GET.get('moneda_destino') or request.POST.get('moneda_destino') or 'PYG'
+    # Soporta parámetros vía GET o POST (por defecto PYG a USD para el público paraguayo)
+    moneda_origen = request.GET.get('moneda_origen') or request.POST.get('moneda_origen') or 'PYG'
+    moneda_destino = request.GET.get('moneda_destino') or request.POST.get('moneda_destino') or 'USD'
     monto = request.GET.get('monto') or request.POST.get('monto') or ''
     
     if monto:
