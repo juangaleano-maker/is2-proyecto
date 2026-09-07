@@ -146,7 +146,7 @@
 
 </div>
 
-{% if es_personal or es_admin %}
+{% if es_personal or es_admin or es_finanzas %}
 <!-- SECCIÓN EXCLUSIVA: ADMINISTRACIÓN DEL SISTEMA -->
 <div style="border-top: 2px dashed #cbd5e1; padding-top: 25px; margin-top: 35px;">
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
@@ -156,6 +156,7 @@
         </h3>
     </div>
 
+    {% if es_personal or es_admin %}
     <div style="margin-bottom: 25px;">
         <h4 style="font-size: 14px; color: #475569; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
             👥 Gestión de Clientes y Usuarios
@@ -235,7 +236,9 @@
 
         </div>
     </div>
+    {% endif %}
     
+    {% if es_finanzas or es_admin %}
     <div style="margin-bottom: 25px;">
         <h4 style="font-size: 14px; color: #475569; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
             💱 Finanzas: Cotizaciones y Monedas
@@ -270,6 +273,7 @@
 
         </div>
     </div>
+    {% endif %}
 
     {% if es_admin %}
     <div style="margin-bottom: 25px;">

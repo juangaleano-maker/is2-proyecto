@@ -4,7 +4,7 @@ from authentication.decorators import rol_requerido
 from .models import Moneda
 from .forms import MonedaForm, MonedaEditForm
 
-@rol_requerido('admin', 'analista')
+@rol_requerido('admin', 'analista', 'analista_cambiario')
 def consultar_monedas(request):
     """
     Lista el catálogo completo de monedas con su estado.

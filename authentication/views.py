@@ -84,14 +84,16 @@ def menu(request):
 
     roles = set(getattr(request, 'roles', []))
     roles_admin = {'admin', 'supervisor', 'operador'}
-    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado', 'analista_cambiario'}
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    roles_finanzas = {'admin', 'analista_cambiario', 'analista'}
     
     es_admin = bool(roles.intersection(roles_admin))
     es_personal = bool(roles.intersection(roles_gestion))
+    es_finanzas = bool(roles.intersection(roles_finanzas))
     tiene_cliente = cliente_activo is not None
     
-    # Si no tiene cliente activo y no es del personal administrativo, solo puede hacer consultas
-    solo_consulta = not tiene_cliente and not es_personal
+    # Si no tiene cliente activo y no es del personal administrativo ni de finanzas, solo puede hacer consultas
+    solo_consulta = not tiene_cliente and not es_personal and not es_finanzas
 
     return render(request, 'authentication/menu.html', {
         'roles': sorted(roles),
@@ -99,6 +101,7 @@ def menu(request):
         'tiene_cliente': tiene_cliente,
         'es_admin': es_admin,
         'es_personal': es_personal,
+        'es_finanzas': es_finanzas,
         'solo_consulta': solo_consulta,
     })
 

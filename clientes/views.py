@@ -67,8 +67,21 @@ def consultar_cliente(request, cliente_id):
 
 #  Vistas HTML (Panel Administrativo)
 
+def verificar_acceso_gestion_clientes(request):
+    """
+    Verifica que si el usuario está autenticado, pertenezca al personal de gestión de clientes.
+    Deniega el acceso si el usuario sólo tiene roles como 'analista_cambiario' o 'cliente'.
+    """
+    if request.user.is_authenticated:
+        roles = set(getattr(request, 'roles', []))
+        roles_permitidos = {'admin', 'supervisor', 'operador', 'empleado'}
+        if not roles.intersection(roles_permitidos) and not request.user.is_staff and not request.user.is_superuser:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied('No tenés el rol necesario para acceder a esta sección.')
+
 def listado_clientes(request):
     """Panel principal y listado de clientes con estadísticas, búsqueda y filtros."""
+    verificar_acceso_gestion_clientes(request)
     ver_inactivos = request.GET.get("ver_inactivos") == "1"
     segmento = request.GET.get("segmento", "").strip()
     tipo = request.GET.get("tipo", "").strip()
@@ -121,6 +134,7 @@ def listado_clientes(request):
 
 
 def registrar_cliente(request):
+    verificar_acceso_gestion_clientes(request)
     if request.method == "POST":
         form = ClienteForm(request.POST)
         if form.is_valid():
@@ -133,6 +147,7 @@ def registrar_cliente(request):
 
 
 def detalle_cliente(request, pk):
+    verificar_acceso_gestion_clientes(request)
     cliente = get_object_or_404(Cliente, pk=pk)
     # Mostrar medios de pago solo si este cliente es el activo en sesión
     cliente_activo_id = request.session.get('cliente_activo_id')
@@ -143,6 +158,7 @@ def detalle_cliente(request, pk):
 
 def editar_cliente(request, pk):
     """Modificar datos de un cliente existente (activo o inactivo)."""
+    verificar_acceso_gestion_clientes(request)
     cliente = get_object_or_404(Cliente, pk=pk)
 
     if request.method == "POST":
@@ -304,6 +320,7 @@ def eliminar_medio_pago(request, pk):
 
 def desactivar_cliente(request, pk):
     """Baja lógica: marca el cliente como inactivo sin eliminar el registro."""
+    verificar_acceso_gestion_clientes(request)
     cliente = get_object_or_404(Cliente, pk=pk)
 
     if not cliente.activo:
@@ -324,6 +341,7 @@ def desactivar_cliente(request, pk):
 
 def reactivar_cliente(request, pk):
     """Reactiva un cliente previamente desactivado."""
+    verificar_acceso_gestion_clientes(request)
     cliente = get_object_or_404(Cliente, pk=pk)
 
     if cliente.activo:
