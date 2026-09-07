@@ -43,6 +43,11 @@
                     🏢 {{ request.session.cliente_activo_nombre }}
                 </span>
             </li>
+            <li>
+                <a href="{% url 'clientes:listar_medios_pago' %}" class="nav-link">
+                    <span>💳</span> Medios de Pago
+                </a>
+            </li>
             {% endif %}
             {% if request.user.is_authenticated %}
             <li>

@@ -134,7 +134,11 @@ def registrar_cliente(request):
 
 def detalle_cliente(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
-    return render(request, "clientes/detalle.html", {"cliente": cliente})
+    # Mostrar medios de pago solo si este cliente es el activo en sesión
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    medios_pago = MedioDePago.objects.filter(cliente=cliente).order_by('-creado_en') if str(cliente.pk) == str(cliente_activo_id) else None
+    return render(request, "clientes/detalle.html", {"cliente": cliente, "medios_pago": medios_pago})
+
 
 
 def editar_cliente(request, pk):
