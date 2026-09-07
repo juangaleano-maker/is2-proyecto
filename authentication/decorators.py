@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 
 # Roles definidos en el realm de Keycloak (keycloak/realm-export.json)
-ROLES_KEYCLOAK = ['admin', 'operador', 'supervisor', 'empleado', 'cliente']
+ROLES_KEYCLOAK = ['admin', 'operador', 'supervisor', 'empleado', 'cliente', 'analista_cambiario']
 
 
 def rol_requerido(*roles_permitidos):

@@ -28,6 +28,7 @@ urlpatterns = [
     path('clientes/', include('clientes.urls')),
     path('usuarios/', include('usuarios.urls')),
     path('agregar_usuario/', include('agregar_usuario.urls')),
+    path('cotizaciones/', include('cotizaciones.urls')),
     path('oidc/callback/', authentication_views.CustomOIDCAuthenticationCallbackView.as_view(), name='oidc_authentication_callback'),
     path('oidc/', include('mozilla_django_oidc.urls')),
     path('', include('authentication.urls')),

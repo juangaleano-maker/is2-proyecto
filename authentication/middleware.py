@@ -51,7 +51,7 @@ class ClientSelectionMiddleware:
         if request.user.is_authenticated:
             # Personal administrativo no necesita forzar la selección de cliente para navegar (pueden no tener cliente activo)
             roles = set(getattr(request, 'roles', []))
-            roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+            roles_gestion = {'admin', 'supervisor', 'operador', 'empleado', 'analista_cambiario'}
             es_personal = bool(roles.intersection(roles_gestion))
 
             if not es_personal:
