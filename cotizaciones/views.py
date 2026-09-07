@@ -46,6 +46,7 @@ def registrar_cotizacion_api(request):
             moneda_destino=moneda_destino,
             compra=compra,
             venta=venta,
+            registrado_por=request.user if request.user.is_authenticated else None,
         )
         return JsonResponse({'mensaje': 'Cotización registrada exitosamente.', 'id': cotizacion.id}, status=201)
     except ValueError:
@@ -90,7 +91,8 @@ def modificar_cotizacion_api(request, cotizacion_id):
             moneda_destino=cotizacion_anterior.moneda_destino,
             compra=compra,
             venta=venta,
-            activo=True
+            activo=True,
+            registrado_por=request.user if request.user.is_authenticated else None,
         )
         return JsonResponse({'mensaje': 'Cotización actualizada exitosamente.', 'id': nueva_cotizacion.id}, status=201)
     except ValueError:
@@ -128,3 +130,23 @@ def obtener_tasa_vigente_api(request, origen, destino):
         'venta': str(cotizacion.venta),
         'fecha': cotizacion.fecha.isoformat()
     }, status=200)
+
+@rol_requerido('analista_cambiario', 'admin')
+def consultar_cotizaciones(request):
+    """Vista que muestra el historial de cotizaciones con filtro por moneda."""
+    monedas = Cotizacion.MONEDAS
+    moneda_origen_filtro = request.GET.get('moneda_origen', '')
+    moneda_destino_filtro = request.GET.get('moneda_destino', '')
+
+    cotizaciones = Cotizacion.objects.select_related('registrado_por').order_by('-fecha')
+    if moneda_origen_filtro:
+        cotizaciones = cotizaciones.filter(moneda_origen=moneda_origen_filtro)
+    if moneda_destino_filtro:
+        cotizaciones = cotizaciones.filter(moneda_destino=moneda_destino_filtro)
+
+    return render(request, 'cotizaciones/consultar.html', {
+        'cotizaciones': cotizaciones,
+        'monedas': monedas,
+        'moneda_origen_filtro': moneda_origen_filtro,
+        'moneda_destino_filtro': moneda_destino_filtro,
+    })

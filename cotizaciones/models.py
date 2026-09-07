@@ -15,7 +15,15 @@ class Cotizacion(models.Model):
     venta = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Precio de Venta")
     
     fecha = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Registro")
-    activo = models.BooleanField(default=True, verbose_name="Estado Activo") # Para el futuro IS2-50
+    activo = models.BooleanField(default=True, verbose_name="Estado Activo")
+    registrado_por = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Registrado por",
+        related_name='cotizaciones_registradas'
+    )
 
     class Meta:
         verbose_name = "Cotización"

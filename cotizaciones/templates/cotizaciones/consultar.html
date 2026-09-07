@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultar Cotizaciones | Global Exchange</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #0f172a; min-height: 100vh; color: #cbd5e1; }
+
+        /* Sidebar */
+        .sidebar {
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            width: 260px;
+            position: fixed;
+            top: 0; left: 0;
+            padding: 24px 0;
+            border-right: 1px solid rgba(255,255,255,0.06);
+        }
+        .sidebar-brand { padding: 0 24px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 16px; }
+        .sidebar-brand h5 { color: #f8fafc; font-weight: 700; font-size: 1rem; margin: 0; }
+        .sidebar-brand span { color: #38bdf8; font-size: 0.75rem; font-weight: 500; }
+        .nav-item-custom {
+            padding: 10px 24px;
+            display: flex; align-items: center; gap: 10px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem; font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-item-custom:hover, .nav-item-custom.active {
+            color: #f8fafc;
+            background: rgba(56, 189, 248, 0.1);
+            border-left: 3px solid #38bdf8;
+        }
+
+        /* Main */
+        .main-content { margin-left: 260px; padding: 32px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+        .topbar h1 { color: #f8fafc; font-size: 1.5rem; font-weight: 700; margin: 0; }
+        .topbar p { color: #64748b; font-size: 0.875rem; margin: 4px 0 0; }
+        .badge-role {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 4px 12px; border-radius: 20px;
+            font-size: 0.75rem; font-weight: 600;
+        }
+
+        /* Filter card */
+        .filter-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+        }
+        .filter-card label { color: #94a3b8; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .form-select-dark {
+            background-color: #0f172a;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #f8fafc;
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+        .form-select-dark:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.15); }
+        .btn-filter {
+            background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+            color: #fff; border: none;
+            padding: 8px 20px; border-radius: 8px;
+            font-size: 0.875rem; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: opacity 0.2s;
+        }
+        .btn-filter:hover { opacity: 0.85; color: #fff; }
+        .btn-clear { color: #64748b; background: transparent; border: 1px solid rgba(255,255,255,0.08); padding: 8px 16px; border-radius: 8px; font-size: 0.875rem; text-decoration: none; }
+        .btn-clear:hover { color: #f8fafc; border-color: rgba(255,255,255,0.2); }
+
+        /* Panel card */
+        .panel-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .panel-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .panel-card-header h6 { color: #f8fafc; font-weight: 600; margin: 0; }
+        .result-count { color: #64748b; font-size: 0.8rem; }
+
+        /* Table */
+        .table-dark-custom { color: #cbd5e1; }
+        .table-dark-custom th {
+            background: rgba(15, 23, 42, 0.8);
+            color: #64748b; font-size: 0.75rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 12px 16px;
+        }
+        .table-dark-custom td {
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            padding: 14px 16px;
+            vertical-align: middle;
+            font-size: 0.875rem;
+        }
+        .table-dark-custom tbody tr:hover { background: rgba(56,189,248,0.03); }
+
+        /* Badges */
+        .badge-active { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+        .badge-inactive { background: rgba(100,116,139,0.15); color: #64748b; border: 1px solid rgba(100,116,139,0.3); padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+        .moneda-pill { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+        .user-pill { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); padding: 2px 8px; border-radius: 8px; font-size: 0.75rem; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 60px 24px; color: #475569; }
+        .empty-state i { font-size: 3rem; margin-bottom: 16px; display: block; color: #334155; }
+        .empty-state h6 { color: #64748b; margin-bottom: 6px; }
+
+        /* Action buttons */
+        .btn-action-modify { border: 1px solid rgba(56,189,248,0.4); color: #38bdf8; background: transparent; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; text-decoration: none; transition: all 0.15s; }
+        .btn-action-modify:hover { background: rgba(56,189,248,0.1); color: #38bdf8; }
+        .btn-action-disable { border: 1px solid rgba(239,68,68,0.4); color: #f87171; background: transparent; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; transition: all 0.15s; cursor: pointer; }
+        .btn-action-disable:hover { background: rgba(239,68,68,0.1); color: #f87171; }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="sidebar-brand">
+        <h5>💱 Global Exchange</h5>
+        <span>Panel Analista Cambiario</span>
+    </div>
+    <a href="{% url 'analista_panel' %}" class="nav-item-custom">
+        <i class="bi bi-graph-up-arrow"></i> Cotizaciones
+    </a>
+    <a href="{% url 'cotizaciones_consultar' %}" class="nav-item-custom active">
+        <i class="bi bi-search"></i> Consultar Historial
+    </a>
+    <a href="{% url 'cotizaciones_registrar_frontend' %}" class="nav-item-custom">
+        <i class="bi bi-plus-circle"></i> Nueva Cotización
+    </a>
+    <a href="{% url 'menu' %}" class="nav-item-custom" style="margin-top: auto;">
+        <i class="bi bi-arrow-left-circle"></i> Volver al Menú
+    </a>
+</div>
+
+<!-- Main content -->
+<div class="main-content">
+    <div class="topbar">
+        <div>
+            <h1><i class="bi bi-search me-2" style="color:#38bdf8; font-size: 1.2rem;"></i>Consultar Cotizaciones</h1>
+            <p>Historial completo de cotizaciones registradas, activas e inactivas</p>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <span class="badge-role"><i class="bi bi-shield-check"></i> Analista Cambiario</span>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filter-card">
+        <form method="GET" action="{% url 'cotizaciones_consultar' %}">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="moneda_origen"><i class="bi bi-arrow-right-circle me-1"></i>Moneda Origen</label>
+                    <select name="moneda_origen" id="moneda_origen" class="form-select form-select-dark">
+                        <option value="">— Todas —</option>
+                        {% for codigo, nombre in monedas %}
+                            <option value="{{ codigo }}" {% if moneda_origen_filtro == codigo %}selected{% endif %}>{{ nombre }} ({{ codigo }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="moneda_destino"><i class="bi bi-arrow-left-circle me-1"></i>Moneda Destino</label>
+                    <select name="moneda_destino" id="moneda_destino" class="form-select form-select-dark">
+                        <option value="">— Todas —</option>
+                        {% for codigo, nombre in monedas %}
+                            <option value="{{ codigo }}" {% if moneda_destino_filtro == codigo %}selected{% endif %}>{{ nombre }} ({{ codigo }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn-filter flex-grow-1">
+                        <i class="bi bi-funnel-fill"></i> Filtrar
+                    </button>
+                    <a href="{% url 'cotizaciones_consultar' %}" class="btn-clear">
+                        <i class="bi bi-x-lg"></i> Limpiar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla de resultados -->
+    <div class="panel-card">
+        <div class="panel-card-header">
+            <h6><i class="bi bi-table me-2"></i>Historial de Cotizaciones</h6>
+            <span class="result-count">{{ cotizaciones.count }} registro{% if cotizaciones.count != 1 %}s{% endif %} encontrado{% if cotizaciones.count != 1 %}s{% endif %}</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-dark-custom mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Moneda Origen</th>
+                        <th>Moneda Destino</th>
+                        <th>Compra</th>
+                        <th>Venta</th>
+                        <th>Fecha / Hora</th>
+                        <th>Registrado por</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for c in cotizaciones %}
+                    <tr>
+                        <td style="color:#475569; font-size:0.8rem;">{{ forloop.counter }}</td>
+                        <td><span class="moneda-pill">{{ c.get_moneda_origen_display }}</span></td>
+                        <td><span class="moneda-pill">{{ c.get_moneda_destino_display }}</span></td>
+                        <td style="color:#34d399; font-weight:600;">{{ c.compra }}</td>
+                        <td style="color:#f87171; font-weight:600;">{{ c.venta }}</td>
+                        <td style="font-size:0.8rem;">
+                            <div>{{ c.fecha|date:"d/m/Y" }}</div>
+                            <div style="color:#475569;">{{ c.fecha|date:"H:i:s" }}</div>
+                        </td>
+                        <td>
+                            {% if c.registrado_por %}
+                                <span class="user-pill"><i class="bi bi-person-fill"></i>{{ c.registrado_por.get_full_name|default:c.registrado_por.username }}</span>
+                            {% else %}
+                                <span style="color:#475569; font-size:0.75rem;">— sistema —</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.activo %}
+                                <span class="badge-active">● Activo</span>
+                            {% else %}
+                                <span class="badge-inactive">● Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.activo %}
+                                <a href="{% url 'cotizaciones_modificar_frontend' c.id %}" class="btn-action-modify me-1">
+                                    <i class="bi bi-pencil-square"></i> Modificar
+                                </a>
+                                <button onclick="desactivarCotizacion({{ c.id }})" class="btn-action-disable">
+                                    <i class="bi bi-x-circle"></i> Desactivar
+                                </button>
+                            {% else %}
+                                <span style="color:#334155; font-size:0.75rem;">sin acciones</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <i class="bi bi-inbox-fill"></i>
+                                <h6>No hay cotizaciones registradas</h6>
+                                <p style="font-size:0.875rem;">
+                                    {% if moneda_origen_filtro or moneda_destino_filtro %}
+                                        No se encontraron cotizaciones con los filtros aplicados. <a href="{% url 'cotizaciones_consultar' %}" style="color:#38bdf8;">Limpiar filtros</a>
+                                    {% else %}
+                                        Aún no se han registrado cotizaciones en el sistema.
+                                        <a href="{% url 'cotizaciones_registrar_frontend' %}" style="color:#38bdf8;">Registrar la primera</a>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% csrf_token %}
+<script>
+function desactivarCotizacion(id) {
+    if (confirm('¿Estás seguro de que deseas desactivar esta cotización? Dejará de estar disponible para operaciones.')) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        fetch(`/cotizaciones/api/desactivar/${id}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        })
+        .then(response => {
+            if (response.ok) { window.location.reload(); }
+            else { alert('Error al desactivar la cotización.'); }
+        })
+        .catch(() => alert('Error de red.'));
+    }
+}
+</script>
+
+</body>
+</html>

@@ -2,8 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Panel del Analista Cambiario
+    # Panel del analista
     path('panel/', views.analista_panel, name='analista_panel'),
+    path('consultar/', views.consultar_cotizaciones, name='cotizaciones_consultar'),
 
     # Frontend HTML para registrar
     path('registrar/', views.cotizaciones_frontend, name='cotizaciones_registrar_frontend'),
