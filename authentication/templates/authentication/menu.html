@@ -186,6 +186,20 @@
             </a>
         </div>
 
+        <!-- CONSULTAR MONEDAS -->
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="font-size: 24px; margin-bottom: 8px;">💰</div>
+                <h4 style="color: #1e293b; font-size: 16px; margin: 0 0 6px 0;">Consultar Monedas</h4>
+                <p style="color: #64748b; font-size: 13px; line-height: 1.4; margin-bottom: 12px;">
+                    Catálogo de divisas y monedas habilitadas en la plataforma.
+                </p>
+            </div>
+            <a href="{% url 'monedas:consultar' %}" style="display: block; text-align: center; padding: 8px; background-color: #0ea5e9; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                💰 Consultar Monedas
+            </a>
+        </div>
+
         {% if es_admin %}
         <!-- SECCIÓN SOLO ADMIN -->
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">

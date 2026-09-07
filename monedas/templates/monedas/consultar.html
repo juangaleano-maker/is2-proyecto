@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Consultar Monedas | Global Exchange{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; margin-bottom: 25px;">
+    <div>
+        <h1 style="font-size: 24px; color: #1e293b; margin-bottom: 5px;">💰 Consultar Monedas</h1>
+        <p style="color: #64748b; font-size: 14px; margin: 0;">Catálogo completo de divisas habilitadas en el sistema.</p>
+    </div>
+    <div>
+        <a href="{% url 'monedas:registrar' %}" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px; background-color: #10b981; color: white; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            ➕ Registrar Moneda
+        </a>
+    </div>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div style="background-color: {% if message.tags == 'success' %}#dcfce7{% else %}#dbeafe{% endif %}; color: {% if message.tags == 'success' %}#166534{% else %}#1e40af{% endif %}; border: 1px solid {% if message.tags == 'success' %}#bbf7d0{% else %}#bfdbfe{% endif %}; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+            {% if message.tags == 'success' %}✅{% else %}ℹ️{% endif %} {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+    <!-- Buscador -->
+    <form method="GET" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <input type="text" name="q" value="{{ query }}" placeholder="Buscar por nombre..."
+               style="flex: 1; min-width: 200px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+        <button type="submit" style="padding: 10px 20px; background-color: #0ea5e9; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+            🔍 Buscar
+        </button>
+        {% if query %}
+            <a href="{% url 'monedas:consultar' %}" style="padding: 10px 20px; background-color: #94a3b8; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; white-space: nowrap;">
+                Limpiar
+            </a>
+        {% endif %}
+    </form>
+
+    <!-- Tabla -->
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; min-width: 500px;">
+            <thead>
+                <tr style="background-color: #f8fafc; text-align: left;">
+                    <th style="padding: 12px; border-bottom: 2px solid #e2e8f0; color: #475569;">Nombre</th>
+                    <th style="padding: 12px; border-bottom: 2px solid #e2e8f0; color: #475569;">Siglas / Código</th>
+                    <th style="padding: 12px; border-bottom: 2px solid #e2e8f0; color: #475569;">Estado</th>
+                    <th style="padding: 12px; border-bottom: 2px solid #e2e8f0; color: #475569; text-align: center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for moneda in monedas %}
+                <tr style="transition: background-color 0.15s;">
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b;">
+                        {{ moneda.nombre }}
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; color: #1e293b; font-weight: 600;">
+                        {{ moneda.siglas }}
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                        {% if moneda.activa %}
+                            <span style="background-color: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                                ✅ Activa
+                            </span>
+                        {% else %}
+                            <span style="background-color: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                                ⛔ Inactiva
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">
+                        <div style="display: inline-flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap;">
+                            <a href="{% url 'monedas:editar' moneda.pk %}"
+                               style="padding: 6px 12px; background-color: #0ea5e9; color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
+                                ✏️ Editar
+                            </a>
+                            <form method="POST" action="{% url 'monedas:alternar_estado' moneda.pk %}" style="display: inline; margin: 0;">
+                                {% csrf_token %}
+                                {% if moneda.activa %}
+                                    <button type="submit"
+                                            onclick="return confirm('¿Deseas desactivar la moneda {{ moneda.nombre }}? No se eliminarán operaciones históricas.')"
+                                            style="padding: 6px 14px; background-color: #ef4444; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                                        ⛔ Desactivar
+                                    </button>
+                                {% else %}
+                                    <button type="submit"
+                                            onclick="return confirm('¿Deseas volver a activar la moneda {{ moneda.nombre }}?')"
+                                            style="padding: 6px 14px; background-color: #10b981; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                                        ✅ Activar
+                                    </button>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" style="padding: 20px; text-align: center; color: #64748b;">
+                        No se encontraron monedas.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
