@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Analista Cambiario | Global Exchange</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #0f172a; min-height: 100vh; }
+        .sidebar {
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            width: 260px;
+            position: fixed;
+            top: 0; left: 0;
+            padding: 24px 0;
+            border-right: 1px solid rgba(255,255,255,0.06);
+        }
+        .sidebar-brand {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            margin-bottom: 16px;
+        }
+        .sidebar-brand h5 { color: #f8fafc; font-weight: 700; font-size: 1rem; margin: 0; }
+        .sidebar-brand span { color: #38bdf8; font-size: 0.75rem; font-weight: 500; }
+        .nav-item-custom {
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 0;
+            transition: all 0.2s;
+        }
+        .nav-item-custom:hover, .nav-item-custom.active {
+            color: #f8fafc;
+            background: rgba(56, 189, 248, 0.1);
+            border-left: 3px solid #38bdf8;
+        }
+        .nav-item-custom i { font-size: 1rem; }
+        .main-content {
+            margin-left: 260px;
+            padding: 32px;
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+        .topbar h1 { color: #f8fafc; font-size: 1.5rem; font-weight: 700; margin: 0; }
+        .topbar p { color: #64748b; font-size: 0.875rem; margin: 4px 0 0; }
+        .badge-role {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .stat-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-label { color: #64748b; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .stat-value { color: #f8fafc; font-size: 1.75rem; font-weight: 700; margin: 4px 0; }
+        .stat-icon { font-size: 1.5rem; }
+        .panel-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .panel-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-card-header h6 { color: #f8fafc; font-weight: 600; margin: 0; }
+        .table-dark-custom { color: #cbd5e1; }
+        .table-dark-custom th {
+            background: rgba(15, 23, 42, 0.8);
+            color: #64748b;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 12px 16px;
+        }
+        .table-dark-custom td {
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            padding: 14px 16px;
+            vertical-align: middle;
+            font-size: 0.875rem;
+        }
+        .table-dark-custom tbody tr:hover { background: rgba(56,189,248,0.03); }
+        .badge-active { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+        .badge-inactive { background: rgba(100,116,139,0.15); color: #64748b; border: 1px solid rgba(100,116,139,0.3); padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+        .btn-nueva {
+            background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+            color: #fff;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: opacity 0.2s;
+        }
+        .btn-nueva:hover { opacity: 0.85; color: #fff; }
+        .moneda-pill {
+            background: rgba(99,102,241,0.15);
+            color: #818cf8;
+            border: 1px solid rgba(99,102,241,0.2);
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .empty-state { text-align: center; padding: 48px; color: #475569; }
+        .empty-state i { font-size: 3rem; margin-bottom: 12px; display: block; }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="sidebar-brand">
+        <h5>💱 Global Exchange</h5>
+        <span>Panel Analista Cambiario</span>
+    </div>
+    <a href="{% url 'analista_panel' %}" class="nav-item-custom active">
+        <i class="bi bi-graph-up-arrow"></i> Cotizaciones
+    </a>
+    <a href="{% url 'cotizaciones_registrar_frontend' %}" class="nav-item-custom">
+        <i class="bi bi-plus-circle"></i> Nueva Cotización
+    </a>
+</div>
+
+<!-- Contenido principal -->
+<div class="main-content">
+    <div class="topbar">
+        <div>
+            <h1>Cotizaciones</h1>
+            <p>Gestión de tipos de cambio</p>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <span class="badge-role"><i class="bi bi-shield-check"></i> Analista Cambiario</span>
+            <a href="{% url 'cotizaciones_registrar_frontend' %}" class="btn-nueva">
+                <i class="bi bi-plus-lg"></i> Nueva Cotización
+            </a>
+        </div>
+    </div>
+
+    <!-- Tarjetas de estadísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Total Cotizaciones</div>
+                        <div class="stat-value">{{ cotizaciones.count }}</div>
+                    </div>
+                    <span class="stat-icon">📊</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Activas</div>
+                        <div class="stat-value">{{ cotizaciones_activas }}</div>
+                    </div>
+                    <span class="stat-icon">✅</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label">Inactivas</div>
+                        <div class="stat-value">{{ cotizaciones_inactivas }}</div>
+                    </div>
+                    <span class="stat-icon">⏸️</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de cotizaciones -->
+    <div class="panel-card">
+        <div class="panel-card-header">
+            <h6><i class="bi bi-table me-2"></i>Listado de Cotizaciones</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-dark-custom mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Moneda Origen</th>
+                        <th>Moneda Destino</th>
+                        <th>Compra</th>
+                        <th>Venta</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for c in cotizaciones %}
+                    <tr>
+                        <td style="color:#475569">{{ forloop.counter }}</td>
+                        <td><span class="moneda-pill">{{ c.get_moneda_origen_display }}</span></td>
+                        <td><span class="moneda-pill">{{ c.get_moneda_destino_display }}</span></td>
+                        <td style="color:#34d399; font-weight:600;">{{ c.compra }}</td>
+                        <td style="color:#f87171; font-weight:600;">{{ c.venta }}</td>
+                        <td>{{ c.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if c.activo %}
+                                <span class="badge-active">● Activo</span>
+                            {% else %}
+                                <span class="badge-inactive">● Inactivo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <i class="bi bi-inbox"></i>
+                                <p>No hay cotizaciones registradas aún.</p>
+                                <a href="{% url 'cotizaciones_registrar_frontend' %}" class="btn-nueva">
+                                    <i class="bi bi-plus-lg"></i> Registrar primera cotización
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

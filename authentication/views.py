@@ -84,7 +84,7 @@ def menu(request):
 
     roles = set(getattr(request, 'roles', []))
     roles_admin = {'admin', 'supervisor', 'operador'}
-    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado', 'analista_cambiario'}
     
     es_admin = bool(roles.intersection(roles_admin))
     es_personal = bool(roles.intersection(roles_gestion))
