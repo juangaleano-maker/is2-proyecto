@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'mozilla_django_oidc',
     'authentication',
     'cotizaciones',
+    'monedas',
 ]
 
 MIDDLEWARE = [

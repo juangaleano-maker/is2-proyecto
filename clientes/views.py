@@ -4,8 +4,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .forms import ClienteForm
-from .models import Cliente
+from .forms import ClienteForm, MedioDePagoForm
+from .models import Cliente, MedioDePago
 
 def elegir_cliente(request):
     """
@@ -134,7 +134,11 @@ def registrar_cliente(request):
 
 def detalle_cliente(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
-    return render(request, "clientes/detalle.html", {"cliente": cliente})
+    # Mostrar medios de pago solo si este cliente es el activo en sesión
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    medios_pago = MedioDePago.objects.filter(cliente=cliente).order_by('-creado_en') if str(cliente.pk) == str(cliente_activo_id) else None
+    return render(request, "clientes/detalle.html", {"cliente": cliente, "medios_pago": medios_pago})
+
 
 
 def editar_cliente(request, pk):
@@ -155,6 +159,139 @@ def editar_cliente(request, pk):
         "titulo": "Modificar Cliente",
         "cliente": cliente,
     })
+
+def agregar_medio_pago(request):
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    
+    if not cliente_activo_id:
+        messages.error(request, "Debe seleccionar un cliente activo antes de registrar un medio de pago.")
+        # Redirigir al home o donde tenga sentido
+        return redirect('menu')
+    
+    cliente = get_object_or_404(Cliente, id=cliente_activo_id)
+    
+    if request.method == "POST":
+        form = MedioDePagoForm(request.POST)
+        if form.is_valid():
+            medio_pago = form.save(commit=False)
+            medio_pago.cliente = cliente
+            medio_pago.save()
+            messages.success(request, f"Medio de pago agregado correctamente para el cliente {cliente}.")
+            # Se puede redirigir al detalle del cliente, asumo "clientes:detalle"
+            return redirect("clientes:detalle", pk=cliente.pk)
+    else:
+        form = MedioDePagoForm()
+        
+    return render(request, "clientes/medio_pago_form.html", {
+        "form": form,
+        "cliente": cliente,
+        "titulo": "Agregar Medio de Pago"
+    })
+
+def editar_medio_pago(request, pk):
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    
+    if not cliente_activo_id:
+        messages.error(request, "Debe seleccionar un cliente activo antes de editar un medio de pago.")
+        return redirect('menu')
+        
+    medio_pago = get_object_or_404(MedioDePago, pk=pk, cliente_id=cliente_activo_id)
+    
+    # Simulación de validación de transacciones pendientes (esto se reemplazará en el futuro sprint)
+    # Aquí podríamos hacer un random o fijarlo en True para probar el warning.
+    import random
+    tiene_transacciones = random.choice([True, False])
+    
+    if request.method == "POST":
+        form = MedioDePagoForm(request.POST, instance=medio_pago)
+        confirmacion = request.POST.get('confirmacion_transacciones')
+        
+        if form.is_valid():
+            if tiene_transacciones and confirmacion != 'true':
+                # No ha confirmado, se recarga con advertencia
+                return render(request, "clientes/medio_pago_form.html", {
+                    "form": form,
+                    "cliente": medio_pago.cliente,
+                    "titulo": "Modificar Medio de Pago",
+                    "advertencia_transacciones": True,
+                    "medio_pago": medio_pago
+                })
+            
+            form.save()
+            messages.success(request, f"Medio de pago actualizado correctamente para el cliente {medio_pago.cliente}.")
+            return redirect("clientes:detalle", pk=medio_pago.cliente.pk)
+    else:
+        form = MedioDePagoForm(instance=medio_pago)
+        
+    return render(request, "clientes/medio_pago_form.html", {
+        "form": form,
+        "cliente": medio_pago.cliente,
+        "titulo": "Modificar Medio de Pago",
+        "medio_pago": medio_pago,
+        # Si tiene_transacciones es true la primera vez que entra, podríamos avisar o esperar al POST.
+        # Lo haremos en el POST para que intente guardar y salte la alerta como pide el Criterio de Aceptación.
+    })
+
+def listar_medios_pago(request):
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    
+    if not cliente_activo_id:
+        messages.error(request, "Debe seleccionar un cliente activo para ver sus medios de pago.")
+        return redirect('menu')
+        
+    cliente = get_object_or_404(Cliente, id=cliente_activo_id)
+    medios_pago = MedioDePago.objects.filter(cliente=cliente).order_by('-creado_en')
+    
+    return render(request, "clientes/medio_pago_list.html", {
+        "cliente": cliente,
+        "medios_pago": medios_pago,
+        "titulo": "Mis Medios de Pago"
+    })
+
+
+def eliminar_medio_pago(request, pk):
+    """
+    Baja lógica de un medio de pago (lo marca como inactivo).
+    Si tiene transacciones pendientes, el sistema impide la eliminación.
+    """
+    cliente_activo_id = request.session.get('cliente_activo_id')
+
+    if not cliente_activo_id:
+        messages.error(request, "Debe seleccionar un cliente activo para gestionar medios de pago.")
+        return redirect('menu')
+
+    medio_pago = get_object_or_404(MedioDePago, pk=pk, cliente_id=cliente_activo_id)
+
+    if not medio_pago.activo:
+        messages.warning(request, "Este medio de pago ya se encuentra inactivo.")
+        return redirect("clientes:listar_medios_pago")
+
+    # Simulación de transacciones pendientes (se reemplazará con el módulo real de transacciones)
+    import random
+    tiene_transacciones = random.choice([True, False])
+
+    if request.method == "POST":
+        if tiene_transacciones:
+            # Si tiene transacciones pendientes, se bloquea el intento
+            messages.error(
+                request,
+                f"No se puede eliminar el medio de pago «{medio_pago}» porque tiene transacciones pendientes asociadas."
+            )
+            return redirect("clientes:listar_medios_pago")
+
+        medio_pago.activo = False
+        medio_pago.save()
+        messages.success(request, f"El medio de pago «{medio_pago}» fue desactivado correctamente.")
+        return redirect("clientes:listar_medios_pago")
+
+    # GET: mostrar pantalla de confirmación
+    return render(request, "clientes/medio_pago_eliminar.html", {
+        "medio_pago": medio_pago,
+        "cliente": medio_pago.cliente,
+        "tiene_transacciones": tiene_transacciones,
+        "titulo": "Eliminar Medio de Pago",
+    })
+
 
 
 def desactivar_cliente(request, pk):

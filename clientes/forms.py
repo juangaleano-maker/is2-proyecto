@@ -1,6 +1,6 @@
 import re
 from django import forms
-from .models import Cliente
+from .models import Cliente, MedioDePago
 
 
 class ClienteForm(forms.ModelForm):
@@ -54,3 +54,31 @@ class ClienteForm(forms.ModelForm):
         if qs.exists():
             raise forms.ValidationError("Ya existe un cliente registrado con este documento.")
         return documento
+
+class MedioDePagoForm(forms.ModelForm):
+    class Meta:
+        model = MedioDePago
+        fields = ['tipo', 'entidad', 'numero', 'titular']
+        widgets = {
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'entidad': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Itaú, Ueno, etc.'}),
+            'numero': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 1234, CBU, etc.'}),
+            'titular': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del titular de la cuenta/tarjeta'}),
+        }
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        tipo = cleaned_data.get('tipo')
+        entidad = cleaned_data.get('entidad')
+        numero = cleaned_data.get('numero')
+        titular = cleaned_data.get('titular')
+
+        if tipo in [MedioDePago.TipoMedio.TARJETA_CREDITO, MedioDePago.TipoMedio.TRANSFERENCIA]:
+            if not entidad:
+                self.add_error('entidad', 'La entidad es obligatoria para este tipo de pago.')
+            if not numero:
+                self.add_error('numero', 'El número (tarjeta/cuenta) es obligatorio.')
+            if not titular:
+                self.add_error('titular', 'El titular es obligatorio.')
+
+        return cleaned_data

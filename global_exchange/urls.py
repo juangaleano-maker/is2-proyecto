@@ -32,4 +32,5 @@ urlpatterns = [
     path('oidc/callback/', authentication_views.CustomOIDCAuthenticationCallbackView.as_view(), name='oidc_authentication_callback'),
     path('oidc/', include('mozilla_django_oidc.urls')),
     path('', include('authentication.urls')),
+    path('monedas/', include('monedas.urls')),
 ]

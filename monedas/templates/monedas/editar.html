@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Modificar Moneda | Global Exchange{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 25px;">
+    <h1 style="font-size: 24px; color: #1e293b; margin-bottom: 5px;">✏️ Modificar Moneda</h1>
+    <p style="color: #64748b; font-size: 14px; margin: 0;">Edición de los datos de la divisa <strong>{{ moneda.nombre }} ({{ moneda.siglas }})</strong>.</p>
+</div>
+
+<div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 25px; max-width: 600px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); margin-bottom: 30px;">
+    
+    {% if form.non_field_errors %}
+        <div style="background-color: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 14px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; line-height: 1.5;">
+            {% for error in form.non_field_errors %}
+                <p style="margin: 0; display: flex; align-items: flex-start; gap: 8px;">
+                    <span>⚠️</span>
+                    <span>{{ error }}</span>
+                </p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if tiene_cotizaciones %}
+        <div style="background-color: #fffbeb; border: 1px solid #fcd34d; border-left: 5px solid #f59e0b; color: #92400e; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+                <span style="font-size: 20px; line-height: 1;">⚠️</span>
+                <div>
+                    <strong style="font-size: 15px; display: block; margin-bottom: 4px; color: #78350f;">
+                        Moneda con cotizaciones asociadas
+                    </strong>
+                    <p style="margin: 0 0 12px 0; font-size: 13.5px; color: #92400e; line-height: 1.4;">
+                        Esta moneda cuenta con registros históricos de cotizaciones. Modificar su nombre o código puede impactar la trazabilidad de operaciones. Se requiere confirmación explícita para aplicar los cambios.
+                    </p>
+                    <label for="confirmar_modificacion" style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; cursor: pointer; color: #78350f;">
+                        <input type="checkbox" name="confirmar_modificacion" value="1" id="confirmar_modificacion" form="form-editar-moneda" {% if request.POST.confirmar_modificacion %}checked{% endif %} style="width: 17px; height: 17px; cursor: pointer; accent-color: #f59e0b;">
+                        <span>Confirmo explícitamente que deseo modificar los datos de esta moneda.</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <form method="POST" id="form-editar-moneda" novalidate>
+        {% csrf_token %}
+
+        <!-- Campo Nombre -->
+        <div style="margin-bottom: 20px;">
+            <label for="{{ form.nombre.id_for_label }}" style="display: block; font-weight: 600; color: #334155; margin-bottom: 6px; font-size: 14px;">
+                {{ form.nombre.label }} <span style="color: #ef4444;">*</span>
+            </label>
+            {{ form.nombre }}
+            {% if form.nombre.errors %}
+                {% for error in form.nombre.errors %}
+                    <div style="color: #ef4444; font-size: 13px; margin-top: 4px; font-weight: 500;">
+                        ⚠️ {{ error }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- Campo Código / Siglas -->
+        <div style="margin-bottom: 25px;">
+            <label for="{{ form.siglas.id_for_label }}" style="display: block; font-weight: 600; color: #334155; margin-bottom: 6px; font-size: 14px;">
+                {{ form.siglas.label }} <span style="color: #ef4444;">*</span>
+            </label>
+            {{ form.siglas }}
+            {% if form.siglas.errors %}
+                {% for error in form.siglas.errors %}
+                    <div style="color: #ef4444; font-size: 13px; margin-top: 4px; font-weight: 500;">
+                        ⚠️ {{ error }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- Estado actual informativo -->
+        <div style="margin-bottom: 25px; padding: 12px 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; color: #64748b; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <span>Estado en el sistema:</span>
+            {% if moneda.activa %}
+                <span style="background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 12px;">
+                    ✅ Activa
+                </span>
+            {% else %}
+                <span style="background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 12px;">
+                    ⛔ Inactiva
+                </span>
+            {% endif %}
+        </div>
+
+        <!-- Botones de Acción -->
+        <div style="display: flex; gap: 12px; justify-content: flex-end; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 20px; flex-wrap: wrap;">
+            <a href="{% url 'monedas:consultar' %}" style="padding: 10px 18px; background-color: #94a3b8; color: white; border-radius: 6px; text-decoration: none; font-size: 14px; font-weight: 600; display: inline-block;">
+                Cancelar
+            </a>
+            <button type="submit" style="padding: 10px 22px; background-color: #0ea5e9; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                💾 Guardar Cambios
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
