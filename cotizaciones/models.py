@@ -1,15 +1,20 @@
 from django.db import models
 
 class Cotizacion(models.Model):
-    MONEDAS = [
-        ('USD', 'Dólar Estadounidense'),
-        ('PYG', 'Guaraní'),
-        ('ARS', 'Peso Argentino'),
-        ('BRL', 'Real Brasileño'),
-    ]
-
-    moneda_origen = models.CharField(max_length=3, choices=MONEDAS, default='USD', verbose_name="Moneda Origen")
-    moneda_destino = models.CharField(max_length=3, choices=MONEDAS, default='PYG', verbose_name="Moneda Destino")
+    moneda_origen = models.ForeignKey(
+        'monedas.Moneda', 
+        on_delete=models.RESTRICT, 
+        related_name='cotizaciones_origen', 
+        limit_choices_to={'activa': True},
+        verbose_name="Moneda Origen"
+    )
+    moneda_destino = models.ForeignKey(
+        'monedas.Moneda', 
+        on_delete=models.RESTRICT, 
+        related_name='cotizaciones_destino', 
+        limit_choices_to={'activa': True},
+        verbose_name="Moneda Destino"
+    )
     
     compra = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Precio de Compra")
     venta = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Precio de Venta")
@@ -31,4 +36,4 @@ class Cotizacion(models.Model):
         ordering = ['-fecha']
 
     def __str__(self):
-        return f"{self.moneda_origen} a {self.moneda_destino} - Compra: {self.compra} / Venta: {self.venta} ({self.fecha.strftime('%d/%m/%Y %H:%M')})"
+        return f"{self.moneda_origen.siglas} a {self.moneda_destino.siglas} - Compra: {self.compra} / Venta: {self.venta} ({self.fecha.strftime('%d/%m/%Y %H:%M')})"

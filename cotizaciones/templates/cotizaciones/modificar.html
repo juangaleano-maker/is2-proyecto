@@ -31,12 +31,12 @@
             
             <div class="mb-3">
                 <label for="moneda_origen" class="form-label">Moneda Origen</label>
-                <input type="text" class="form-control" id="moneda_origen" value="{{ cotizacion.get_moneda_origen_display }}" disabled>
+                <input type="text" class="form-control" id="moneda_origen" value="{{ cotizacion.moneda_origen.nombre }} ({{ cotizacion.moneda_origen.siglas }})" disabled>
             </div>
 
             <div class="mb-3">
                 <label for="moneda_destino" class="form-label">Moneda Destino</label>
-                <input type="text" class="form-control" id="moneda_destino" value="{{ cotizacion.get_moneda_destino_display }}" disabled>
+                <input type="text" class="form-control" id="moneda_destino" value="{{ cotizacion.moneda_destino.nombre }} ({{ cotizacion.moneda_destino.siglas }})" disabled>
             </div>
 
             <div class="row">

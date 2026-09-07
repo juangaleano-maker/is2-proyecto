@@ -22,7 +22,9 @@ def analista_panel(request):
 @ensure_csrf_cookie
 def cotizaciones_frontend(request):
     """Renderiza la interfaz frontend para registrar cotizaciones."""
-    return render(request, 'cotizaciones/registrar.html')
+    from monedas.models import Moneda
+    monedas = Moneda.objects.filter(activa=True)
+    return render(request, 'cotizaciones/registrar.html', {'monedas': monedas})
 
 @rol_requerido('analista_cambiario', 'admin')
 @require_http_methods(["POST"])
@@ -42,8 +44,8 @@ def registrar_cotizacion_api(request):
             return JsonResponse({'error': 'La tasa de venta no puede ser menor a la tasa de compra.'}, status=400)
 
         cotizacion = Cotizacion.objects.create(
-            moneda_origen=moneda_origen,
-            moneda_destino=moneda_destino,
+            moneda_origen_id=moneda_origen,
+            moneda_destino_id=moneda_destino,
             compra=compra,
             venta=venta,
             registrado_por=request.user if request.user.is_authenticated else None,
@@ -61,8 +63,10 @@ def registrar_cotizacion_api(request):
 def cotizaciones_modificar_frontend(request, cotizacion_id):
     """Renderiza la interfaz frontend para modificar una cotización."""
     from django.shortcuts import get_object_or_404
+    from monedas.models import Moneda
     cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id, activo=True)
-    return render(request, 'cotizaciones/modificar.html', {'cotizacion': cotizacion})
+    monedas = Moneda.objects.filter(activa=True)
+    return render(request, 'cotizaciones/modificar.html', {'cotizacion': cotizacion, 'monedas': monedas})
 
 @rol_requerido('analista_cambiario', 'admin')
 @require_http_methods(["POST"])
@@ -118,14 +122,14 @@ def desactivar_cotizacion_api(request, cotizacion_id):
 @require_http_methods(["GET"])
 def obtener_tasa_vigente_api(request, origen, destino):
     """Endpoint público/interno para obtener la tasa activa de un par de monedas."""
-    cotizacion = Cotizacion.objects.filter(moneda_origen=origen.upper(), moneda_destino=destino.upper(), activo=True).first()
+    cotizacion = Cotizacion.objects.filter(moneda_origen__siglas=origen.upper(), moneda_destino__siglas=destino.upper(), activo=True).first()
     
     if not cotizacion:
         return JsonResponse({'error': 'No hay cotización disponible para operar'}, status=404)
         
     return JsonResponse({
-        'moneda_origen': cotizacion.moneda_origen,
-        'moneda_destino': cotizacion.moneda_destino,
+        'moneda_origen': cotizacion.moneda_origen.siglas,
+        'moneda_destino': cotizacion.moneda_destino.siglas,
         'compra': str(cotizacion.compra),
         'venta': str(cotizacion.venta),
         'fecha': cotizacion.fecha.isoformat()
@@ -134,15 +138,16 @@ def obtener_tasa_vigente_api(request, origen, destino):
 @rol_requerido('analista_cambiario', 'admin')
 def consultar_cotizaciones(request):
     """Vista que muestra el historial de cotizaciones con filtro por moneda."""
-    monedas = Cotizacion.MONEDAS
+    from monedas.models import Moneda
+    monedas = Moneda.objects.filter(activa=True)
     moneda_origen_filtro = request.GET.get('moneda_origen', '')
     moneda_destino_filtro = request.GET.get('moneda_destino', '')
 
-    cotizaciones = Cotizacion.objects.select_related('registrado_por').order_by('-fecha')
+    cotizaciones = Cotizacion.objects.select_related('registrado_por', 'moneda_origen', 'moneda_destino').order_by('-fecha')
     if moneda_origen_filtro:
-        cotizaciones = cotizaciones.filter(moneda_origen=moneda_origen_filtro)
+        cotizaciones = cotizaciones.filter(moneda_origen_id=moneda_origen_filtro)
     if moneda_destino_filtro:
-        cotizaciones = cotizaciones.filter(moneda_destino=moneda_destino_filtro)
+        cotizaciones = cotizaciones.filter(moneda_destino_id=moneda_destino_filtro)
 
     return render(request, 'cotizaciones/consultar.html', {
         'cotizaciones': cotizaciones,

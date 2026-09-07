@@ -32,20 +32,20 @@
             <div class="mb-3">
                 <label for="moneda_origen" class="form-label">Moneda Origen</label>
                 <select class="form-select" id="moneda_origen" required>
-                    <option value="USD">Dólar Estadounidense (USD)</option>
-                    <option value="PYG">Guaraní (PYG)</option>
-                    <option value="ARS">Peso Argentino (ARS)</option>
-                    <option value="BRL">Real Brasileño (BRL)</option>
+                    <option value="" disabled selected>-- Seleccione Moneda --</option>
+                    {% for m in monedas %}
+                        <option value="{{ m.id }}">{{ m.nombre }} ({{ m.siglas }})</option>
+                    {% endfor %}
                 </select>
             </div>
 
             <div class="mb-3">
                 <label for="moneda_destino" class="form-label">Moneda Destino</label>
                 <select class="form-select" id="moneda_destino" required>
-                    <option value="PYG" selected>Guaraní (PYG)</option>
-                    <option value="USD">Dólar Estadounidense (USD)</option>
-                    <option value="ARS">Peso Argentino (ARS)</option>
-                    <option value="BRL">Real Brasileño (BRL)</option>
+                    <option value="" disabled selected>-- Seleccione Moneda --</option>
+                    {% for m in monedas %}
+                        <option value="{{ m.id }}">{{ m.nombre }} ({{ m.siglas }})</option>
+                    {% endfor %}
                 </select>
             </div>
 

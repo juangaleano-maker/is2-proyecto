@@ -233,8 +233,8 @@
                 {% for c in cotizaciones %}
                     <tr>
                         <td style="color:#475569">{{ forloop.counter }}</td>
-                        <td><span class="moneda-pill">{{ c.get_moneda_origen_display }}</span></td>
-                        <td><span class="moneda-pill">{{ c.get_moneda_destino_display }}</span></td>
+                        <td><span class="moneda-pill">{{ c.moneda_origen.siglas }}</span></td>
+                        <td><span class="moneda-pill">{{ c.moneda_destino.siglas }}</span></td>
                         <td style="color:#34d399; font-weight:600;">{{ c.compra }}</td>
                         <td style="color:#f87171; font-weight:600;">{{ c.venta }}</td>
                         <td>{{ c.fecha|date:"d/m/Y H:i" }}</td>

@@ -170,6 +170,10 @@ def agregar_medio_pago(request):
     
     cliente = get_object_or_404(Cliente, id=cliente_activo_id)
     
+    roles = set(getattr(request, 'roles', []))
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    es_personal = bool(roles.intersection(roles_gestion))
+
     if request.method == "POST":
         form = MedioDePagoForm(request.POST)
         if form.is_valid():
@@ -177,11 +181,12 @@ def agregar_medio_pago(request):
             medio_pago.cliente = cliente
             medio_pago.save()
             messages.success(request, f"Medio de pago agregado correctamente para el cliente {cliente}.")
-            # Se puede redirigir al detalle del cliente, asumo "clientes:detalle"
-            return redirect("clientes:detalle", pk=cliente.pk)
+            if es_personal:
+                return redirect("clientes:detalle", pk=cliente.pk)
+            return redirect("clientes:listar_medios_pago")
     else:
         form = MedioDePagoForm()
-        
+
     return render(request, "clientes/medio_pago_form.html", {
         "form": form,
         "cliente": cliente,
@@ -197,15 +202,17 @@ def editar_medio_pago(request, pk):
         
     medio_pago = get_object_or_404(MedioDePago, pk=pk, cliente_id=cliente_activo_id)
     
-    # Simulación de validación de transacciones pendientes (esto se reemplazará en el futuro sprint)
-    # Aquí podríamos hacer un random o fijarlo en True para probar el warning.
-    import random
-    tiene_transacciones = random.choice([True, False])
+    # TODO: Reemplazar con la consulta real al módulo de transacciones
+    tiene_transacciones = False
     
+    roles = set(getattr(request, 'roles', []))
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    es_personal = bool(roles.intersection(roles_gestion))
+
     if request.method == "POST":
         form = MedioDePagoForm(request.POST, instance=medio_pago)
         confirmacion = request.POST.get('confirmacion_transacciones')
-        
+
         if form.is_valid():
             if tiene_transacciones and confirmacion != 'true':
                 # No ha confirmado, se recarga con advertencia
@@ -216,13 +223,15 @@ def editar_medio_pago(request, pk):
                     "advertencia_transacciones": True,
                     "medio_pago": medio_pago
                 })
-            
+
             form.save()
             messages.success(request, f"Medio de pago actualizado correctamente para el cliente {medio_pago.cliente}.")
-            return redirect("clientes:detalle", pk=medio_pago.cliente.pk)
+            if es_personal:
+                return redirect("clientes:detalle", pk=medio_pago.cliente.pk)
+            return redirect("clientes:listar_medios_pago")
     else:
         form = MedioDePagoForm(instance=medio_pago)
-        
+
     return render(request, "clientes/medio_pago_form.html", {
         "form": form,
         "cliente": medio_pago.cliente,
@@ -266,9 +275,8 @@ def eliminar_medio_pago(request, pk):
         messages.warning(request, "Este medio de pago ya se encuentra inactivo.")
         return redirect("clientes:listar_medios_pago")
 
-    # Simulación de transacciones pendientes (se reemplazará con el módulo real de transacciones)
-    import random
-    tiene_transacciones = random.choice([True, False])
+    # TODO: Reemplazar con la consulta real al módulo de transacciones
+    tiene_transacciones = False
 
     if request.method == "POST":
         if tiene_transacciones:

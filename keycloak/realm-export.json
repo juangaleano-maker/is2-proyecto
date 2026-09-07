@@ -43,6 +43,10 @@
       {
         "name": "cliente",
         "description": "Cliente autoregistrado"
+      },
+      {
+        "name": "analista_cambiario",
+        "description": "Analista de cotizaciones cambiarias"
       }
     ]
   },

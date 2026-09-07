@@ -172,8 +172,8 @@
                     <label for="moneda_origen"><i class="bi bi-arrow-right-circle me-1"></i>Moneda Origen</label>
                     <select name="moneda_origen" id="moneda_origen" class="form-select form-select-dark">
                         <option value="">— Todas —</option>
-                        {% for codigo, nombre in monedas %}
-                            <option value="{{ codigo }}" {% if moneda_origen_filtro == codigo %}selected{% endif %}>{{ nombre }} ({{ codigo }})</option>
+                        {% for m in monedas %}
+                            <option value="{{ m.id }}" {% if moneda_origen_filtro == m.id|stringformat:"s" %}selected{% endif %}>{{ m.nombre }} ({{ m.siglas }})</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -181,8 +181,8 @@
                     <label for="moneda_destino"><i class="bi bi-arrow-left-circle me-1"></i>Moneda Destino</label>
                     <select name="moneda_destino" id="moneda_destino" class="form-select form-select-dark">
                         <option value="">— Todas —</option>
-                        {% for codigo, nombre in monedas %}
-                            <option value="{{ codigo }}" {% if moneda_destino_filtro == codigo %}selected{% endif %}>{{ nombre }} ({{ codigo }})</option>
+                        {% for m in monedas %}
+                            <option value="{{ m.id }}" {% if moneda_destino_filtro == m.id|stringformat:"s" %}selected{% endif %}>{{ m.nombre }} ({{ m.siglas }})</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -223,8 +223,8 @@
                 {% for c in cotizaciones %}
                     <tr>
                         <td style="color:#475569; font-size:0.8rem;">{{ forloop.counter }}</td>
-                        <td><span class="moneda-pill">{{ c.get_moneda_origen_display }}</span></td>
-                        <td><span class="moneda-pill">{{ c.get_moneda_destino_display }}</span></td>
+                        <td><span class="moneda-pill">{{ c.moneda_origen.siglas }}</span></td>
+                        <td><span class="moneda-pill">{{ c.moneda_destino.siglas }}</span></td>
                         <td style="color:#34d399; font-weight:600;">{{ c.compra }}</td>
                         <td style="color:#f87171; font-weight:600;">{{ c.venta }}</td>
                         <td style="font-size:0.8rem;">

@@ -15,7 +15,7 @@ services:
     volumes:
       - db_dev_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-global_exchange}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-global_exchange}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -86,7 +86,7 @@ services:
     volumes:
       - keycloak_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      test: [ "CMD-SHELL", "pg_isready -U keycloak -d keycloak" ]
       interval: 5s
       timeout: 5s
       retries: 5

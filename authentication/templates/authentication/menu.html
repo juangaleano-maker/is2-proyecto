@@ -156,7 +156,11 @@
         </h3>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+    <div style="margin-bottom: 25px;">
+        <h4 style="font-size: 14px; color: #475569; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
+            👥 Gestión de Clientes y Usuarios
+        </h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
 
         <!-- PANEL DE CLIENTES -->
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
@@ -200,6 +204,43 @@
             </a>
         </div>
 
+        <!-- MEDIOS DE PAGO (admin) -->
+        {% if tiene_cliente %}
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="font-size: 24px; margin-bottom: 8px;">💳</div>
+                <h4 style="color: #1e293b; font-size: 16px; margin: 0 0 6px 0;">Medios de Pago</h4>
+                <p style="color: #64748b; font-size: 13px; line-height: 1.4; margin-bottom: 12px;">
+                    Gestionar los medios de pago registrados para <strong>{{ cliente_activo }}</strong>.
+                </p>
+            </div>
+            <a href="{% url 'clientes:listar_medios_pago' %}" style="display: block; text-align: center; padding: 8px; background-color: #7c3aed; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                💳 Ver / Gestionar Medios de Pago
+            </a>
+        </div>
+        {% else %}
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; opacity: 0.5;">
+            <div>
+                <div style="font-size: 24px; margin-bottom: 8px;">💳</div>
+                <h4 style="color: #1e293b; font-size: 16px; margin: 0 0 6px 0;">Medios de Pago</h4>
+                <p style="color: #64748b; font-size: 13px; line-height: 1.4; margin-bottom: 12px;">
+                    Seleccioná un cliente activo para gestionar sus medios de pago.
+                </p>
+            </div>
+            <span style="display: block; text-align: center; padding: 8px; background-color: #94a3b8; color: white; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: not-allowed;">
+                💳 Sin cliente activo
+            </span>
+        </div>
+        {% endif %}
+
+        </div>
+    </div>
+    
+    <div style="margin-bottom: 25px;">
+        <h4 style="font-size: 14px; color: #475569; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
+            💱 Finanzas: Cotizaciones y Monedas
+        </h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
         <!-- PANEL DE COTIZACIONES -->
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
@@ -211,6 +252,8 @@
             </div>
             <a href="{% url 'analista_panel' %}" style="display: block; text-align: center; padding: 8px; background-color: #0ea5e9; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
                 📈 Abrir Cotizaciones
+            </a>
+        </div>
         <!-- CONSULTAR MONEDAS -->
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
@@ -225,7 +268,15 @@
             </a>
         </div>
 
-        {% if es_admin %}
+        </div>
+    </div>
+
+    {% if es_admin %}
+    <div style="margin-bottom: 25px;">
+        <h4 style="font-size: 14px; color: #475569; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">
+            🛠️ Opciones de Sistema
+        </h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
         <!-- SECCIÓN SOLO ADMIN -->
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
@@ -239,9 +290,10 @@
                 🔒 Ver Solo Admin
             </a>
         </div>
-        {% endif %}
-
+        </div>
     </div>
+    {% endif %}
+
 </div>
 {% endif %}
 
