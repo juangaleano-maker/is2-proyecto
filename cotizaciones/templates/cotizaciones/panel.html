@@ -223,6 +223,7 @@
                         <th>Venta</th>
                         <th>Fecha</th>
                         <th>Estado</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -241,10 +242,17 @@
                                 <span class="badge-inactive">● Inactivo</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if c.activo %}
+                                <a href="{% url 'cotizaciones_modificar_frontend' c.id %}" class="btn btn-sm btn-outline-info" style="border-radius: 6px; padding: 4px 10px; font-size: 0.75rem;">
+                                    <i class="bi bi-pencil-square"></i> Modificar
+                                </a>
+                            {% endif %}
+                        </td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="7">
+                        <td colspan="8">
                             <div class="empty-state">
                                 <i class="bi bi-inbox"></i>
                                 <p>No hay cotizaciones registradas aún.</p>

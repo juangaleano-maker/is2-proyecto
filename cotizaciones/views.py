@@ -54,3 +54,48 @@ def registrar_cotizacion_api(request):
         return JsonResponse({'error': 'Formato JSON inválido.'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@rol_requerido('analista_cambiario', 'admin')
+@ensure_csrf_cookie
+def cotizaciones_modificar_frontend(request, cotizacion_id):
+    """Renderiza la interfaz frontend para modificar una cotización."""
+    from django.shortcuts import get_object_or_404
+    cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id, activo=True)
+    return render(request, 'cotizaciones/modificar.html', {'cotizacion': cotizacion})
+
+@rol_requerido('analista_cambiario', 'admin')
+@require_http_methods(["POST"])
+def modificar_cotizacion_api(request, cotizacion_id):
+    """Endpoint API para modificar una cotización (pasa al historial la anterior)."""
+    from django.shortcuts import get_object_or_404
+    try:
+        cotizacion_anterior = get_object_or_404(Cotizacion, id=cotizacion_id, activo=True)
+        data = json.loads(request.body)
+        compra = data.get('compra')
+        venta = data.get('venta')
+        
+        if not compra or not venta:
+            return JsonResponse({'error': 'Los precios de compra y venta son obligatorios.'}, status=400)
+            
+        if float(venta) < float(compra):
+            return JsonResponse({'error': 'La tasa de venta no puede ser menor a la tasa de compra.'}, status=400)
+            
+        # Pasar la actual al historial
+        cotizacion_anterior.activo = False
+        cotizacion_anterior.save()
+        
+        # Crear la nueva como vigente
+        nueva_cotizacion = Cotizacion.objects.create(
+            moneda_origen=cotizacion_anterior.moneda_origen,
+            moneda_destino=cotizacion_anterior.moneda_destino,
+            compra=compra,
+            venta=venta,
+            activo=True
+        )
+        return JsonResponse({'mensaje': 'Cotización actualizada exitosamente.', 'id': nueva_cotizacion.id}, status=201)
+    except ValueError:
+        return JsonResponse({'error': 'Los valores de compra y venta deben ser numéricos.'}, status=400)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Formato JSON inválido.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
