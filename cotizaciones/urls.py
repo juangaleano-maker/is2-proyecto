@@ -10,4 +10,9 @@ urlpatterns = [
 
     # API endpoints
     path('api/registrar/', views.registrar_cotizacion_api, name='api_registrar_cotizacion'),
+
+    # Simulador de conversión de moneda (IS2-10)
+    path('simulador/', views.simulador_conversion_view, name='simulador_conversion'),
+    path('api/simular/', views.api_simular_conversion, name='api_simular_conversion'),
 ]
+

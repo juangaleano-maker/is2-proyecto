@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Simulador de Conversión de Moneda | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .simulador-wrapper {
+        max-width: 820px;
+        margin: 0 auto;
+    }
+    
+    .simulador-hero {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .simulador-hero h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+    }
+    
+    .simulador-hero p {
+        color: var(--text-muted);
+        font-size: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .converter-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-md);
+        padding: 2.25rem;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+
+    .currency-selector-grid {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 1rem;
+        align-items: end;
+        margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 640px) {
+        .currency-selector-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        .swap-btn-container {
+            display: flex;
+            justify-content: center;
+        }
+    }
+
+    .swap-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--bg-alt);
+        border: 1px solid var(--border-color);
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-bottom: 2px;
+        font-size: 1.25rem;
+    }
+
+    .swap-btn:hover {
+        background: var(--primary-light);
+        color: var(--primary);
+        border-color: var(--primary-border);
+        transform: rotate(180deg);
+    }
+
+    .input-amount-container {
+        position: relative;
+    }
+
+    .input-amount {
+        font-size: 1.35rem;
+        font-weight: 700;
+        padding-left: 1rem;
+        height: 54px;
+    }
+
+    .result-box {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border: 1px solid #bbf7d0;
+        border-left: 5px solid #22c55e;
+        border-radius: var(--radius-md);
+        padding: 1.75rem;
+        margin-top: 1.75rem;
+        box-shadow: var(--shadow-sm);
+        animation: fadeIn 0.3s ease;
+    }
+
+    .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+
+    .result-title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #15803d;
+    }
+
+    .result-calculated {
+        font-size: 2.25rem;
+        font-weight: 800;
+        color: #14532d;
+        line-height: 1.1;
+        margin-bottom: 0.5rem;
+    }
+
+    .result-rate-detail {
+        font-size: 0.92rem;
+        color: #166534;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .disclaimer-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--radius-md);
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .disclaimer-icon {
+        font-size: 1.5rem;
+        line-height: 1;
+    }
+
+    .disclaimer-text {
+        font-size: 0.88rem;
+        color: #475569;
+        line-height: 1.5;
+    }
+
+    .loading-indicator {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--primary);
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+
+    .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(37, 99, 235, 0.2);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="simulador-wrapper">
+    
+    <!-- Hero / Encabezado -->
+    <div class="simulador-hero">
+        <div style="display: inline-flex; align-items: center; gap: 6px; background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 12px; letter-spacing: 0.5px;">
+            💱 TIPO DE CAMBIO EN VIVO
+        </div>
+        <h1>Simulador de Conversión</h1>
+        <p>Calcula el monto resultante antes de realizar operaciones de cambio reales, utilizando la tasa vigente.</p>
+    </div>
+
+    <!-- Tarjeta Principal del Simulador -->
+    <div class="converter-card">
+        <form method="POST" id="simulador-form" action="{% url 'simulador_conversion' %}">
+            {% csrf_token %}
+
+            <!-- Grilla Selección de Monedas -->
+            <div class="currency-selector-grid">
+                
+                <!-- Moneda Origen -->
+                <div class="form-group">
+                    <label class="form-label" for="moneda_origen">
+                        <span>Moneda Origen (Tengo)</span>
+                    </label>
+                    <select class="form-control" id="moneda_origen" name="moneda_origen" required>
+                        {% for cod, nombre in monedas %}
+                            <option value="{{ cod }}" {% if moneda_origen == cod %}selected{% endif %}>
+                                {{ cod }} — {{ nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Botón Intercambiar Monedas -->
+                <div class="swap-btn-container">
+                    <button type="button" class="swap-btn" id="btn-swap" title="Invertir monedas (Swap)" aria-label="Invertir monedas">
+                        ⇄
+                    </button>
+                </div>
+
+                <!-- Moneda Destino -->
+                <div class="form-group">
+                    <label class="form-label" for="moneda_destino">
+                        <span>Moneda Destino (Deseo)</span>
+                    </label>
+                    <select class="form-control" id="moneda_destino" name="moneda_destino" required>
+                        {% for cod, nombre in monedas %}
+                            <option value="{{ cod }}" {% if moneda_destino == cod %}selected{% endif %}>
+                                {{ cod }} — {{ nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Monto a Convertir -->
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label class="form-label" for="monto">
+                    <span>Monto a convertir</span>
+                    <span class="helper">Ingrese la cantidad en la moneda de origen</span>
+                </label>
+                <div class="input-amount-container">
+                    <input 
+                        type="number" 
+                        step="any" 
+                        min="0.01" 
+                        class="form-control input-amount" 
+                        id="monto" 
+                        name="monto" 
+                        placeholder="0.00" 
+                        value="{{ monto }}" 
+                        required 
+                        autocomplete="off"
+                    >
+                </div>
+                <div id="loading-spinner" class="loading-indicator">
+                    <div class="spinner"></div>
+                    <span>Calculando con tasa vigente...</span>
+                </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <button type="submit" class="btn btn-primary" id="btn-simular" style="flex: 1; height: 48px; font-size: 1rem;">
+                    <span>⚡ Simular Conversión</span>
+                </button>
+                <a href="{% url 'menu' %}" class="btn btn-secondary" style="height: 48px; padding: 0 1.25rem;">
+                    <span>🏠 Volver al Menú</span>
+                </a>
+            </div>
+        </form>
+
+        <!-- Mensaje de Error (si hubo en la simulación) -->
+        <div id="error-container" style="{% if not error %}display: none;{% endif %} margin-top: 1.5rem;">
+            <div class="alert alert-error">
+                <div class="alert-content">
+                    <span class="alert-icon">⚠️</span>
+                    <span id="error-message">{{ error }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Caja de Resultado Dinámico / Renderizado Servidor -->
+        <div id="result-container" class="result-box" style="{% if not resultado %}display: none;{% endif %}">
+            <div class="result-header">
+                <span class="result-title">Resultado Estimado</span>
+                <span style="background: rgba(34, 197, 94, 0.15); color: #15803d; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">
+                    ● Tasa Vigente
+                </span>
+            </div>
+
+            <div class="result-calculated" id="res-monto-destino">
+                {% if resultado %}
+                    {{ resultado.monto_destino }} {{ resultado.moneda_destino }}
+                {% endif %}
+            </div>
+
+            <div class="result-rate-detail">
+                <span>💱 <strong>Tasa Aplicada:</strong> <span id="res-tasa-detalle">{% if resultado %}{{ resultado.descripcion_tasa }}{% endif %}</span></span>
+                {% if resultado.fecha_tasa %}
+                    <span>&nbsp;|&nbsp; 🕒 <span id="res-fecha">Cotización del {{ resultado.fecha_tasa|date:"d/m/Y H:i" }}</span></span>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Disclaimer de Seguridad / Criterio de Aceptación 3 -->
+    <div class="disclaimer-card">
+        <div class="disclaimer-icon">🛡️</div>
+        <div class="disclaimer-text">
+            <strong>Garantía de Simulación:</strong> Esta herramienta calcula el monto orientativo con base en las tasas activas del mercado cambiario de <strong>Global Exchange</strong>. La simulación no ejecuta transferencias, no genera movimientos bancarios ni afecta el saldo de sus cuentas.
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const origenSelect = document.getElementById('moneda_origen');
+    const destinoSelect = document.getElementById('moneda_destino');
+    const montoInput = document.getElementById('monto');
+    const btnSwap = document.getElementById('btn-swap');
+    const spinner = document.getElementById('loading-spinner');
+    const resultBox = document.getElementById('result-container');
+    const resMontoDestino = document.getElementById('res-monto-destino');
+    const resTasaDetalle = document.getElementById('res-tasa-detalle');
+    const resFecha = document.getElementById('res-fecha');
+    const errorContainer = document.getElementById('error-container');
+    const errorMessage = document.getElementById('error-message');
+
+    let debounceTimer = null;
+
+    // Swap / Invertir monedas
+    btnSwap.addEventListener('click', function() {
+        const temp = origenSelect.value;
+        origenSelect.value = destinoSelect.value;
+        destinoSelect.value = temp;
+        dispararSimulacion();
+    });
+
+    origenSelect.addEventListener('change', dispararSimulacion);
+    destinoSelect.addEventListener('change', dispararSimulacion);
+    
+    montoInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(dispararSimulacion, 300);
+    });
+
+    function dispararSimulacion() {
+        const origen = origenSelect.value;
+        const destino = destinoSelect.value;
+        const monto = montoInput.value.trim();
+
+        if (!monto || parseFloat(monto) <= 0) {
+            resultBox.style.display = 'none';
+            errorContainer.style.display = 'none';
+            return;
+        }
+
+        // Mostrar indicador de carga
+        spinner.style.display = 'inline-flex';
+        errorContainer.style.display = 'none';
+
+        const apiUrl = `{% url 'api_simular_conversion' %}?moneda_origen=${encodeURIComponent(origen)}&moneda_destino=${encodeURIComponent(destino)}&monto=${encodeURIComponent(monto)}`;
+
+        fetch(apiUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json().then(data => ({ status: response.status, body: data })))
+        .then(res => {
+            spinner.style.display = 'none';
+            if (res.status === 200 && res.body.exito) {
+                const data = res.body;
+                resMontoDestino.textContent = `${data.monto_destino} ${data.moneda_destino}`;
+                resTasaDetalle.textContent = data.descripcion_tasa;
+                if (data.fecha_tasa) {
+                    const fechaObj = new Date(data.fecha_tasa);
+                    resFecha.textContent = `Cotización del ${fechaObj.toLocaleString()}`;
+                } else {
+                    resFecha.textContent = 'Paridad 1:1';
+                }
+                resultBox.style.display = 'block';
+                errorContainer.style.display = 'none';
+            } else {
+                resultBox.style.display = 'none';
+                errorMessage.textContent = res.body.error || 'No fue posible simular la conversión.';
+                errorContainer.style.display = 'block';
+            }
+        })
+        .catch(err => {
+            spinner.style.display = 'none';
+            resultBox.style.display = 'none';
+            errorMessage.textContent = 'Error de comunicación al calcular la simulación.';
+            errorContainer.style.display = 'block';
+        });
+    }
+});
+</script>
+{% endblock %}
