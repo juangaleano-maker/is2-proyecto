@@ -43,8 +43,12 @@ class ClientSelectionMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Omitir validación en rutas estáticas, admin o de autenticación
-        exempt_paths = ['/oidc/', '/logout/', '/admin/', '/clientes/seleccionarCliente/', '/static/', '/auth/', '/usuarios/']
+        # Omitir validación en rutas estáticas, admin o de autenticación, consulta de tasas e historial
+        exempt_paths = [
+            '/oidc/', '/logout/', '/admin/', '/clientes/seleccionarCliente/',
+            '/static/', '/auth/', '/usuarios/', '/cotizaciones/tasas-vigentes/',
+            '/cotizaciones/historial/', '/cotizaciones/api/', '/cotizaciones/visitante/',
+        ]
         if any(request.path.startswith(p) for p in exempt_paths):
             return self.get_response(request)
 

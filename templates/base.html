@@ -30,6 +30,13 @@
                     <span>🎯</span> Selector Cliente
                 </a>
             </li>
+            {% if request.user.is_authenticated %}
+            <li>
+                <a href="{% url 'tasas_vigentes' %}" class="nav-link">
+                    <span>💱</span> Tasas de Cambio
+                </a>
+            </li>
+            {% endif %}
             {% if 'admin' in request.roles or 'supervisor' in request.roles or 'operador' in request.roles or 'empleado' in request.roles or request.user.is_staff %}
             <li>
                 <a href="{% url 'clientes:listado' %}" class="nav-link">

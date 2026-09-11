@@ -7,5 +7,7 @@ is2-proyecto
    agregar_usuario
    authentication
    clientes
+   cotizaciones
    global_exchange
+   monedas
    usuarios

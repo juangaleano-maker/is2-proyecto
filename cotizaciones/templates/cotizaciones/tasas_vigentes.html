@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tasas de Cambio Vigentes | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .rates-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 24px 28px;
+        margin-bottom: 25px;
+        color: #f8fafc;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+    .rates-header h1 {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0 0 6px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #ffffff;
+    }
+    .rates-header p {
+        margin: 0;
+        color: #94a3b8;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .rates-badge-live {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #10b981;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    /* Calculator Widget */
+    .calculator-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 22px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .calc-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .calc-result-box {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 14px 18px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .calc-result-val {
+        font-size: 22px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    /* Rate Cards Grid */
+    .rates-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    .rate-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .rate-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0,0,0,0.07);
+        border-color: #93c5fd;
+    }
+    .rate-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .pair-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+    }
+    .pair-sub {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 500;
+    }
+    .rate-box {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 15px;
+    }
+    .rate-item {
+        padding: 12px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    .rate-buy {
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+    }
+    .rate-sell {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+    }
+    .rate-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+    .rate-buy .rate-label { color: #047857; }
+    .rate-sell .rate-label { color: #1d4ed8; }
+    .rate-val {
+        font-size: 20px;
+        font-weight: 800;
+        line-height: 1.1;
+    }
+    .rate-buy .rate-val { color: #065f46; }
+    .rate-sell .rate-val { color: #1e40af; }
+    
+    .rate-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        color: #94a3b8;
+        padding-top: 10px;
+        border-top: 1px dashed #f1f5f9;
+    }
+    .btn-calc-shortcut {
+        background: transparent;
+        border: 1px solid #cbd5e1;
+        color: #475569;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .btn-calc-shortcut:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+        border-color: #94a3b8;
+    }
+
+    /* Filters bar */
+    .filters-bar {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 22px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="rates-header">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+        <div>
+            <h1>
+                <span>💱</span> Tasas de Cambio Vigentes
+            </h1>
+            <p>
+                Información oficial más reciente para conocer el valor actual de cada divisa antes de operar.
+            </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span class="rates-badge-live">
+                <span class="pulse-dot"></span> Precios en Vivo
+            </span>
+            <span style="background: rgba(255,255,255,0.12); color: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
+                {{ tasas_count }} par{{ tasas_count|pluralize:"es" }} disponible{{ tasas_count|pluralize:"s" }}
+            </span>
+            <a href="{% url 'historial_tasas' %}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: #059669; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                📈 Ver Historial
+            </a>
+            <a href="{% url 'menu' %}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(255,255,255,0.15); color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                ⬅️ Volver al Menú
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros de Consulta -->
+<div class="filters-bar">
+    <form method="GET" action="{% url 'tasas_vigentes' %}" style="display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end;">
+        <div style="flex: 1; min-width: 180px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase;">
+                🔍 Búsqueda rápida
+            </label>
+            <input type="text" name="q" value="{{ busqueda }}" placeholder="Ej: USD, Dólar, PYG..." 
+                   style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+        </div>
+
+        <div style="flex: 1; min-width: 180px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase;">
+                Moneda Origen
+            </label>
+            <select name="moneda_origen" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+                <option value="">— Todas las monedas —</option>
+                {% for m in monedas %}
+                    <option value="{{ m.siglas }}" {% if moneda_origen_filtro == m.siglas %}selected{% endif %}>{{ m.siglas }} ({{ m.nombre }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="flex: 1; min-width: 180px;">
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase;">
+                Moneda Destino
+            </label>
+            <select name="moneda_destino" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+                <option value="">— Todas las monedas —</option>
+                {% for m in monedas %}
+                    <option value="{{ m.siglas }}" {% if moneda_destino_filtro == m.siglas %}selected{% endif %}>{{ m.siglas }} ({{ m.nombre }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="submit" style="padding: 9px 18px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                🔎 Filtrar
+            </button>
+            {% if busqueda or moneda_origen_filtro or moneda_destino_filtro %}
+            <a href="{% url 'tasas_vigentes' %}" style="padding: 9px 14px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600; font-size: 13px; text-decoration: none;">
+                ✕ Limpiar
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<!-- Simulador / Calculadora Rápida para el Usuario -->
+{% if tasas %}
+<div class="calculator-card">
+    <div class="calc-title">
+        <span>🧮</span> Simulador Rápido de Conversión
+        <span style="font-size: 12px; font-weight: normal; color: #64748b;">(Calculá cuánto recibirás antes de operar)</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) 250px; gap: 15px; align-items: flex-end;">
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 5px;">Par de Divisas</label>
+            <select id="calc-pair-select" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-weight: 600;">
+                {% for t in tasas %}
+                    <option value="{{ t.id }}" data-origen="{{ t.moneda_origen.siglas }}" data-destino="{{ t.moneda_destino.siglas }}" data-compra="{{ t.compra }}" data-venta="{{ t.venta }}">
+                        {{ t.moneda_origen.siglas }} ➔ {{ t.moneda_destino.siglas }} (Compra: {{ t.compra }} | Venta: {{ t.venta }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 5px;">Operación Deseada</label>
+            <select id="calc-operation" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+                <option value="compra">Quiero Comprar (Tasa de Venta de la casa)</option>
+                <option value="venta">Quiero Vender (Tasa de Compra de la casa)</option>
+            </select>
+        </div>
+
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 5px;">Monto a Operar</label>
+            <input type="number" id="calc-amount" value="100" min="0.01" step="any" 
+                   style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; font-weight: 700;">
+        </div>
+
+        <div class="calc-result-box">
+            <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Monto Estimado</div>
+            <div id="calc-result-text" class="calc-result-val">—</div>
+            <div id="calc-rate-applied" style="font-size: 11px; color: #059669; margin-top: 3px;">Tasa aplicada: —</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Grid de Tarjetas de Cotizaciones Vigentes -->
+{% if tasas %}
+    <h3 style="font-size: 16px; color: #475569; margin-bottom: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+        📋 Cotizaciones Vigentes
+    </h3>
+    <div class="rates-grid">
+        {% for t in tasas %}
+        <div class="rate-card" id="rate-card-{{ t.id }}">
+            <div>
+                <div class="rate-card-header">
+                    <div>
+                        <div class="pair-badge">
+                            <span>{{ t.moneda_origen.siglas }}</span>
+                            <span style="color: #94a3b8; font-size: 14px;">➔</span>
+                            <span>{{ t.moneda_destino.siglas }}</span>
+                        </div>
+                        <div class="pair-sub">
+                            {{ t.moneda_origen.nombre }} por {{ t.moneda_destino.nombre }}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="btn-calc-shortcut" onclick="selectInCalculator({{ t.id }})">
+                            🧮 Simular
+                        </button>
+                        <a href="{% url 'historial_tasas' %}?moneda_origen={{ t.moneda_origen.siglas }}&moneda_destino={{ t.moneda_destino.siglas }}" class="btn-calc-shortcut" style="text-decoration: none;">
+                            📈 Historial
+                        </a>
+                    </div>
+                </div>
+
+                <div class="rate-box">
+                    <div class="rate-item rate-buy">
+                        <div class="rate-label">Compra (Recibís)</div>
+                        <div class="rate-val">{{ t.compra }}</div>
+                        <div style="font-size: 11px; color: #047857; margin-top: 2px;">{{ t.moneda_destino.siglas }}</div>
+                    </div>
+                    <div class="rate-item rate-sell">
+                        <div class="rate-label">Venta (Entregás)</div>
+                        <div class="rate-val">{{ t.venta }}</div>
+                        <div style="font-size: 11px; color: #1d4ed8; margin-top: 2px;">{{ t.moneda_destino.siglas }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                {% if t.spread %}
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 8px; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
+                    <span>Spread Cambiario:</span>
+                    <strong>{{ t.spread }} {{ t.moneda_destino.siglas }}</strong>
+                </div>
+                {% endif %}
+
+                <div class="rate-footer">
+                    <span>🕒 Actualizado: {{ t.fecha|date:"d/m/Y H:i" }}</span>
+                    <span style="background: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">VIGENTE</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <!-- Estado Vacío -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 60px 20px; text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 15px;">📭</div>
+        <h3 style="color: #1e293b; font-size: 18px; margin-bottom: 8px;">No hay tasas vigentes disponibles</h3>
+        <p style="color: #64748b; font-size: 14px; max-width: 500px; margin: 0 auto 20px auto; line-height: 1.5;">
+            {% if busqueda or moneda_origen_filtro or moneda_destino_filtro %}
+                No se encontraron cotizaciones con los filtros especificados. Intentá con otros criterios.
+            {% else %}
+                Actualmente no hay tasas de cambio activas configuradas en el sistema para las monedas disponibles.
+            {% endif %}
+        </p>
+        {% if busqueda or moneda_origen_filtro or moneda_destino_filtro %}
+            <a href="{% url 'tasas_vigentes' %}" style="display: inline-block; padding: 10px 20px; background: #2563eb; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                🔄 Ver todas las tasas
+            </a>
+        {% endif %}
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const pairSelect = document.getElementById('calc-pair-select');
+    const opSelect = document.getElementById('calc-operation');
+    const amountInput = document.getElementById('calc-amount');
+    const resultText = document.getElementById('calc-result-text');
+    const rateAppliedText = document.getElementById('calc-rate-applied');
+
+    function calculate() {
+        if (!pairSelect || !amountInput || !resultText) return;
+
+        const selectedOption = pairSelect.options[pairSelect.selectedIndex];
+        if (!selectedOption) return;
+
+        const compra = parseFloat(selectedOption.getAttribute('data-compra')) || 0;
+        const venta = parseFloat(selectedOption.getAttribute('data-venta')) || 0;
+        const origen = selectedOption.getAttribute('data-origen');
+        const destino = selectedOption.getAttribute('data-destino');
+        const amount = parseFloat(amountInput.value) || 0;
+        const operation = opSelect.value;
+
+        let appliedRate = (operation === 'compra') ? venta : compra;
+        let total = amount * appliedRate;
+
+        // Formatear resultado
+        resultText.innerText = total.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + destino;
+        rateAppliedText.innerText = `1 ${origen} = ${appliedRate.toLocaleString('es-PY', { minimumFractionDigits: 2 })} ${destino}`;
+    }
+
+    if (pairSelect && amountInput && opSelect) {
+        pairSelect.addEventListener('change', calculate);
+        opSelect.addEventListener('change', calculate);
+        amountInput.addEventListener('input', calculate);
+        calculate();
+    }
+
+    function selectInCalculator(cotizacionId) {
+        if (!pairSelect) return;
+        pairSelect.value = cotizacionId;
+        calculate();
+        // Scroll suave al simulador
+        const calcCard = document.querySelector('.calculator-card');
+        if (calcCard) {
+            calcCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            calcCard.style.outline = '2px solid #3b82f6';
+            setTimeout(() => { calcCard.style.outline = 'none'; }, 1500);
+        }
+    }
+</script>
+{% endblock %}

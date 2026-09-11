@@ -130,6 +130,25 @@
     </div>
     {% endif %}
 
+    <!-- CARD: CONSULTAR TASAS DE CAMBIO VIGENTES (IS2-6 / IS2-7) -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <div style="font-size: 28px; margin-bottom: 12px;">💱</div>
+            <h3 style="color: #1e293b; font-size: 17px; margin-bottom: 8px;">Tasas de Cambio Vigentes</h3>
+            <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 15px;">
+                Consulta los valores más recientes de compra y venta de cada moneda disponible antes de operar.
+            </p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-direction: column;">
+            <a href="{% url 'tasas_vigentes' %}" style="display: block; text-align: center; padding: 9px; background-color: #059669; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                💱 Ver Tasas de Cambio
+            </a>
+            <a href="{% url 'historial_tasas' %}" style="display: block; text-align: center; padding: 8px; background-color: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                📈 Ver Historial y Reportes
+            </a>
+        </div>
+    </div>
+
     <!-- CARD 3: CONSULTAR ESTADO DE CUENTA -->
     <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
         <div>
@@ -141,6 +160,20 @@
         </div>
         <a href="{% url 'usuarios:estado_cuenta' %}?q={{ request.user.email }}" style="display: block; text-align: center; padding: 10px; background-color: #0891b2; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">
             🔎 Ver Estado de Cuenta
+        </a>
+    </div>
+
+    <!-- CARD 4: SIMULADOR DE CONVERSIÓN (IS2-10) -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <div style="font-size: 28px; margin-bottom: 12px;">💱</div>
+            <h3 style="color: #1e293b; font-size: 17px; margin-bottom: 8px;">Simulador de Conversión</h3>
+            <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 15px;">
+                Calcula conversiones entre monedas con las tasas vigentes sin afectar saldos ni generar movimientos.
+            </p>
+        </div>
+        <a href="{% url 'simulador_conversion' %}" style="display: block; text-align: center; padding: 10px; background-color: #0284c7; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">
+            💱 Simular Conversión
         </a>
     </div>
 

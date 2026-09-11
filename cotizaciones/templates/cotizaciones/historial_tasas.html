@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Historial de Tasas de Cambio | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js CDN para el gráfico interactivo de evolución temporal -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+    .history-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 24px 28px;
+        margin-bottom: 25px;
+        color: #f8fafc;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+    .history-header h1 {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0 0 6px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #ffffff;
+    }
+    .history-header p {
+        margin: 0;
+        color: #94a3b8;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    /* Filter Card */
+    .filter-box {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 22px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        align-items: flex-end;
+    }
+    .filter-field label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .filter-field input, .filter-field select {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 13px;
+        background-color: #f8fafc;
+        transition: border-color 0.15s, background-color 0.15s;
+    }
+    .filter-field input:focus, .filter-field select:focus {
+        border-color: #3b82f6;
+        background-color: #ffffff;
+        outline: none;
+    }
+
+    /* Stats Banner */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 25px;
+    }
+    .stat-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px 20px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .stat-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+    .stat-val {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.1;
+    }
+    .stat-lbl {
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-top: 2px;
+    }
+
+    /* Chart Container */
+    .chart-container {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    /* Table */
+    .table-container {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        margin-bottom: 30px;
+    }
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        text-align: left;
+    }
+    .data-table th {
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        padding: 12px 18px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .data-table td {
+        padding: 14px 18px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #334155;
+        vertical-align: middle;
+    }
+    .data-table tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .badge-buy {
+        background: #ecfdf5;
+        color: #047857;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 6px;
+        display: inline-block;
+    }
+    .badge-sell {
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 6px;
+        display: inline-block;
+    }
+    .badge-status-vigente {
+        background: #dcfce7;
+        color: #15803d;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 12px;
+    }
+    .badge-status-hist {
+        background: #f1f5f9;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="history-header">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+        <div>
+            <h1>
+                <span>📈</span> Historial y Evolución de Tasas de Cambio
+            </h1>
+            <p>
+                Analiza la evolución temporal de cada moneda en un periodo determinado y descarga los reportes históricos.
+            </p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <a href="{% url 'tasas_vigentes' %}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(255,255,255,0.15); color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                💱 Ver Tasas Vigentes
+            </a>
+            <a href="{% url 'menu' %}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(255,255,255,0.15); color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                🏠 Menú
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros de Consulta y Selección de Fechas -->
+<div class="filter-box">
+    <form method="GET" action="{% url 'historial_tasas' %}">
+        <div class="filter-grid">
+            <div class="filter-field">
+                <label for="fecha_desde">📅 Fecha Desde</label>
+                <input type="date" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde }}">
+            </div>
+
+            <div class="filter-field">
+                <label for="fecha_hasta">📅 Fecha Hasta</label>
+                <input type="date" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta }}">
+            </div>
+
+            <div class="filter-field">
+                <label for="moneda_origen">Moneda Origen</label>
+                <select id="moneda_origen" name="moneda_origen">
+                    <option value="">— Todas —</option>
+                    {% for m in monedas %}
+                        <option value="{{ m.siglas }}" {% if moneda_origen_filtro == m.siglas %}selected{% endif %}>{{ m.siglas }} ({{ m.nombre }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filter-field">
+                <label for="moneda_destino">Moneda Destino</label>
+                <select id="moneda_destino" name="moneda_destino">
+                    <option value="">— Todas —</option>
+                    {% for m in monedas %}
+                        <option value="{{ m.siglas }}" {% if moneda_destino_filtro == m.siglas %}selected{% endif %}>{{ m.siglas }} ({{ m.nombre }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+                <button type="submit" style="padding: 10px 18px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                    🔎 Filtrar
+                </button>
+                {% if fecha_desde or fecha_hasta or moneda_origen_filtro or moneda_destino_filtro %}
+                <a href="{% url 'historial_tasas' %}" style="padding: 10px 14px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600; font-size: 13px; text-decoration: none;">
+                    ✕ Limpiar
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Barra de Acción: Descarga de Reporte y Resumen -->
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+    <div>
+        <span style="color: #475569; font-size: 14px; font-weight: 600;">
+            Se encontraron <strong>{{ total_registros }}</strong> registro{{ total_registros|pluralize:"s" }} en el periodo
+        </span>
+    </div>
+    {% if cotizaciones %}
+    <div>
+        <!-- Botón de Descarga de Reporte CSV (IS2-8 Criterio 3) -->
+        <a href="{% url 'descargar_reporte_historial' %}?moneda_origen={{ moneda_origen_filtro }}&moneda_destino={{ moneda_destino_filtro }}&fecha_desde={{ fecha_desde }}&fecha_hasta={{ fecha_hasta }}" 
+           style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #059669; color: white; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 13px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            📥 Descargar Reporte (CSV / Excel)
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{% if cotizaciones %}
+    <!-- Tarjetas de Resumen Estadístico del Periodo -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #ecfdf5; color: #059669;">📉</div>
+            <div>
+                <div class="stat-val">{{ min_compra }}</div>
+                <div class="stat-lbl">Mínimo Compra</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #ecfdf5; color: #059669;">📈</div>
+            <div>
+                <div class="stat-val">{{ max_compra }}</div>
+                <div class="stat-lbl">Máximo Compra</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #eff6ff; color: #2563eb;">📉</div>
+            <div>
+                <div class="stat-val">{{ min_venta }}</div>
+                <div class="stat-lbl">Mínimo Venta</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #eff6ff; color: #2563eb;">📈</div>
+            <div>
+                <div class="stat-val">{{ max_venta }}</div>
+                <div class="stat-lbl">Máximo Venta</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de Evolución Temporal -->
+    <div class="chart-container">
+        <div class="chart-header">
+            <div>
+                <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #1e293b; font-weight: 700;">
+                    📊 Evolución de Tasas en el Tiempo
+                </h3>
+                <p style="margin: 0; color: #64748b; font-size: 12px;">
+                    Comportamiento de los precios de compra y venta a lo largo del periodo consultado
+                </p>
+            </div>
+        </div>
+        <div style="height: 320px;">
+            <canvas id="evolutionChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabla Detallada del Historial -->
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Fecha y Hora</th>
+                    <th>Par de Monedas</th>
+                    <th>Tasa Compra</th>
+                    <th>Tasa Venta</th>
+                    <th>Spread</th>
+                    <th>Registrado Por</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in cotizaciones %}
+                <tr>
+                    <td>
+                        <strong style="color: #0f172a;">{{ c.fecha|date:"d/m/Y" }}</strong>
+                        <span style="color: #64748b; font-size: 11px; margin-left: 4px;">{{ c.fecha|date:"H:i:s" }}</span>
+                    </td>
+                    <td>
+                        <span style="font-weight: 700; color: #1e293b;">{{ c.moneda_origen.siglas }} ➔ {{ c.moneda_destino.siglas }}</span>
+                        <div style="color: #64748b; font-size: 11px;">{{ c.moneda_origen.nombre }}</div>
+                    </td>
+                    <td>
+                        <span class="badge-buy">{{ c.compra }}</span>
+                    </td>
+                    <td>
+                        <span class="badge-sell">{{ c.venta }}</span>
+                    </td>
+                    <td>
+                        <span style="color: #64748b; font-weight: 600;">{{ c.spread }} {{ c.moneda_destino.siglas }}</span>
+                    </td>
+                    <td>
+                        <span style="color: #475569; font-size: 12px;">{{ c.registrado_por.username|default:"Sistema" }}</span>
+                    </td>
+                    <td>
+                        {% if c.activo %}
+                            <span class="badge-status-vigente">● Vigente</span>
+                        {% else %}
+                            <span class="badge-status-hist">Histórico</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% else %}
+    <!-- Estado Vacío -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 60px 20px; text-align: center;">
+        <div style="font-size: 48px; margin-bottom: 15px;">🔍</div>
+        <h3 style="color: #1e293b; font-size: 18px; margin-bottom: 8px;">No se encontraron registros en este rango</h3>
+        <p style="color: #64748b; font-size: 14px; max-width: 500px; margin: 0 auto 20px auto; line-height: 1.5;">
+            No existen cotizaciones registradas para las fechas o monedas seleccionadas. Intenta ampliar el rango de fechas.
+        </p>
+        <a href="{% url 'historial_tasas' %}" style="display: inline-block; padding: 10px 20px; background: #2563eb; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+            🔄 Restablecer Filtros
+        </a>
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const chartData = {{ chart_data_json|safe }};
+    if (chartData && chartData.length > 0 && document.getElementById('evolutionChart')) {
+        const labels = chartData.map(item => item.fecha);
+        const compraData = chartData.map(item => item.compra);
+        const ventaData = chartData.map(item => item.venta);
+
+        const ctx = document.getElementById('evolutionChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Tasa de Compra',
+                        data: compraData,
+                        borderColor: '#059669',
+                        backgroundColor: 'rgba(5, 150, 105, 0.08)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.25,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#059669',
+                    },
+                    {
+                        label: 'Tasa de Venta',
+                        data: ventaData,
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.25,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#2563eb',
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: { family: 'Inter, sans-serif', weight: '600' },
+                            usePointStyle: true,
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        padding: 10,
+                        backgroundColor: '#0f172a',
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 11 } }
+                    },
+                    y: {
+                        grid: { color: '#f1f5f9' },
+                        ticks: { font: { size: 11 } }
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

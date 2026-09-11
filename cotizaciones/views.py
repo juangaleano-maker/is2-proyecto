@@ -4,7 +4,9 @@ from authentication.decorators import rol_requerido
 from .models import Cotizacion
 from .forms import CotizacionForm
 import json
-from django.http import JsonResponse
+import csv
+from datetime import datetime
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import ensure_csrf_cookie
 
@@ -155,3 +157,435 @@ def consultar_cotizaciones(request):
         'moneda_origen_filtro': moneda_origen_filtro,
         'moneda_destino_filtro': moneda_destino_filtro,
     })
+
+
+@login_required
+def consultar_tasas_vigentes(request):
+    """
+    Permite a cualquier Usuario Registrado consultar las tasas de cambio vigentes
+    (compra y venta) antes de operar, reflejando la información más reciente.
+    (IS2-6 / IS2-7)
+    """
+    from monedas.models import Moneda
+    monedas_activas = Moneda.objects.filter(activa=True).order_by('siglas')
+    
+    moneda_origen_filtro = request.GET.get('moneda_origen', '').strip()
+    moneda_destino_filtro = request.GET.get('moneda_destino', '').strip()
+    busqueda = request.GET.get('q', '').strip().upper()
+
+    # Cotizaciones activas ordenadas por fecha descendente
+    cotizaciones_qs = (
+        Cotizacion.objects.filter(
+            activo=True,
+            moneda_origen__activa=True,
+            moneda_destino__activa=True
+        )
+        .select_related('moneda_origen', 'moneda_destino')
+        .order_by('-fecha')
+    )
+
+    # Filtrar únicamente la cotización más reciente de cada par (moneda_origen, moneda_destino)
+    seen_pairs = set()
+    tasas_vigentes = []
+    for cot in cotizaciones_qs:
+        pair_key = (cot.moneda_origen_id, cot.moneda_destino_id)
+        if pair_key not in seen_pairs:
+            seen_pairs.add(pair_key)
+            # Calcular spread (margen cambiario)
+            cot.spread = cot.venta - cot.compra
+            tasas_vigentes.append(cot)
+
+    # Aplicar filtros si fueron provistos
+    if moneda_origen_filtro:
+        tasas_vigentes = [t for t in tasas_vigentes if str(t.moneda_origen_id) == moneda_origen_filtro or t.moneda_origen.siglas == moneda_origen_filtro.upper()]
+    if moneda_destino_filtro:
+        tasas_vigentes = [t for t in tasas_vigentes if str(t.moneda_destino_id) == moneda_destino_filtro or t.moneda_destino.siglas == moneda_destino_filtro.upper()]
+    if busqueda:
+        tasas_vigentes = [
+            t for t in tasas_vigentes
+            if busqueda in t.moneda_origen.siglas.upper()
+            or busqueda in t.moneda_origen.nombre.upper()
+            or busqueda in t.moneda_destino.siglas.upper()
+            or busqueda in t.moneda_destino.nombre.upper()
+        ]
+
+    # Datos serializados para el conversor interactivo en JavaScript
+    tasas_json = [
+        {
+            'id': t.id,
+            'origen': t.moneda_origen.siglas,
+            'origen_nombre': t.moneda_origen.nombre,
+            'destino': t.moneda_destino.siglas,
+            'destino_nombre': t.moneda_destino.nombre,
+            'compra': float(t.compra),
+            'venta': float(t.venta),
+            'fecha': t.fecha.strftime('%d/%m/%Y %H:%M'),
+        }
+        for t in tasas_vigentes
+    ]
+
+    return render(request, 'cotizaciones/tasas_vigentes.html', {
+        'tasas': tasas_vigentes,
+        'tasas_count': len(tasas_vigentes),
+        'monedas': monedas_activas,
+        'moneda_origen_filtro': moneda_origen_filtro,
+        'moneda_destino_filtro': moneda_destino_filtro,
+        'busqueda': busqueda,
+        'tasas_json': json.dumps(tasas_json),
+    })
+
+
+@login_required
+@require_http_methods(["GET"])
+def listar_tasas_vigentes_api(request):
+    """
+    Endpoint JSON para que cualquier usuario registrado consulte
+    las tasas de cambio vigentes sin recargar la página.
+    """
+    cotizaciones_qs = (
+        Cotizacion.objects.filter(
+            activo=True,
+            moneda_origen__activa=True,
+            moneda_destino__activa=True
+        )
+        .select_related('moneda_origen', 'moneda_destino')
+        .order_by('-fecha')
+    )
+
+    seen_pairs = set()
+    tasas_vigentes = []
+    for cot in cotizaciones_qs:
+        pair_key = (cot.moneda_origen_id, cot.moneda_destino_id)
+        if pair_key not in seen_pairs:
+            seen_pairs.add(pair_key)
+            tasas_vigentes.append({
+                'id': cot.id,
+                'moneda_origen': cot.moneda_origen.siglas,
+                'moneda_origen_nombre': cot.moneda_origen.nombre,
+                'moneda_destino': cot.moneda_destino.siglas,
+                'moneda_destino_nombre': cot.moneda_destino.nombre,
+                'compra': str(cot.compra),
+                'venta': str(cot.venta),
+                'spread': str(cot.venta - cot.compra),
+                'fecha': cot.fecha.isoformat(),
+            })
+
+    return JsonResponse({'tasas': tasas_vigentes, 'total': len(tasas_vigentes)}, status=200)
+
+
+def _obtener_cotizaciones_filtradas(request):
+    """Función auxiliar compartida para filtrar cotizaciones por fecha y par de monedas."""
+    moneda_origen_filtro = request.GET.get('moneda_origen', '').strip()
+    moneda_destino_filtro = request.GET.get('moneda_destino', '').strip()
+    fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+
+    cotizaciones_qs = Cotizacion.objects.select_related(
+        'moneda_origen', 'moneda_destino', 'registrado_por'
+    ).order_by('-fecha')
+
+    if moneda_origen_filtro:
+        if moneda_origen_filtro.isdigit():
+            cotizaciones_qs = cotizaciones_qs.filter(moneda_origen_id=int(moneda_origen_filtro))
+        else:
+            cotizaciones_qs = cotizaciones_qs.filter(moneda_origen__siglas__iexact=moneda_origen_filtro)
+
+    if moneda_destino_filtro:
+        if moneda_destino_filtro.isdigit():
+            cotizaciones_qs = cotizaciones_qs.filter(moneda_destino_id=int(moneda_destino_filtro))
+        else:
+            cotizaciones_qs = cotizaciones_qs.filter(moneda_destino__siglas__iexact=moneda_destino_filtro)
+
+    if fecha_desde_str:
+        try:
+            f_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            cotizaciones_qs = cotizaciones_qs.filter(fecha__date__gte=f_desde)
+        except ValueError:
+            pass
+
+    if fecha_hasta_str:
+        try:
+            f_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+            cotizaciones_qs = cotizaciones_qs.filter(fecha__date__lte=f_hasta)
+        except ValueError:
+            pass
+
+    return cotizaciones_qs, moneda_origen_filtro, moneda_destino_filtro, fecha_desde_str, fecha_hasta_str
+
+
+@login_required
+def historial_tasas(request):
+    """
+    Permite a cualquier Usuario Registrado ver el historial de tasas de cambio
+    en un rango de fechas determinado para analizar la evolución de una moneda.
+    (IS2-8)
+    """
+    from monedas.models import Moneda
+    monedas_activas = Moneda.objects.filter(activa=True).order_by('siglas')
+
+    cotizaciones_qs, moneda_origen_filtro, moneda_destino_filtro, fecha_desde_str, fecha_hasta_str = (
+        _obtener_cotizaciones_filtradas(request)
+    )
+
+    cotizaciones = list(cotizaciones_qs)
+    for c in cotizaciones:
+        c.spread = c.venta - c.compra
+
+    # Estadísticas básicas del periodo seleccionado
+    min_compra = min((c.compra for c in cotizaciones), default=None)
+    max_compra = max((c.compra for c in cotizaciones), default=None)
+    min_venta = min((c.venta for c in cotizaciones), default=None)
+    max_venta = max((c.venta for c in cotizaciones), default=None)
+
+    # Datos cronológicos (ascendentes) para el gráfico interactivo de evolución
+    chart_data = [
+        {
+            'fecha': c.fecha.strftime('%d/%m/%Y %H:%M'),
+            'compra': float(c.compra),
+            'venta': float(c.venta),
+            'par': f"{c.moneda_origen.siglas}/{c.moneda_destino.siglas}",
+        }
+        for c in reversed(cotizaciones)
+    ]
+
+    return render(request, 'cotizaciones/historial_tasas.html', {
+        'cotizaciones': cotizaciones,
+        'total_registros': len(cotizaciones),
+        'monedas': monedas_activas,
+        'moneda_origen_filtro': moneda_origen_filtro,
+        'moneda_destino_filtro': moneda_destino_filtro,
+        'fecha_desde': fecha_desde_str,
+        'fecha_hasta': fecha_hasta_str,
+        'min_compra': min_compra,
+        'max_compra': max_compra,
+        'min_venta': min_venta,
+        'max_venta': max_venta,
+        'chart_data_json': json.dumps(chart_data),
+    })
+
+
+@login_required
+def descargar_reporte_historial(request):
+    """
+    Descarga el reporte del historial de cotizaciones consultado en formato CSV
+    compatible con Microsoft Excel y hojas de cálculo. (IS2-8)
+    """
+    cotizaciones_qs, moneda_origen_filtro, moneda_destino_filtro, fecha_desde_str, fecha_hasta_str = (
+        _obtener_cotizaciones_filtradas(request)
+    )
+
+    filename_parts = ['historial_tasas']
+    if moneda_origen_filtro:
+        filename_parts.append(moneda_origen_filtro.upper())
+    if moneda_destino_filtro:
+        filename_parts.append(moneda_destino_filtro.upper())
+    if fecha_desde_str:
+        filename_parts.append(f"desde_{fecha_desde_str}")
+    if fecha_hasta_str:
+        filename_parts.append(f"hasta_{fecha_hasta_str}")
+    filename = "_".join(filename_parts) + ".csv"
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'Fecha',
+        'Hora',
+        'Moneda Origen',
+        'Código Origen',
+        'Moneda Destino',
+        'Código Destino',
+        'Precio Compra',
+        'Precio Venta',
+        'Spread / Margen',
+        'Estado'
+    ])
+
+    for c in cotizaciones_qs:
+        writer.writerow([
+            c.fecha.strftime('%d/%m/%Y'),
+            c.fecha.strftime('%H:%M:%S'),
+            c.moneda_origen.nombre,
+            c.moneda_origen.siglas,
+            c.moneda_destino.nombre,
+            c.moneda_destino.siglas,
+            str(c.compra),
+            str(c.venta),
+            str(c.venta - c.compra),
+            'Vigente' if c.activo else 'Histórico'
+        ])
+
+    return response
+
+
+def tasas_visitante(request):
+    """
+    Vista pública: permite a un visitante (no registrado) consultar las tasas
+    de cambio vigentes sin necesidad de iniciar sesión. (IS2-20)
+    """
+    from monedas.models import Moneda
+    monedas_activas = Moneda.objects.filter(activa=True).order_by('siglas')
+
+    moneda_origen_filtro = request.GET.get('moneda_origen', '').strip()
+    moneda_destino_filtro = request.GET.get('moneda_destino', '').strip()
+    busqueda = request.GET.get('q', '').strip().upper()
+
+    cotizaciones_qs = (
+        Cotizacion.objects.filter(
+            activo=True,
+            moneda_origen__activa=True,
+            moneda_destino__activa=True
+        )
+        .select_related('moneda_origen', 'moneda_destino')
+        .order_by('-fecha')
+    )
+
+    seen_pairs = set()
+    tasas_vigentes = []
+    for cot in cotizaciones_qs:
+        pair_key = (cot.moneda_origen_id, cot.moneda_destino_id)
+        if pair_key not in seen_pairs:
+            seen_pairs.add(pair_key)
+            cot.spread = cot.venta - cot.compra
+            tasas_vigentes.append(cot)
+
+    if moneda_origen_filtro:
+        tasas_vigentes = [t for t in tasas_vigentes if str(t.moneda_origen_id) == moneda_origen_filtro or t.moneda_origen.siglas == moneda_origen_filtro.upper()]
+    if moneda_destino_filtro:
+        tasas_vigentes = [t for t in tasas_vigentes if str(t.moneda_destino_id) == moneda_destino_filtro or t.moneda_destino.siglas == moneda_destino_filtro.upper()]
+    if busqueda:
+        tasas_vigentes = [
+            t for t in tasas_vigentes
+            if busqueda in t.moneda_origen.siglas.upper()
+            or busqueda in t.moneda_origen.nombre.upper()
+            or busqueda in t.moneda_destino.siglas.upper()
+            or busqueda in t.moneda_destino.nombre.upper()
+        ]
+
+    tasas_json = [
+        {
+            'id': t.id,
+            'origen': t.moneda_origen.siglas,
+            'origen_nombre': t.moneda_origen.nombre,
+            'destino': t.moneda_destino.siglas,
+            'destino_nombre': t.moneda_destino.nombre,
+            'compra': float(t.compra),
+            'venta': float(t.venta),
+            'fecha': t.fecha.strftime('%d/%m/%Y %H:%M'),
+        }
+        for t in tasas_vigentes
+    ]
+
+    return render(request, 'cotizaciones/tasas_visitante.html', {
+        'tasas': tasas_vigentes,
+        'tasas_count': len(tasas_vigentes),
+        'monedas': monedas_activas,
+        'moneda_origen_filtro': moneda_origen_filtro,
+        'moneda_destino_filtro': moneda_destino_filtro,
+        'busqueda': busqueda,
+        'tasas_json': json.dumps(tasas_json),
+    })
+
+
+# ==========================================
+# Simulador de Conversión de Moneda (IS2-10)
+# ==========================================
+
+@login_required
+def simulador_conversion_view(request):
+    """
+    Vista web interactiva para que un usuario registrado simule
+    la conversión entre dos monedas según la tasa vigente (IS2-10).
+    """
+    from .services import simular_conversion, obtener_monedas_disponibles
+    
+    monedas = obtener_monedas_disponibles()
+    resultado = None
+    error = None
+    
+    # Soporta parámetros vía GET o POST (por defecto PYG a USD para el público paraguayo)
+    moneda_origen = request.GET.get('moneda_origen') or request.POST.get('moneda_origen') or 'PYG'
+    moneda_destino = request.GET.get('moneda_destino') or request.POST.get('moneda_destino') or 'USD'
+    monto = request.GET.get('monto') or request.POST.get('monto') or ''
+    
+    if monto:
+        try:
+            resultado = simular_conversion(
+                moneda_origen=moneda_origen,
+                moneda_destino=moneda_destino,
+                monto=monto
+            )
+        except ValueError as ve:
+            error = str(ve)
+        except Exception as e:
+            error = f"Ocurrió un error inesperado al calcular la conversión: {str(e)}"
+            
+    return render(request, 'cotizaciones/simulador.html', {
+        'monedas': monedas,
+        'moneda_origen': moneda_origen,
+        'moneda_destino': moneda_destino,
+        'monto': monto,
+        'resultado': resultado,
+        'error': error,
+    })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def api_simular_conversion(request):
+    """
+    Endpoint API para simular conversión de monedas en tiempo real (IS2-10).
+    Retorna JSON con el monto calculado y tasa aplicada.
+    """
+    from .services import simular_conversion
+    
+    if request.method == 'POST':
+        try:
+            if request.content_type == 'application/json' and request.body:
+                data = json.loads(request.body)
+            else:
+                data = request.POST
+        except json.JSONDecodeError:
+            return JsonResponse({'exito': False, 'error': 'Formato JSON inválido.'}, status=400)
+    else:
+        data = request.GET
+
+    moneda_origen = data.get('moneda_origen')
+    moneda_destino = data.get('moneda_destino')
+    monto = data.get('monto')
+
+    if not all([moneda_origen, moneda_destino, monto]):
+        return JsonResponse({
+            'exito': False,
+            'error': 'Parámetros obligatorios: moneda_origen, moneda_destino y monto.'
+        }, status=400)
+
+    try:
+        resultado = simular_conversion(
+            moneda_origen=moneda_origen,
+            moneda_destino=moneda_destino,
+            monto=monto
+        )
+        # Serializar tipos no nativos JSON
+        payload = {
+            'exito': True,
+            'moneda_origen': resultado['moneda_origen'],
+            'moneda_origen_nombre': resultado['moneda_origen_nombre'],
+            'moneda_destino': resultado['moneda_destino'],
+            'moneda_destino_nombre': resultado['moneda_destino_nombre'],
+            'monto_origen': str(resultado['monto_origen']),
+            'monto_destino': str(resultado['monto_destino']),
+            'tasa_aplicada': str(resultado['tasa_aplicada']),
+            'tipo_operacion': resultado['tipo_operacion'],
+            'descripcion_tasa': resultado['descripcion_tasa'],
+            'fecha_tasa': resultado['fecha_tasa'].isoformat() if resultado['fecha_tasa'] else None,
+            'cotizacion_id': resultado['cotizacion_id'],
+            'es_simulacion': True,
+            'aviso': resultado['aviso'],
+        }
+        return JsonResponse(payload, status=200)
+    except ValueError as ve:
+        return JsonResponse({'exito': False, 'error': str(ve)}, status=400)
+    except Exception as e:
+        return JsonResponse({'exito': False, 'error': str(e)}, status=500)
