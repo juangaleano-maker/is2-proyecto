@@ -20,6 +20,9 @@ urlpatterns = [
     path('historial/', views.historial_tasas, name='cotizaciones_historial'),
     path('historial/descargar/', views.descargar_reporte_historial, name='descargar_reporte_historial'),
 
+    # Vista pública para visitantes (IS2-20)
+    path('visitante/', views.tasas_visitante, name='tasas_visitante'),
+
     # API endpoints
     path('api/registrar/', views.registrar_cotizacion_api, name='api_registrar_cotizacion'),
     path('api/modificar/<int:cotizacion_id>/', views.modificar_cotizacion_api, name='api_modificar_cotizacion'),

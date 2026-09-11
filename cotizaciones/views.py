@@ -419,3 +419,70 @@ def descargar_reporte_historial(request):
     return response
 
 
+def tasas_visitante(request):
+    """
+    Vista pública: permite a un visitante (no registrado) consultar las tasas
+    de cambio vigentes sin necesidad de iniciar sesión. (IS2-20)
+    """
+    from monedas.models import Moneda
+    monedas_activas = Moneda.objects.filter(activa=True).order_by('siglas')
+
+    moneda_origen_filtro = request.GET.get('moneda_origen', '').strip()
+    moneda_destino_filtro = request.GET.get('moneda_destino', '').strip()
+    busqueda = request.GET.get('q', '').strip().upper()
+
+    cotizaciones_qs = (
+        Cotizacion.objects.filter(
+            activo=True,
+            moneda_origen__activa=True,
+            moneda_destino__activa=True
+        )
+        .select_related('moneda_origen', 'moneda_destino')
+        .order_by('-fecha')
+    )
+
+    seen_pairs = set()
+    tasas_vigentes = []
+    for cot in cotizaciones_qs:
+        pair_key = (cot.moneda_origen_id, cot.moneda_destino_id)
+        if pair_key not in seen_pairs:
+            seen_pairs.add(pair_key)
+            cot.spread = cot.venta - cot.compra
+            tasas_vigentes.append(cot)
+
+    if moneda_origen_filtro:
+        tasas_vigentes = [t for t in tasas_vigentes if str(t.moneda_origen_id) == moneda_origen_filtro or t.moneda_origen.siglas == moneda_origen_filtro.upper()]
+    if moneda_destino_filtro:
+        tasas_vigentes = [t for t in tasas_vigentes if str(t.moneda_destino_id) == moneda_destino_filtro or t.moneda_destino.siglas == moneda_destino_filtro.upper()]
+    if busqueda:
+        tasas_vigentes = [
+            t for t in tasas_vigentes
+            if busqueda in t.moneda_origen.siglas.upper()
+            or busqueda in t.moneda_origen.nombre.upper()
+            or busqueda in t.moneda_destino.siglas.upper()
+            or busqueda in t.moneda_destino.nombre.upper()
+        ]
+
+    tasas_json = [
+        {
+            'id': t.id,
+            'origen': t.moneda_origen.siglas,
+            'origen_nombre': t.moneda_origen.nombre,
+            'destino': t.moneda_destino.siglas,
+            'destino_nombre': t.moneda_destino.nombre,
+            'compra': float(t.compra),
+            'venta': float(t.venta),
+            'fecha': t.fecha.strftime('%d/%m/%Y %H:%M'),
+        }
+        for t in tasas_vigentes
+    ]
+
+    return render(request, 'cotizaciones/tasas_visitante.html', {
+        'tasas': tasas_vigentes,
+        'tasas_count': len(tasas_vigentes),
+        'monedas': monedas_activas,
+        'moneda_origen_filtro': moneda_origen_filtro,
+        'moneda_destino_filtro': moneda_destino_filtro,
+        'busqueda': busqueda,
+        'tasas_json': json.dumps(tasas_json),
+    })

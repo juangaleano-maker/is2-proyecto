@@ -47,7 +47,7 @@ class ClientSelectionMiddleware:
         exempt_paths = [
             '/oidc/', '/logout/', '/admin/', '/clientes/seleccionarCliente/',
             '/static/', '/auth/', '/usuarios/', '/cotizaciones/tasas-vigentes/',
-            '/cotizaciones/historial/', '/cotizaciones/api/'
+            '/cotizaciones/historial/', '/cotizaciones/api/', '/cotizaciones/visitante/',
         ]
         if any(request.path.startswith(p) for p in exempt_paths):
             return self.get_response(request)

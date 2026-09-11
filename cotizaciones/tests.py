@@ -366,3 +366,45 @@ class HistorialTasasTestCase(TestCase):
         self.assertIn('7600.00', content)
 
 
+class VisitanteTestCase(TestCase):
+    """
+    Pruebas unitarias para la Historia de Usuario IS2-20:
+    'Consultar tasas de cambio como visitante (sin login)'.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.usd = Moneda.objects.create(nombre='Dólar Estadounidense', siglas='USD', activa=True)
+        self.pyg = Moneda.objects.create(nombre='Guaraní Paraguayo', siglas='PYG', activa=True)
+        self.cotizacion = Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7800.00'),
+            venta=Decimal('7900.00'),
+            activo=True,
+        )
+
+    def test_visitante_accede_sin_login(self):
+        """Un visitante anónimo puede acceder a la vista pública de tasas sin autenticarse."""
+        response = self.client.get(reverse('tasas_visitante'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_visitante_ve_tasas_compra_y_venta(self):
+        """El visitante puede ver las tasas de compra y venta de cada moneda disponible."""
+        response = self.client.get(reverse('tasas_visitante'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'7800.00', response.content)
+        self.assertIn(b'7900.00', response.content)
+        self.assertIn(b'USD', response.content)
+        self.assertIn(b'PYG', response.content)
+
+    def test_visitante_ve_simulador_de_conversion(self):
+        """La página de visitante incluye el simulador de conversión."""
+        response = self.client.get(reverse('tasas_visitante'))
+        self.assertContains(response, 'Simulador')
+
+    def test_visitante_puede_filtrar_por_moneda(self):
+        """El visitante puede usar los filtros de moneda para acotar los resultados."""
+        response = self.client.get(reverse('tasas_visitante') + '?moneda_origen=USD')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'USD', response.content)

@@ -42,6 +42,26 @@
         .btn-register:hover {
             background-color: #218838;
         }
+        .btn-visitante {
+            background-color: transparent;
+            color: #6c757d;
+            border: 1px solid #6c757d;
+            font-size: 0.9em;
+        }
+        .btn-visitante:hover {
+            background-color: #6c757d;
+            color: white;
+        }
+        .divider {
+            margin: 16px 0 8px;
+            border: none;
+            border-top: 1px solid #eee;
+        }
+        .visitante-label {
+            font-size: 0.82em;
+            color: #999;
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>
@@ -52,6 +72,9 @@
             <a href="{% url 'oidc_authentication_init' %}" class="btn btn-login">Iniciar Sesión</a>
             <a href="{% url 'usuarios:registro' %}" class="btn btn-register">Crear una Cuenta</a>
         </div>
+        <hr class="divider">
+        <p class="visitante-label">¿Solo quieres consultar tasas de cambio?</p>
+        <a href="{% url 'tasas_visitante' %}" class="btn btn-visitante">Continuar como visitante</a>
     </div>
 </body>
 </html>
