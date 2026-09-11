@@ -60,7 +60,6 @@ def registrar_cotizacion_api(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-<<<<<<< HEAD
 @rol_requerido('analista_cambiario', 'admin')
 @ensure_csrf_cookie
 def cotizaciones_modificar_frontend(request, cotizacion_id):
@@ -157,50 +156,10 @@ def consultar_cotizaciones(request):
         'monedas': monedas,
         'moneda_origen_filtro': moneda_origen_filtro,
         'moneda_destino_filtro': moneda_destino_filtro,
-=======
-
-@login_required
-def simulador_conversion_view(request):
-    """
-    Vista web interactiva para que un usuario registrado simule
-    la conversión entre dos monedas según la tasa vigente (IS2-10).
-    """
-    from .services import simular_conversion, obtener_monedas_disponibles
-    
-    monedas = obtener_monedas_disponibles()
-    resultado = None
-    error = None
-    
-    # Soporta parámetros vía GET o POST (por defecto PYG a USD para el público paraguayo)
-    moneda_origen = request.GET.get('moneda_origen') or request.POST.get('moneda_origen') or 'PYG'
-    moneda_destino = request.GET.get('moneda_destino') or request.POST.get('moneda_destino') or 'USD'
-    monto = request.GET.get('monto') or request.POST.get('monto') or ''
-    
-    if monto:
-        try:
-            resultado = simular_conversion(
-                moneda_origen=moneda_origen,
-                moneda_destino=moneda_destino,
-                monto=monto
-            )
-        except ValueError as ve:
-            error = str(ve)
-        except Exception as e:
-            error = f"Ocurrió un error inesperado al calcular la conversión: {str(e)}"
-            
-    return render(request, 'cotizaciones/simulador.html', {
-        'monedas': monedas,
-        'moneda_origen': moneda_origen,
-        'moneda_destino': moneda_destino,
-        'monto': monto,
-        'resultado': resultado,
-        'error': error,
->>>>>>> feature/IS2-10
     })
 
 
 @login_required
-<<<<<<< HEAD
 def consultar_tasas_vigentes(request):
     """
     Permite a cualquier Usuario Registrado consultar las tasas de cambio vigentes
@@ -527,7 +486,52 @@ def tasas_visitante(request):
         'busqueda': busqueda,
         'tasas_json': json.dumps(tasas_json),
     })
-=======
+
+
+# ==========================================
+# Simulador de Conversión de Moneda (IS2-10)
+# ==========================================
+
+@login_required
+def simulador_conversion_view(request):
+    """
+    Vista web interactiva para que un usuario registrado simule
+    la conversión entre dos monedas según la tasa vigente (IS2-10).
+    """
+    from .services import simular_conversion, obtener_monedas_disponibles
+    
+    monedas = obtener_monedas_disponibles()
+    resultado = None
+    error = None
+    
+    # Soporta parámetros vía GET o POST (por defecto PYG a USD para el público paraguayo)
+    moneda_origen = request.GET.get('moneda_origen') or request.POST.get('moneda_origen') or 'PYG'
+    moneda_destino = request.GET.get('moneda_destino') or request.POST.get('moneda_destino') or 'USD'
+    monto = request.GET.get('monto') or request.POST.get('monto') or ''
+    
+    if monto:
+        try:
+            resultado = simular_conversion(
+                moneda_origen=moneda_origen,
+                moneda_destino=moneda_destino,
+                monto=monto
+            )
+        except ValueError as ve:
+            error = str(ve)
+        except Exception as e:
+            error = f"Ocurrió un error inesperado al calcular la conversión: {str(e)}"
+            
+    return render(request, 'cotizaciones/simulador.html', {
+        'monedas': monedas,
+        'moneda_origen': moneda_origen,
+        'moneda_destino': moneda_destino,
+        'monto': monto,
+        'resultado': resultado,
+        'error': error,
+    })
+
+
+@login_required
 @require_http_methods(["GET", "POST"])
 def api_simular_conversion(request):
     """
@@ -585,5 +589,3 @@ def api_simular_conversion(request):
         return JsonResponse({'exito': False, 'error': str(ve)}, status=400)
     except Exception as e:
         return JsonResponse({'exito': False, 'error': str(e)}, status=500)
-
->>>>>>> feature/IS2-10

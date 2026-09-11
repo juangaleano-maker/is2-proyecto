@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -409,11 +408,12 @@ class VisitanteTestCase(TestCase):
         response = self.client.get(reverse('tasas_visitante') + '?moneda_origen=USD')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'USD', response.content)
-=======
+
 from decimal import Decimal
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from monedas.models import Moneda
 from .models import Cotizacion
 from .services import simular_conversion, obtener_monedas_disponibles, redondear_monto
 
@@ -424,18 +424,22 @@ class SimuladorConversionServiceTest(TestCase):
     """Pruebas unitarias para el servicio de simulación de conversión (IS2-10)."""
 
     def setUp(self):
+        self.usd = Moneda.objects.create(nombre='Dólar Estadounidense', siglas='USD', activa=True)
+        self.pyg = Moneda.objects.create(nombre='Guaraní Paraguayo', siglas='PYG', activa=True)
+        self.brl = Moneda.objects.create(nombre='Real Brasileño', siglas='BRL', activa=True)
+
         # Cotización activa USD -> PYG
         self.cot_usd_pyg = Cotizacion.objects.create(
-            moneda_origen='USD',
-            moneda_destino='PYG',
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
             compra=Decimal('7500.00'),
             venta=Decimal('7600.00'),
             activo=True
         )
         # Cotización activa BRL -> PYG
         self.cot_brl_pyg = Cotizacion.objects.create(
-            moneda_origen='BRL',
-            moneda_destino='PYG',
+            moneda_origen=self.brl,
+            moneda_destino=self.pyg,
             compra=Decimal('1350.00'),
             venta=Decimal('1400.00'),
             activo=True
@@ -490,8 +494,8 @@ class SimuladorConversionServiceTest(TestCase):
     def test_simulacion_usa_cotizacion_mas_reciente(self):
         """Si hay varias cotizaciones activas, debe utilizar la más reciente."""
         cot_nueva = Cotizacion.objects.create(
-            moneda_origen='USD',
-            moneda_destino='PYG',
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
             compra=Decimal('7800.00'),
             venta=Decimal('7900.00'),
             activo=True
@@ -557,9 +561,11 @@ class SimuladorConversionViewsTest(TestCase):
             email='registrado@example.com',
             password='password123'
         )
+        self.usd = Moneda.objects.create(nombre='Dólar Estadounidense', siglas='USD', activa=True)
+        self.pyg = Moneda.objects.create(nombre='Guaraní Paraguayo', siglas='PYG', activa=True)
         self.cot_usd = Cotizacion.objects.create(
-            moneda_origen='USD',
-            moneda_destino='PYG',
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
             compra=Decimal('7500.00'),
             venta=Decimal('7600.00'),
             activo=True
@@ -648,4 +654,3 @@ class SimuladorConversionViewsTest(TestCase):
         self.assertEqual(resp.status_code, 400)
         data = resp.json()
         self.assertFalse(data['exito'])
->>>>>>> feature/IS2-10

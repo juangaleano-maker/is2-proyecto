@@ -1,22 +1,22 @@
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from typing import Dict, Any, Optional
 from .models import Cotizacion
+from monedas.models import Moneda
 
 
 def obtener_monedas_disponibles() -> list:
     """
-    Retorna la lista de tuplas (codigo, nombre) de monedas configuradas
-    en el sistema o presentes en las cotizaciones.
+    Retorna la lista de tuplas (codigo, nombre) de monedas activas configuradas
+    en el sistema para poblar los selectores del simulador.
     """
-    return list(Cotizacion.MONEDAS)
+    return list(Moneda.objects.filter(activa=True).order_by('siglas').values_list('siglas', 'nombre'))
 
 
 def redondear_monto(monto: Decimal, moneda: str) -> Decimal:
     """
     Redondea el monto según la moneda (PYG suele manejarse entero o 2 decimales, otras con 2 decimales).
     """
-    if moneda == 'PYG':
-        # En Guaraníes se redondea típicamente a entero o 2 decimales
+    if str(moneda).upper() == 'PYG':
         return monto.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
     return monto.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
@@ -48,25 +48,27 @@ def simular_conversion(
     if monto_decimal <= Decimal('0'):
         raise ValueError("El monto a simular debe ser mayor a cero.")
     
-    moneda_origen = str(moneda_origen).upper().strip()
-    moneda_destino = str(moneda_destino).upper().strip()
+    moneda_origen_cod = str(moneda_origen).upper().strip()
+    moneda_destino_cod = str(moneda_destino).upper().strip()
     
-    monedas_validas = dict(Cotizacion.MONEDAS)
-    if moneda_origen not in monedas_validas:
-        raise ValueError(f"La moneda de origen '{moneda_origen}' no es válida en el sistema.")
-    if moneda_destino not in monedas_validas:
-        raise ValueError(f"La moneda de destino '{moneda_destino}' no es válida en el sistema.")
+    origen_obj = Moneda.objects.filter(siglas__iexact=moneda_origen_cod, activa=True).first()
+    if not origen_obj:
+        raise ValueError(f"La moneda de origen '{moneda_origen_cod}' no es válida en el sistema.")
+        
+    destino_obj = Moneda.objects.filter(siglas__iexact=moneda_destino_cod, activa=True).first()
+    if not destino_obj:
+        raise ValueError(f"La moneda de destino '{moneda_destino_cod}' no es válida en el sistema.")
     
     # Caso 1: Misma moneda
-    if moneda_origen == moneda_destino:
+    if origen_obj.pk == destino_obj.pk or origen_obj.siglas == destino_obj.siglas:
         return {
             'exito': True,
-            'moneda_origen': moneda_origen,
-            'moneda_origen_nombre': monedas_validas.get(moneda_origen, moneda_origen),
-            'moneda_destino': moneda_destino,
-            'moneda_destino_nombre': monedas_validas.get(moneda_destino, moneda_destino),
+            'moneda_origen': origen_obj.siglas,
+            'moneda_origen_nombre': origen_obj.nombre,
+            'moneda_destino': destino_obj.siglas,
+            'moneda_destino_nombre': destino_obj.nombre,
             'monto_origen': monto_decimal,
-            'monto_destino': redondear_monto(monto_decimal, moneda_destino),
+            'monto_destino': redondear_monto(monto_decimal, destino_obj.siglas),
             'tasa_aplicada': Decimal('1.0'),
             'tipo_operacion': 'paridad',
             'descripcion_tasa': 'Misma moneda (conversión 1:1)',
@@ -79,8 +81,8 @@ def simular_conversion(
     # Caso 2: Par directo existente (moneda_origen -> moneda_destino)
     cot_directa = (
         Cotizacion.objects.filter(
-            moneda_origen=moneda_origen,
-            moneda_destino=moneda_destino,
+            moneda_origen=origen_obj,
+            moneda_destino=destino_obj,
             activo=True
         )
         .order_by('-fecha')
@@ -93,15 +95,15 @@ def simular_conversion(
         monto_destino = monto_decimal * tasa
         return {
             'exito': True,
-            'moneda_origen': moneda_origen,
-            'moneda_origen_nombre': monedas_validas.get(moneda_origen, moneda_origen),
-            'moneda_destino': moneda_destino,
-            'moneda_destino_nombre': monedas_validas.get(moneda_destino, moneda_destino),
+            'moneda_origen': origen_obj.siglas,
+            'moneda_origen_nombre': origen_obj.nombre,
+            'moneda_destino': destino_obj.siglas,
+            'moneda_destino_nombre': destino_obj.nombre,
             'monto_origen': monto_decimal,
-            'monto_destino': redondear_monto(monto_destino, moneda_destino),
+            'monto_destino': redondear_monto(monto_destino, destino_obj.siglas),
             'tasa_aplicada': tasa,
             'tipo_operacion': 'compra_directa',
-            'descripcion_tasa': f"1 {moneda_origen} = {tasa} {moneda_destino} (Precio Compra vigente)",
+            'descripcion_tasa': f"1 {origen_obj.siglas} = {tasa} {destino_obj.siglas} (Precio Compra vigente)",
             'fecha_tasa': cot_directa.fecha,
             'cotizacion_id': cot_directa.id,
             'es_simulacion': True,
@@ -111,8 +113,8 @@ def simular_conversion(
     # Caso 3: Par inverso existente (moneda_destino -> moneda_origen)
     cot_inversa = (
         Cotizacion.objects.filter(
-            moneda_origen=moneda_destino,
-            moneda_destino=moneda_origen,
+            moneda_origen=destino_obj,
+            moneda_destino=origen_obj,
             activo=True
         )
         .order_by('-fecha')
@@ -128,16 +130,16 @@ def simular_conversion(
         tasa_efectiva = (Decimal('1') / tasa_venta).quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP)
         return {
             'exito': True,
-            'moneda_origen': moneda_origen,
-            'moneda_origen_nombre': monedas_validas.get(moneda_origen, moneda_origen),
-            'moneda_destino': moneda_destino,
-            'moneda_destino_nombre': monedas_validas.get(moneda_destino, moneda_destino),
+            'moneda_origen': origen_obj.siglas,
+            'moneda_origen_nombre': origen_obj.nombre,
+            'moneda_destino': destino_obj.siglas,
+            'moneda_destino_nombre': destino_obj.nombre,
             'monto_origen': monto_decimal,
-            'monto_destino': redondear_monto(monto_destino, moneda_destino),
+            'monto_destino': redondear_monto(monto_destino, destino_obj.siglas),
             'tasa_aplicada': tasa_efectiva,
             'tasa_referencia_inversa': tasa_venta,
             'tipo_operacion': 'venta_inversa',
-            'descripcion_tasa': f"1 {moneda_destino} = {tasa_venta} {moneda_origen} (Precio Venta vigente)",
+            'descripcion_tasa': f"1 {destino_obj.siglas} = {tasa_venta} {origen_obj.siglas} (Precio Venta vigente)",
             'fecha_tasa': cot_inversa.fecha,
             'cotizacion_id': cot_inversa.id,
             'es_simulacion': True,
@@ -146,22 +148,20 @@ def simular_conversion(
     
     # Caso 4: Triangulación a través de monedas puente (PYG o USD)
     for puente in ['PYG', 'USD']:
-        if puente not in (moneda_origen, moneda_destino):
+        if puente not in (origen_obj.siglas, destino_obj.siglas):
             try:
-                # Paso A: origen -> puente
-                sim_paso_1 = simular_conversion(moneda_origen, puente, monto_decimal)
-                # Paso B: puente -> destino
-                sim_paso_2 = simular_conversion(puente, moneda_destino, sim_paso_1['monto_destino'])
+                sim_paso_1 = simular_conversion(origen_obj.siglas, puente, monto_decimal)
+                sim_paso_2 = simular_conversion(puente, destino_obj.siglas, sim_paso_1['monto_destino'])
                 
                 tasa_cruzada = (sim_paso_2['monto_destino'] / monto_decimal).quantize(Decimal('0.000001'), rounding=ROUND_HALF_UP)
                 return {
                     'exito': True,
-                    'moneda_origen': moneda_origen,
-                    'moneda_origen_nombre': monedas_validas.get(moneda_origen, moneda_origen),
-                    'moneda_destino': moneda_destino,
-                    'moneda_destino_nombre': monedas_validas.get(moneda_destino, moneda_destino),
+                    'moneda_origen': origen_obj.siglas,
+                    'moneda_origen_nombre': origen_obj.nombre,
+                    'moneda_destino': destino_obj.siglas,
+                    'moneda_destino_nombre': destino_obj.nombre,
                     'monto_origen': monto_decimal,
-                    'monto_destino': redondear_monto(sim_paso_2['monto_destino'], moneda_destino),
+                    'monto_destino': redondear_monto(sim_paso_2['monto_destino'], destino_obj.siglas),
                     'tasa_aplicada': tasa_cruzada,
                     'tipo_operacion': f'triangulada_via_{puente.lower()}',
                     'descripcion_tasa': f"Tasa cruzada triangulada a través de {puente}",
@@ -175,5 +175,5 @@ def simular_conversion(
     
     # Si no se encontró ninguna cotización aplicable
     raise ValueError(
-        f"No se encontró una cotización activa vigente entre {moneda_origen} y {moneda_destino}."
+        f"No se encontró una cotización activa vigente entre {origen_obj.siglas} y {destino_obj.siglas}."
     )
