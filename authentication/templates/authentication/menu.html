@@ -139,9 +139,14 @@
                 Consulta los valores más recientes de compra y venta de cada moneda disponible antes de operar.
             </p>
         </div>
-        <a href="{% url 'tasas_vigentes' %}" style="display: block; text-align: center; padding: 10px; background-color: #059669; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">
-            💱 Ver Tasas de Cambio
-        </a>
+        <div style="display: flex; gap: 8px; flex-direction: column;">
+            <a href="{% url 'tasas_vigentes' %}" style="display: block; text-align: center; padding: 9px; background-color: #059669; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                💱 Ver Tasas de Cambio
+            </a>
+            <a href="{% url 'historial_tasas' %}" style="display: block; text-align: center; padding: 8px; background-color: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                📈 Ver Historial y Reportes
+            </a>
+        </div>
     </div>
 
     <!-- CARD 3: CONSULTAR ESTADO DE CUENTA -->

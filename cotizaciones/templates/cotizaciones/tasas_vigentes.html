@@ -226,6 +226,9 @@
             <span style="background: rgba(255,255,255,0.12); color: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
                 {{ tasas_count }} par{{ tasas_count|pluralize:"es" }} disponible{{ tasas_count|pluralize:"s" }}
             </span>
+            <a href="{% url 'historial_tasas' %}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: #059669; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600;">
+                📈 Ver Historial
+            </a>
             <a href="{% url 'menu' %}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: rgba(255,255,255,0.15); color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600;">
                 ⬅️ Volver al Menú
             </a>
@@ -343,9 +346,14 @@
                             {{ t.moneda_origen.nombre }} por {{ t.moneda_destino.nombre }}
                         </div>
                     </div>
-                    <button type="button" class="btn-calc-shortcut" onclick="selectInCalculator({{ t.id }})">
-                        🧮 Simular
-                    </button>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="btn-calc-shortcut" onclick="selectInCalculator({{ t.id }})">
+                            🧮 Simular
+                        </button>
+                        <a href="{% url 'historial_tasas' %}?moneda_origen={{ t.moneda_origen.siglas }}&moneda_destino={{ t.moneda_destino.siglas }}" class="btn-calc-shortcut" style="text-decoration: none;">
+                            📈 Historial
+                        </a>
+                    </div>
                 </div>
 
                 <div class="rate-box">

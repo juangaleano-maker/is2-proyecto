@@ -210,3 +210,159 @@ class ConsultarTasasDeCambioTestCase(TestCase):
         self.assertIn(('USD', 'PYG'), pares)
         self.assertIn(('EUR', 'PYG'), pares)
 
+
+class HistorialTasasTestCase(TestCase):
+    """
+    Pruebas unitarias para la Historia de Usuario IS2-8:
+    'Ver historial de tasas' y descarga de reportes para Usuario Registrado.
+    """
+
+    def setUp(self):
+        from datetime import datetime, timedelta
+        from django.utils import timezone
+
+        self.grupo_cliente = Group.objects.create(name='cliente')
+        self.usuario = User.objects.create_user(
+            username='carlos_cliente',
+            email='carlos@exchange.com',
+            password='password123'
+        )
+        self.usuario.groups.add(self.grupo_cliente)
+
+        self.usd = Moneda.objects.create(nombre='Dólar Estadounidense', siglas='USD', activa=True)
+        self.pyg = Moneda.objects.create(nombre='Guaraní Paraguayo', siglas='PYG', activa=True)
+        self.eur = Moneda.objects.create(nombre='Euro', siglas='EUR', activa=True)
+
+        self.hoy = timezone.now()
+        self.hace_5_dias = self.hoy - timedelta(days=5)
+        self.hace_15_dias = self.hoy - timedelta(days=15)
+        self.hace_45_dias = self.hoy - timedelta(days=45)
+
+        # Crear cotizaciones en diferentes fechas
+        # Registro 1: Hace 45 días
+        self.cot1 = Cotizacion.objects.create(
+            moneda_origen=self.usd, moneda_destino=self.pyg,
+            compra=Decimal('7600.00'), venta=Decimal('7650.00'),
+            activo=False, registrado_por=self.usuario
+        )
+        Cotizacion.objects.filter(id=self.cot1.id).update(fecha=self.hace_45_dias)
+
+        # Registro 2: Hace 15 días
+        self.cot2 = Cotizacion.objects.create(
+            moneda_origen=self.usd, moneda_destino=self.pyg,
+            compra=Decimal('7750.00'), venta=Decimal('7800.00'),
+            activo=False, registrado_por=self.usuario
+        )
+        Cotizacion.objects.filter(id=self.cot2.id).update(fecha=self.hace_15_dias)
+
+        # Registro 3: Hace 5 días
+        self.cot3 = Cotizacion.objects.create(
+            moneda_origen=self.usd, moneda_destino=self.pyg,
+            compra=Decimal('7880.00'), venta=Decimal('7930.00'),
+            activo=False, registrado_por=self.usuario
+        )
+        Cotizacion.objects.filter(id=self.cot3.id).update(fecha=self.hace_5_dias)
+
+        # Registro 4: Hoy (vigente)
+        self.cot4 = Cotizacion.objects.create(
+            moneda_origen=self.usd, moneda_destino=self.pyg,
+            compra=Decimal('7950.00'), venta=Decimal('8000.00'),
+            activo=True, registrado_por=self.usuario
+        )
+
+        # Registro EUR: Hoy
+        self.cot_eur = Cotizacion.objects.create(
+            moneda_origen=self.eur, moneda_destino=self.pyg,
+            compra=Decimal('8500.00'), venta=Decimal('8600.00'),
+            activo=True, registrado_por=self.usuario
+        )
+
+        self.client = Client()
+
+    def test_historial_requiere_login(self):
+        """Un usuario no autenticado no puede acceder al historial de tasas."""
+        response = self.client.get(reverse('historial_tasas'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/login/', response.url)
+
+    def test_usuario_registrado_accede_al_historial(self):
+        """Un usuario registrado accede correctamente a la vista de historial."""
+        self.client.force_login(self.usuario)
+        response = self.client.get(reverse('historial_tasas'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Historial y Evolución de Tasas de Cambio")
+
+    def test_criterio_1_seleccion_rango_fechas(self):
+        """
+        Criterio 1: El sistema debe permitir seleccionar un rango de fechas.
+        Filtrar entre hace 20 días y hace 2 días debe incluir solo las cotizaciones 2 y 3.
+        """
+        from datetime import timedelta
+        self.client.force_login(self.usuario)
+
+        desde = (self.hoy - timedelta(days=20)).strftime('%Y-%m-%d')
+        hasta = (self.hoy - timedelta(days=2)).strftime('%Y-%m-%d')
+
+        response = self.client.get(reverse('historial_tasas'), {
+            'fecha_desde': desde,
+            'fecha_hasta': hasta,
+            'moneda_origen': 'USD',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        cotizaciones = response.context['cotizaciones']
+        ids = [c.id for c in cotizaciones]
+
+        # Debe incluir cot2 (hace 15 días) y cot3 (hace 5 días)
+        self.assertIn(self.cot2.id, ids)
+        self.assertIn(self.cot3.id, ids)
+        # NO debe incluir cot1 (hace 45 días) ni cot4 (hoy)
+        self.assertNotIn(self.cot1.id, ids)
+        self.assertNotIn(self.cot4.id, ids)
+
+    def test_criterio_2_muestra_tasa_correspondiente_a_cada_fecha(self):
+        """
+        Criterio 2: Debe mostrarse la tasa correspondiente a cada fecha consultada.
+        """
+        self.client.force_login(self.usuario)
+        response = self.client.get(reverse('historial_tasas'), {'moneda_origen': 'USD'})
+
+        self.assertEqual(response.status_code, 200)
+        # Verifica que aparecen los distintos precios históricos de compra y venta
+        self.assertContains(response, "7600.00")
+        self.assertContains(response, "7650.00")
+        self.assertContains(response, "7750.00")
+        self.assertContains(response, "7800.00")
+        self.assertContains(response, "7880.00")
+        self.assertContains(response, "7930.00")
+        self.assertContains(response, "7950.00")
+        self.assertContains(response, "8000.00")
+
+    def test_criterio_3_descarga_reporte_historial_csv(self):
+        """
+        Criterio 3: Debe existir la opción de descargar el reporte de ese historial (CSV).
+        """
+        self.client.force_login(self.usuario)
+        response = self.client.get(reverse('descargar_reporte_historial'), {
+            'moneda_origen': 'USD',
+            'moneda_destino': 'PYG',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        # Verificar cabeceras HTTP de archivo adjunto CSV
+        self.assertIn('text/csv', response['Content-Type'])
+        self.assertIn('attachment;', response['Content-Disposition'])
+        self.assertIn('.csv', response['Content-Disposition'])
+
+        # Verificar contenido estructurado del CSV
+        content = response.content.decode('utf-8-sig')
+        self.assertIn('Moneda Origen', content)
+        self.assertIn('Moneda Destino', content)
+        self.assertIn('Precio Compra', content)
+        self.assertIn('Precio Venta', content)
+        self.assertIn('7950.00', content)
+        self.assertIn('7880.00', content)
+        self.assertIn('7750.00', content)
+        self.assertIn('7600.00', content)
+
+
