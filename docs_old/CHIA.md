@@ -416,3 +416,67 @@ Endpoints JSON para integración con sistemas externos:
 | mozilla-django-oidc | Integración OIDC Django-Keycloak |
 | Docker Documentation | Configuración de servicios y redes Docker Compose |
 
+---
+
+## 8. Registro de Conversaciones — Hito 4 / Sprint 2
+
+**Hito:** Hito 4 - Sprint 2 del Desarrollo de Software
+**Herramienta de IA:** Antigravity IDE (Claude Sonnet 4.6 / Gemini)
+
+---
+
+### 8.1. Resolución de Conflictos Git al Actualizar el Repositorio
+
+- **Contexto / Problema:** Al intentar hacer `git pull` para bajar la versión actualizada del repositorio remoto, el comando falló porque existían archivos `untracked` (`docs/source/cotizaciones.rst` y `docs/source/monedas.rst`) que serían sobreescritos por el merge. El `git stash` previo no los había incluido por ser archivos sin seguimiento.
+- **Prompt del Usuario:**
+  > *"(compartió la salida del terminal con el error de git pull)"*
+- **Análisis de la IA:**
+  El problema radicó en que `git stash` solo preserva archivos tracked (modificados o en stage). Los archivos untracked quedan en el directorio de trabajo y bloquean el merge si el remoto también los trae. La solución fue: 1) descartar el stash con `git stash drop`, 2) limpiar los archivos untracked con `git clean -fd docs/source/`, y 3) ejecutar `git pull`.
+- **Solución Aplicada:**
+  ```bash
+  git stash drop
+  git clean -fd docs/source/
+  git pull
+  ```
+  El pull se completó exitosamente (fast-forward de `12aba39` a `1965c9f`), incorporando los nuevos módulos del Sprint 2: simulador de conversión, tasas vigentes, historial de tasas y vista pública para visitantes.
+
+---
+
+### 8.2. Generación de Documentación con Sphinx
+
+- **Contexto / Problema:** Se requería generar la documentación HTML del proyecto utilizando Sphinx, aprovechando los archivos `.rst` existentes en `docs/source/` y los docstrings del código fuente.
+- **Prompt del Usuario:**
+  > *"Genera la documentacion en sphinx"*
+- **Análisis de la IA:**
+  Se verificó que Sphinx no estaba instalado en el entorno Python del sistema (solo en el `.venv`). Se procedió a instalar `sphinx` y `sphinx-rtd-theme`, se comprobaron las dependencias de Django necesarias para que `conf.py` pudiera ejecutar `django.setup()`, y se ejecutó el build.
+- **Solución Aplicada:**
+  ```bash
+  python -m pip install sphinx sphinx-rtd-theme
+  python -m sphinx -b html source build/html
+  ```
+  El build finalizó exitosamente (`build succeeded, 6 warnings`). Los warnings no críticos corresponden a: módulo `celery` no instalado en el entorno del sistema, y errores de formato en docstrings de `authentication/decorators.py` y `global_exchange/urls.py`.
+
+  Módulos documentados: `agregar_usuario`, `authentication`, `clientes`, `cotizaciones` (incluye `services.py` nuevo del Sprint 2), `monedas`, `usuarios`.
+
+- **Comando para abrir la documentación (Windows PowerShell):**
+  ```powershell
+  Start-Process "docs\build\html\index.html"
+  ```
+
+---
+
+### 8.3. Consulta sobre Cómo Abrir la Documentación Generada
+
+- **Contexto / Problema:** Una vez generada la documentación, se necesitaba saber cómo abrirla en el navegador y cuál es la forma más práctica de regenerarla tras hacer cambios en el código.
+- **Prompt del Usuario:**
+  > *"y como hago cuando quiero abrir la documentacion esta?"*
+- **Respuesta de la IA:**
+  Se explicaron tres métodos:
+  1. Desde la terminal: `Start-Process "docs\build\html\index.html"`
+  2. Desde el explorador de archivos, navegando a `docs\build\html\` y haciendo doble clic en `index.html`.
+  3. Comando combinado para regenerar y abrir en un solo paso (ejecutar desde la carpeta `docs\`):
+     ```powershell
+     python -m sphinx -b html source build/html; Start-Process "build\html\index.html"
+     ```
+
+---
