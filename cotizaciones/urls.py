@@ -10,6 +10,11 @@ urlpatterns = [
     path('registrar/', views.cotizaciones_frontend, name='cotizaciones_registrar_frontend'),
     path('modificar/<int:cotizacion_id>/', views.cotizaciones_modificar_frontend, name='cotizaciones_modificar_frontend'),
 
+    # Consulta de tasas de cambio vigentes para usuarios registrados (IS2-6 / IS2-7)
+    path('tasas-vigentes/', views.consultar_tasas_vigentes, name='tasas_vigentes'),
+    path('tasas-vigentes/', views.consultar_tasas_vigentes, name='cotizaciones_tasas_vigentes'),
+    path('api/tasas-vigentes/', views.listar_tasas_vigentes_api, name='api_tasas_vigentes'),
+
     # API endpoints
     path('api/registrar/', views.registrar_cotizacion_api, name='api_registrar_cotizacion'),
     path('api/modificar/<int:cotizacion_id>/', views.modificar_cotizacion_api, name='api_modificar_cotizacion'),
