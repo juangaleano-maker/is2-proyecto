@@ -12,12 +12,10 @@ urlpatterns = [
 
     # Consulta de tasas de cambio vigentes para usuarios registrados (IS2-6 / IS2-7)
     path('tasas-vigentes/', views.consultar_tasas_vigentes, name='tasas_vigentes'),
-    path('tasas-vigentes/', views.consultar_tasas_vigentes, name='cotizaciones_tasas_vigentes'),
     path('api/tasas-vigentes/', views.listar_tasas_vigentes_api, name='api_tasas_vigentes'),
 
     # Historial y evolución de tasas con descarga de reportes para usuarios registrados (IS2-8)
     path('historial/', views.historial_tasas, name='historial_tasas'),
-    path('historial/', views.historial_tasas, name='cotizaciones_historial'),
     path('historial/descargar/', views.descargar_reporte_historial, name='descargar_reporte_historial'),
 
     # Vista pública para visitantes (IS2-20)
