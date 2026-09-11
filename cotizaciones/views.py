@@ -60,6 +60,7 @@ def registrar_cotizacion_api(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+<<<<<<< HEAD
 @rol_requerido('analista_cambiario', 'admin')
 @ensure_csrf_cookie
 def cotizaciones_modificar_frontend(request, cotizacion_id):
@@ -156,10 +157,50 @@ def consultar_cotizaciones(request):
         'monedas': monedas,
         'moneda_origen_filtro': moneda_origen_filtro,
         'moneda_destino_filtro': moneda_destino_filtro,
+=======
+
+@login_required
+def simulador_conversion_view(request):
+    """
+    Vista web interactiva para que un usuario registrado simule
+    la conversión entre dos monedas según la tasa vigente (IS2-10).
+    """
+    from .services import simular_conversion, obtener_monedas_disponibles
+    
+    monedas = obtener_monedas_disponibles()
+    resultado = None
+    error = None
+    
+    # Soporta parámetros vía GET o POST (por defecto PYG a USD para el público paraguayo)
+    moneda_origen = request.GET.get('moneda_origen') or request.POST.get('moneda_origen') or 'PYG'
+    moneda_destino = request.GET.get('moneda_destino') or request.POST.get('moneda_destino') or 'USD'
+    monto = request.GET.get('monto') or request.POST.get('monto') or ''
+    
+    if monto:
+        try:
+            resultado = simular_conversion(
+                moneda_origen=moneda_origen,
+                moneda_destino=moneda_destino,
+                monto=monto
+            )
+        except ValueError as ve:
+            error = str(ve)
+        except Exception as e:
+            error = f"Ocurrió un error inesperado al calcular la conversión: {str(e)}"
+            
+    return render(request, 'cotizaciones/simulador.html', {
+        'monedas': monedas,
+        'moneda_origen': moneda_origen,
+        'moneda_destino': moneda_destino,
+        'monto': monto,
+        'resultado': resultado,
+        'error': error,
+>>>>>>> feature/IS2-10
     })
 
 
 @login_required
+<<<<<<< HEAD
 def consultar_tasas_vigentes(request):
     """
     Permite a cualquier Usuario Registrado consultar las tasas de cambio vigentes
@@ -486,3 +527,63 @@ def tasas_visitante(request):
         'busqueda': busqueda,
         'tasas_json': json.dumps(tasas_json),
     })
+=======
+@require_http_methods(["GET", "POST"])
+def api_simular_conversion(request):
+    """
+    Endpoint API para simular conversión de monedas en tiempo real (IS2-10).
+    Retorna JSON con el monto calculado y tasa aplicada.
+    """
+    from .services import simular_conversion
+    
+    if request.method == 'POST':
+        try:
+            if request.content_type == 'application/json' and request.body:
+                data = json.loads(request.body)
+            else:
+                data = request.POST
+        except json.JSONDecodeError:
+            return JsonResponse({'exito': False, 'error': 'Formato JSON inválido.'}, status=400)
+    else:
+        data = request.GET
+
+    moneda_origen = data.get('moneda_origen')
+    moneda_destino = data.get('moneda_destino')
+    monto = data.get('monto')
+
+    if not all([moneda_origen, moneda_destino, monto]):
+        return JsonResponse({
+            'exito': False,
+            'error': 'Parámetros obligatorios: moneda_origen, moneda_destino y monto.'
+        }, status=400)
+
+    try:
+        resultado = simular_conversion(
+            moneda_origen=moneda_origen,
+            moneda_destino=moneda_destino,
+            monto=monto
+        )
+        # Serializar tipos no nativos JSON
+        payload = {
+            'exito': True,
+            'moneda_origen': resultado['moneda_origen'],
+            'moneda_origen_nombre': resultado['moneda_origen_nombre'],
+            'moneda_destino': resultado['moneda_destino'],
+            'moneda_destino_nombre': resultado['moneda_destino_nombre'],
+            'monto_origen': str(resultado['monto_origen']),
+            'monto_destino': str(resultado['monto_destino']),
+            'tasa_aplicada': str(resultado['tasa_aplicada']),
+            'tipo_operacion': resultado['tipo_operacion'],
+            'descripcion_tasa': resultado['descripcion_tasa'],
+            'fecha_tasa': resultado['fecha_tasa'].isoformat() if resultado['fecha_tasa'] else None,
+            'cotizacion_id': resultado['cotizacion_id'],
+            'es_simulacion': True,
+            'aviso': resultado['aviso'],
+        }
+        return JsonResponse(payload, status=200)
+    except ValueError as ve:
+        return JsonResponse({'exito': False, 'error': str(ve)}, status=400)
+    except Exception as e:
+        return JsonResponse({'exito': False, 'error': str(e)}, status=500)
+
+>>>>>>> feature/IS2-10

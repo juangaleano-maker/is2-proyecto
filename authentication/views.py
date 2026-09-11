@@ -30,6 +30,14 @@ class CustomOIDCAuthenticationCallbackView(OIDCAuthenticationCallbackView):
             return redirect(settings.LOGIN_REDIRECT_URL)
         return super().get(request, *args, **kwargs)
 
+    def login_success(self):
+        from django.contrib import auth
+        auth.login(self.request, self.user)
+        self.request.session.save()
+        # Redirigir siempre al menú principal
+        return redirect('menu')
+
+
 
 
 def logout_view(request):

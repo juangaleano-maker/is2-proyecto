@@ -28,4 +28,8 @@ urlpatterns = [
     path('api/modificar/<int:cotizacion_id>/', views.modificar_cotizacion_api, name='api_modificar_cotizacion'),
     path('api/desactivar/<int:cotizacion_id>/', views.desactivar_cotizacion_api, name='api_desactivar_cotizacion'),
     path('api/vigente/<str:origen>/<str:destino>/', views.obtener_tasa_vigente_api, name='api_obtener_tasa_vigente'),
+
+    # Simulador de conversión de moneda (IS2-10)
+    path('simulador/', views.simulador_conversion_view, name='simulador_conversion'),
+    path('api/simular/', views.api_simular_conversion, name='api_simular_conversion'),
 ]

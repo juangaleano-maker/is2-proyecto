@@ -69,7 +69,7 @@
         <h1>Bienvenido a Global Exchange</h1>
         <p>¿Qué deseas hacer hoy?</p>
         <div>
-            <a href="{% url 'oidc_authentication_init' %}" class="btn btn-login">Iniciar Sesión</a>
+            <a href="{% url 'oidc_authentication_init' %}?next={% url 'menu' %}" class="btn btn-login">Iniciar Sesión</a>
             <a href="{% url 'usuarios:registro' %}" class="btn btn-register">Crear una Cuenta</a>
         </div>
         <hr class="divider">
