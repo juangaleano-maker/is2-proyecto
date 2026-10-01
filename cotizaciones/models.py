@@ -37,3 +37,66 @@ class Cotizacion(models.Model):
 
     def __str__(self):
         return f"{self.moneda_origen.siglas} a {self.moneda_destino.siglas} - Compra: {self.compra} / Venta: {self.venta} ({self.fecha.strftime('%d/%m/%Y %H:%M')})"
+
+
+class Operacion(models.Model):
+    class TipoOperacion(models.TextChoices):
+        COMPRA = "COMPRA", "Compra"
+        VENTA = "VENTA", "Venta"
+
+    class EstadoOperacion(models.TextChoices):
+        PENDIENTE = "PENDIENTE", "Pendiente"
+        PAGADA = "PAGADA", "Pagada"
+        CANCELADA = "CANCELADA", "Cancelada"
+
+    cliente = models.ForeignKey(
+        'clientes.Cliente', 
+        on_delete=models.RESTRICT, 
+        related_name='operaciones',
+        verbose_name="Cliente"
+    )
+    moneda = models.ForeignKey(
+        'monedas.Moneda', 
+        on_delete=models.RESTRICT, 
+        related_name='operaciones',
+        verbose_name="Moneda"
+    )
+    tipo = models.CharField(
+        max_length=10, 
+        choices=TipoOperacion.choices, 
+        verbose_name="Tipo de Operación"
+    )
+    monto = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        verbose_name="Monto"
+    )
+    tasa_aplicada = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        verbose_name="Tasa Aplicada"
+    )
+    comision = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0.00,
+        verbose_name="Comisión"
+    )
+    fecha = models.DateTimeField(
+        auto_now_add=True, 
+        verbose_name="Fecha de Registro"
+    )
+    estado = models.CharField(
+        max_length=15, 
+        choices=EstadoOperacion.choices, 
+        default=EstadoOperacion.PENDIENTE,
+        verbose_name="Estado"
+    )
+
+    class Meta:
+        verbose_name = "Operación"
+        verbose_name_plural = "Operaciones"
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.monto} {self.moneda.siglas} ({self.cliente})"
