@@ -177,7 +177,30 @@
         </a>
     </div>
 
+    <!-- CARD 5: VENTA DE MONEDA (IS2-16) -->
+    <div style="background: white; border: 1px solid #a7f3d0; border-radius: 10px; padding: 22px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.08); display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                <div style="font-size: 28px;">💵</div>
+                <span style="background: #ecfdf5; color: #047857; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; border: 1px solid #a7f3d0;">NUEVO</span>
+            </div>
+            <h3 style="color: #065f46; font-size: 17px; margin-bottom: 8px;">Venta de Moneda</h3>
+            <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 15px;">
+                Vende divisas a nombre de tu cliente asignado con cálculo automático de comisiones y registro en estado Pendiente.
+            </p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-direction: column;">
+            <a href="{% url 'operacion_venta' %}" style="display: block; text-align: center; padding: 10px; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 14px;">
+                💵 Registrar Venta
+            </a>
+            <a href="{% url 'operaciones_lista' %}" style="display: block; text-align: center; padding: 8px; background-color: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                📋 Historial de Operaciones
+            </a>
+        </div>
+    </div>
+
 </div>
+
 
 {% if es_personal or es_admin or es_finanzas %}
 <!-- SECCIÓN EXCLUSIVA: ADMINISTRACIÓN DEL SISTEMA -->

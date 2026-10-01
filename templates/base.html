@@ -32,6 +32,16 @@
             </li>
             {% if request.user.is_authenticated %}
             <li>
+                <a href="{% url 'operacion_venta' %}" class="nav-link" style="color: #6ee7b7; font-weight: 600;">
+                    <span>💵</span> Venta de Moneda
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'operaciones_lista' %}" class="nav-link">
+                    <span>📋</span> Operaciones
+                </a>
+            </li>
+            <li>
                 <a href="{% url 'tasas_vigentes' %}" class="nav-link">
                     <span>💱</span> Tasas de Cambio
                 </a>

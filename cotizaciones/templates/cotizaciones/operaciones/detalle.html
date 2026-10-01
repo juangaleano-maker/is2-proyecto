@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Comprobante de Operación #{{ operacion.id }} | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .receipt-container {
+        max-width: 820px;
+        margin: 20px auto 40px auto;
+        padding: 0 15px;
+    }
+    .receipt-card {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 14px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
+    .receipt-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+        padding: 24px 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .receipt-body {
+        padding: 30px;
+    }
+    .badge-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .status-pendiente {
+        background-color: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+    }
+    .status-pagada {
+        background-color: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+    .status-cancelada {
+        background-color: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #f59e0b;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+        animation: pulseAmber 2s infinite;
+    }
+    @keyframes pulseAmber {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+    .section-title {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.75px;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 12px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .data-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .data-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 14px;
+    }
+    .data-label {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+    .data-value {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    .financial-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 24px;
+    }
+    .financial-table th {
+        text-align: left;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 10px 14px;
+        border-top: 1px solid #cbd5e1;
+        border-bottom: 1px solid #cbd5e1;
+    }
+    .financial-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 14px;
+        color: #1e293b;
+    }
+    .financial-table td.amount {
+        text-align: right;
+        font-weight: 600;
+    }
+    .financial-table tr.total-row td {
+        border-top: 2px solid #0f172a;
+        border-bottom: 2px solid #0f172a;
+        font-size: 17px;
+        font-weight: 800;
+        background: #f8fafc;
+        color: #047857;
+    }
+    .actions-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
+    }
+    @media print {
+        .navbar, .footer, .actions-bar, .no-print {
+            display: none !important;
+        }
+        .receipt-card {
+            box-shadow: none;
+            border: 1px solid #000;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="receipt-container">
+
+    <div class="receipt-card">
+
+        <!-- HEADER DEL RECIBO -->
+        <div class="receipt-header">
+            <div>
+                <div style="font-size: 13px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                    Comprobante de Transacción Cambiaria
+                </div>
+                <h1 style="font-size: 22px; font-weight: 800; margin: 0; color: #ffffff;">
+                    Operación #{{ operacion.id }} — {{ operacion.get_tipo_display }}
+                </h1>
+                <div style="font-size: 13px; color: #cbd5e1; margin-top: 4px;">
+                    Fecha y Hora: <strong>{{ operacion.fecha|date:"d/m/Y H:i:s" }}</strong>
+                </div>
+            </div>
+            <div>
+                {% if operacion.estado == 'PENDIENTE' %}
+                <span class="badge-status status-pendiente">
+                    <span class="pulse-dot"></span> {{ operacion.get_estado_display }}
+                </span>
+                {% elif operacion.estado == 'PAGADA' %}
+                <span class="badge-status status-pagada">
+                    ✅ {{ operacion.get_estado_display }}
+                </span>
+                {% else %}
+                <span class="badge-status status-cancelada">
+                    🚫 {{ operacion.get_estado_display }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="receipt-body">
+
+            <!-- AVISO DE ESTADO PENDIENTE -->
+            {% if operacion.estado == 'PENDIENTE' %}
+            <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px;">
+                <span style="font-size: 24px;">⏳</span>
+                <div style="font-size: 13.5px; color: #92400e; line-height: 1.5;">
+                    <strong>Operación en Estado Pendiente:</strong> Esta venta ha sido registrada formalmente en el sistema y se encuentra a la espera del flujo de revisión y confirmación de pago por parte de Tesorería/Operaciones.
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- SECCIÓN: DATOS DEL CLIENTE ASIGNADO -->
+            <div class="section-title">
+                <span>👤</span> Información del Cliente Asignado
+            </div>
+            <div class="data-grid">
+                <div class="data-item">
+                    <div class="data-label">Cliente / Titular</div>
+                    <div class="data-value">{{ operacion.cliente }}</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Documento / RUC</div>
+                    <div class="data-value">{{ operacion.cliente.documento }}</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Segmento</div>
+                    <div class="data-value">
+                        <span style="background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 13px;">
+                            {{ operacion.cliente.get_segmento_display }}
+                        </span>
+                    </div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">Operador / Registrado Por</div>
+                    <div class="data-value">
+                        {{ operacion.registrado_por.username|default:"Sistema" }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN: DESGLOSE FINANCIERO -->
+            <div class="section-title">
+                <span>💰</span> Liquidación y Cálculo de Operación
+            </div>
+            <table class="financial-table">
+                <thead>
+                    <tr>
+                        <th>Concepto</th>
+                        <th>Detalle</th>
+                        <th style="text-align: right;">Importe (PYG)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <strong>Monto de Divisa Entregado</strong>
+                        </td>
+                        <td>
+                            {{ operacion.monto|floatformat:2 }} {{ operacion.moneda.siglas }} ({{ operacion.moneda.nombre }})
+                        </td>
+                        <td class="amount">
+                            —
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>Tasa de Cambio Aplicada</strong>
+                        </td>
+                        <td>
+                            1 {{ operacion.moneda.siglas }} = {{ operacion.tasa_aplicada|floatformat:2 }} PYG
+                        </td>
+                        <td class="amount">
+                            —
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>Subtotal Bruto</strong>
+                        </td>
+                        <td>
+                            {{ operacion.monto|floatformat:2 }} × {{ operacion.tasa_aplicada|floatformat:2 }}
+                        </td>
+                        <td class="amount">
+                            {{ operacion.subtotal|floatformat:2 }} ₲
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <strong>Comisión por Servicio</strong>
+                        </td>
+                        <td>
+                            Retención correspondiente al segmento {{ operacion.cliente.get_segmento_display }}
+                        </td>
+                        <td class="amount" style="color: #b45309;">
+                            - {{ operacion.comision|floatformat:2 }} ₲
+                        </td>
+                    </tr>
+                    <tr class="total-row">
+                        <td>
+                            <strong>TOTAL NETO A LIQUIDAR</strong>
+                        </td>
+                        <td style="font-size: 13px; font-weight: normal; color: #475569;">
+                            Monto resultante a pagar al cliente
+                        </td>
+                        <td class="amount">
+                            {{ operacion.total_neto|floatformat:2 }} ₲
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- BOTONES DE ACCIÓN -->
+            <div class="actions-bar">
+                <div style="display: flex; gap: 8px;">
+                    <a href="{% url 'operaciones_lista' %}" class="btn" style="background-color: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                        📋 Ver Todas las Operaciones
+                    </a>
+                    <a href="{% url 'menu' %}" class="btn" style="background-color: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                        🏠 Menú Principal
+                    </a>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="window.print()" class="btn no-print" style="background-color: #0284c7; color: white; border: none; padding: 9px 18px; border-radius: 6px; font-size: 13.5px; font-weight: 600; cursor: pointer;">
+                        🖨️ Imprimir
+                    </button>
+                    <a href="{% url 'operacion_venta' %}" class="btn" style="background-color: #059669; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                        ➕ Nueva Venta de Moneda
+                    </a>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
