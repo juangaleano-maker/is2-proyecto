@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Comprar Moneda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Comprar Moneda</h2>
+    <hr>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow-sm col-md-6">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="btn btn-primary w-100">Registrar Compra</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

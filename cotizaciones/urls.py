@@ -30,4 +30,8 @@ urlpatterns = [
     # Simulador de conversión de moneda (IS2-10)
     path('simulador/', views.simulador_conversion_view, name='simulador_conversion'),
     path('api/simular/', views.api_simular_conversion, name='api_simular_conversion'),
+
+    # Operaciones de compra
+    path('comprar/', views.comprar_moneda, name='comprar_moneda'),
+    path('operaciones/', views.listar_operaciones, name='listar_operaciones'),
 ]
