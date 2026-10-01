@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprobante - Operación #{{ operacion.id|stringformat:"05d" }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+            background-color: #f1f5f9;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .receipt-container {
+            background: #fff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px dashed #cbd5e1;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            margin: 0;
+            color: #0f172a;
+            font-size: 24px;
+        }
+        .header p {
+            margin: 5px 0 0;
+            color: #64748b;
+            font-size: 14px;
+        }
+        .details {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .details th, .details td {
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+            text-align: left;
+            font-size: 15px;
+        }
+        .details th {
+            color: #64748b;
+            font-weight: 600;
+            width: 40%;
+        }
+        .details td {
+            color: #0f172a;
+            font-weight: 600;
+            text-align: right;
+        }
+        .total-row th, .total-row td {
+            border-top: 2px solid #e2e8f0;
+            border-bottom: none;
+            font-size: 18px;
+            padding-top: 20px;
+        }
+        .total-row td {
+            color: #0ea5e9;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .actions {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .btn-print {
+            background-color: #0ea5e9;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .btn-print:hover {
+            background-color: #0284c7;
+        }
+        
+        @media print {
+            body { background: white; padding: 0; }
+            .receipt-container { box-shadow: none; padding: 0; max-width: 100%; }
+            .actions { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="receipt-container">
+    <div class="header">
+        <h1>Global Exchange</h1>
+        <p>Comprobante de Operación</p>
+    </div>
+
+    <table class="details">
+        <tr>
+            <th>N° de Operación</th>
+            <td>#{{ operacion.id|stringformat:"05d" }}</td>
+        </tr>
+        <tr>
+            <th>Fecha y Hora</th>
+            <td>{{ operacion.fecha|date:"d/m/Y H:i:s" }}</td>
+        </tr>
+        <tr>
+            <th>Cliente</th>
+            <td>{{ operacion.cliente.nombre }} {{ operacion.cliente.apellido }}</td>
+        </tr>
+        <tr>
+            <th>Tipo de Operación</th>
+            <td>{{ operacion.get_tipo_display }}</td>
+        </tr>
+        <tr>
+            <th>Moneda</th>
+            <td>{{ operacion.moneda.nombre }} ({{ operacion.moneda.siglas }})</td>
+        </tr>
+        <tr>
+            <th>Tasa Aplicada</th>
+            <td>{{ operacion.tasa_aplicada }}</td>
+        </tr>
+        <tr>
+            <th>Comisión</th>
+            <td>{{ operacion.comision }}</td>
+        </tr>
+        <tr class="total-row">
+            <th>Monto Total ({{ operacion.moneda.siglas }})</th>
+            <td>{{ operacion.monto }}</td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        <p>Gracias por operar con Global Exchange.<br>Este documento es válido como comprobante de la transacción.</p>
+    </div>
+
+    <div class="actions">
+        <button class="btn-print" onclick="window.print()">Imprimir / Guardar como PDF</button>
+    </div>
+</div>
+
+</body>
+</html>
