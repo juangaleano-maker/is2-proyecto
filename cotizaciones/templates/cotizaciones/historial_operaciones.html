@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Operaciones | Global Exchange</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #0f172a; min-height: 100vh; color: #cbd5e1; }
+
+        /* Sidebar (Adaptado para usuario/clientes) */
+        .sidebar {
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            width: 260px;
+            position: fixed;
+            top: 0; left: 0;
+            padding: 24px 0;
+            border-right: 1px solid rgba(255,255,255,0.06);
+        }
+        .sidebar-brand { padding: 0 24px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 16px; }
+        .sidebar-brand h5 { color: #f8fafc; font-weight: 700; font-size: 1rem; margin: 0; }
+        .sidebar-brand span { color: #38bdf8; font-size: 0.75rem; font-weight: 500; }
+        .nav-item-custom {
+            padding: 10px 24px;
+            display: flex; align-items: center; gap: 10px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem; font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-item-custom:hover, .nav-item-custom.active {
+            color: #f8fafc;
+            background: rgba(56, 189, 248, 0.1);
+            border-left: 3px solid #38bdf8;
+        }
+
+        /* Main */
+        .main-content { margin-left: 260px; padding: 32px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+        .topbar h1 { color: #f8fafc; font-size: 1.5rem; font-weight: 700; margin: 0; }
+        .topbar p { color: #64748b; font-size: 0.875rem; margin: 4px 0 0; }
+        .badge-role {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 4px 12px; border-radius: 20px;
+            font-size: 0.75rem; font-weight: 600;
+        }
+
+        /* Filter card */
+        .filter-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+        }
+        .filter-card label { color: #94a3b8; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .form-select-dark {
+            background-color: #0f172a;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #f8fafc;
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+        .form-select-dark:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.15); }
+        .btn-filter {
+            background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+            color: #fff; border: none;
+            padding: 8px 20px; border-radius: 8px;
+            font-size: 0.875rem; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: opacity 0.2s;
+        }
+        .btn-filter:hover { opacity: 0.85; color: #fff; }
+        .btn-clear { color: #64748b; background: transparent; border: 1px solid rgba(255,255,255,0.08); padding: 8px 16px; border-radius: 8px; font-size: 0.875rem; text-decoration: none; }
+        .btn-clear:hover { color: #f8fafc; border-color: rgba(255,255,255,0.2); }
+
+        /* Panel card */
+        .panel-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .panel-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .panel-card-header h6 { color: #f8fafc; font-weight: 600; margin: 0; }
+        .result-count { color: #64748b; font-size: 0.8rem; }
+
+        /* Table */
+        .table-dark-custom { color: #cbd5e1; }
+        .table-dark-custom th {
+            background: rgba(15, 23, 42, 0.8);
+            color: #64748b; font-size: 0.75rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 12px 16px;
+        }
+        .table-dark-custom td {
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            padding: 14px 16px;
+            vertical-align: middle;
+            font-size: 0.875rem;
+        }
+        .table-dark-custom tbody tr:hover { background: rgba(56,189,248,0.03); }
+
+        /* Badges */
+        .badge-estado { padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; border: 1px solid; }
+        .estado-PENDIENTE { background: rgba(245,158,11,0.15); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+        .estado-PAGADA { background: rgba(16,185,129,0.15); color: #10b981; border-color: rgba(16,185,129,0.3); }
+        .estado-CANCELADA { background: rgba(239,68,68,0.15); color: #f87171; border-color: rgba(239,68,68,0.3); }
+        .tipo-COMPRA { color: #38bdf8; font-weight: 600; }
+        .tipo-VENTA { color: #c084fc; font-weight: 600; }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 60px 24px; color: #475569; }
+        .empty-state i { font-size: 3rem; margin-bottom: 16px; display: block; color: #334155; }
+        .empty-state h6 { color: #64748b; margin-bottom: 6px; }
+
+        /* Action buttons */
+        .btn-action { border: 1px solid rgba(56,189,248,0.4); color: #38bdf8; background: transparent; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; text-decoration: none; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+        .btn-action:hover { background: rgba(56,189,248,0.1); color: #38bdf8; }
+        .btn-action.disabled { border-color: rgba(100,116,139,0.4); color: #64748b; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="sidebar-brand">
+        <h5>💱 Global Exchange</h5>
+        <span>Operaciones</span>
+    </div>
+    <a href="{% url 'historial_operaciones' %}" class="nav-item-custom active">
+        <i class="bi bi-clock-history"></i> Historial de Operaciones
+    </a>
+    <a href="{% url 'menu' %}" class="nav-item-custom" style="margin-top: auto;">
+        <i class="bi bi-arrow-left-circle"></i> Volver al Menú
+    </a>
+</div>
+
+<!-- Main content -->
+<div class="main-content">
+    <div class="topbar">
+        <div>
+            <h1><i class="bi bi-clock-history me-2" style="color:#38bdf8; font-size: 1.2rem;"></i>Historial de Operaciones</h1>
+            <p>Consulta las transacciones de tus clientes y descarga comprobantes</p>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <span class="badge-role"><i class="bi bi-person-badge"></i> Usuario con Clientes</span>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filter-card">
+        <form method="GET" action="{% url 'historial_operaciones' %}">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="estado"><i class="bi bi-funnel me-1"></i>Estado de la Operación</label>
+                    <select name="estado" id="estado" class="form-select form-select-dark">
+                        <option value="">— Todos los Estados —</option>
+                        {% for value, label in estados %}
+                            <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn-filter flex-grow-1">
+                        <i class="bi bi-filter-circle"></i> Filtrar
+                    </button>
+                    <a href="{% url 'historial_operaciones' %}" class="btn-clear">
+                        <i class="bi bi-x-lg"></i> Limpiar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla de resultados -->
+    <div class="panel-card">
+        <div class="panel-card-header">
+            <h6><i class="bi bi-list-columns-reverse me-2"></i>Operaciones Registradas</h6>
+            <span class="result-count">{{ operaciones.count }} operación(es) encontrada(s)</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-dark-custom mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Cliente</th>
+                        <th>Tipo</th>
+                        <th>Monto & Moneda</th>
+                        <th>Tasa / Comisión</th>
+                        <th>Fecha</th>
+                        <th>Estado</th>
+                        <th>Comprobante</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for op in operaciones %}
+                    <tr>
+                        <td style="color:#475569; font-size:0.8rem;">#{{ op.id|stringformat:"05d" }}</td>
+                        <td>{{ op.cliente }}</td>
+                        <td class="tipo-{{ op.tipo }}">{{ op.get_tipo_display }}</td>
+                        <td style="font-weight: 600;">
+                            {{ op.monto }} <span style="color:#94a3b8; font-size:0.75rem;">{{ op.moneda.siglas }}</span>
+                        </td>
+                        <td>
+                            <div style="font-size:0.8rem;">Tasa: {{ op.tasa_aplicada }}</div>
+                            <div style="color:#94a3b8; font-size:0.75rem;">Comisión: {{ op.comision }}</div>
+                        </td>
+                        <td style="font-size:0.8rem;">
+                            <div>{{ op.fecha|date:"d/m/Y" }}</div>
+                            <div style="color:#475569;">{{ op.fecha|date:"H:i:s" }}</div>
+                        </td>
+                        <td>
+                            <span class="badge-estado estado-{{ op.estado }}">
+                                {{ op.get_estado_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if op.estado == 'PAGADA' or op.estado == 'PENDIENTE' or op.estado == 'CANCELADA' %}
+                                <!-- As we can download receipt for anything, or maybe restrict it to PAGADA -->
+                                <a href="{% url 'comprobante_operacion' op.id %}" target="_blank" class="btn-action {% if op.estado != 'PAGADA' %}disabled{% endif %}" {% if op.estado != 'PAGADA' %}title="Solo disponible para operaciones pagadas"{% endif %}>
+                                    <i class="bi bi-file-earmark-arrow-down"></i> Descargar
+                                </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <i class="bi bi-clipboard-x"></i>
+                                <h6>No hay operaciones</h6>
+                                <p style="font-size:0.875rem;">
+                                    {% if estado_filtro %}
+                                        No se encontraron operaciones con ese estado. <a href="{% url 'historial_operaciones' %}" style="color:#38bdf8;">Quitar filtros</a>
+                                    {% else %}
+                                        Aún no hay transacciones registradas.
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

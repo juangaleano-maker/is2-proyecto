@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from authentication.decorators import rol_requerido
-from .models import Cotizacion
+from .models import Cotizacion, Operacion
 from .forms import CotizacionForm
 import json
 import csv
@@ -589,3 +589,40 @@ def api_simular_conversion(request):
         return JsonResponse({'exito': False, 'error': str(ve)}, status=400)
     except Exception as e:
         return JsonResponse({'exito': False, 'error': str(e)}, status=500)
+
+@login_required
+def historial_operaciones(request):
+    """
+    Muestra el historial de transacciones/operaciones de los clientes asignados al usuario.
+    """
+    # En un caso real, filtraríamos por los clientes del usuario activo.
+    # Por ahora, mostraremos todas las operaciones o filtraremos por estado.
+    estado_filtro = request.GET.get('estado', '')
+    
+    operaciones_qs = Operacion.objects.select_related('cliente', 'moneda').order_by('-fecha')
+    
+    if estado_filtro:
+        operaciones_qs = operaciones_qs.filter(estado=estado_filtro)
+        
+    return render(request, 'cotizaciones/historial_operaciones.html', {
+        'operaciones': operaciones_qs,
+        'estado_filtro': estado_filtro,
+        'estados': Operacion.EstadoOperacion.choices,
+    })
+
+@login_required
+def descargar_comprobante_operacion(request, operacion_id):
+    """
+    Genera una vista imprimible (o PDF/CSV) del comprobante de una transacción confirmada/pagada.
+    """
+    from django.shortcuts import get_object_or_404
+    
+    operacion = get_object_or_404(Operacion, id=operacion_id)
+    
+    # Podríamos restringir para que solo se imprima si está PAGADA
+    # if operacion.estado != Operacion.EstadoOperacion.PAGADA:
+    #     return redirect('historial_operaciones')
+        
+    return render(request, 'cotizaciones/comprobante_operacion.html', {
+        'operacion': operacion
+    })
