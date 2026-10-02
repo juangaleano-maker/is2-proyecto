@@ -626,3 +626,47 @@ def descargar_comprobante_operacion(request, operacion_id):
     return render(request, 'cotizaciones/comprobante_operacion.html', {
         'operacion': operacion
     })
+
+@login_required
+def comprar_moneda(request):
+    """
+    Vista para que un usuario registre la compra de una moneda 
+    a favor de un cliente asignado.
+    """
+    from django.contrib import messages
+    from decimal import Decimal
+    from .forms import ComprarMonedaForm
+    from .models import Operacion
+
+    if request.method == 'POST':
+        form = ComprarMonedaForm(request.POST)
+        if form.is_valid():
+            operacion = form.save(commit=False)
+            operacion.tipo = Operacion.TipoOperacion.COMPRA
+            
+            # El sistema debe calcular automáticamente la comisión
+            # Ejemplo: 2% sobre el monto
+            operacion.comision = operacion.monto * Decimal('0.02')
+            
+            # Estado por defecto puede ser PENDIENTE o COMPLETADA
+            operacion.estado = Operacion.EstadoOperacion.PENDIENTE
+            
+            operacion.save()
+            messages.success(request, f'Operación de compra registrada exitosamente con comisión de {operacion.comision}.')
+            return redirect('comprar_moneda')
+    else:
+        form = ComprarMonedaForm()
+        
+    return render(request, 'cotizaciones/comprar_moneda.html', {'form': form})
+
+@login_required
+def listar_operaciones(request):
+    """
+    Vista para que un usuario pueda ver el listado de operaciones
+    registradas en el sistema.
+    """
+    from .models import Operacion
+    # Traemos todas las operaciones ordenadas por fecha descendente
+    operaciones = Operacion.objects.select_related('cliente', 'moneda').order_by('-fecha')
+    return render(request, 'cotizaciones/listar_operaciones.html', {'operaciones': operaciones})
+

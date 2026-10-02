@@ -177,6 +177,26 @@
         </a>
     </div>
 
+    <!-- CARD 5: COMPRAR MONEDA (IS2-15) -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+            <div style="font-size: 28px; margin-bottom: 12px;">💰</div>
+            <h3 style="color: #1e293b; font-size: 17px; margin-bottom: 8px;">Comprar Moneda</h3>
+            <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-bottom: 15px;">
+                Registrar una operación de compra de moneda a favor de un cliente asignado.
+            </p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-direction: column;">
+            <a href="{% url 'comprar_moneda' %}" style="display: block; text-align: center; padding: 9px; background-color: #10b981; color: white; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                💰 Registrar Compra
+            </a>
+            <a href="{% url 'listar_operaciones' %}" style="display: block; text-align: center; padding: 8px; background-color: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                📋 Ver Historial de Operaciones
+            </a>
+        </div>
+    </div>
+
+
 </div>
 
 {% if es_personal or es_admin or es_finanzas %}

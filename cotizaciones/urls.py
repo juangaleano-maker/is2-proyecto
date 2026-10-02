@@ -30,8 +30,11 @@ urlpatterns = [
     # Simulador de conversión de moneda (IS2-10)
     path('simulador/', views.simulador_conversion_view, name='simulador_conversion'),
     path('api/simular/', views.api_simular_conversion, name='api_simular_conversion'),
-    
     # Historial de operaciones de clientes (IS2-18 / Sprint 3)
     path('operaciones/historial/', views.historial_operaciones, name='historial_operaciones'),
     path('operaciones/comprobante/<int:operacion_id>/', views.descargar_comprobante_operacion, name='comprobante_operacion'),
+
+    # Operaciones de compra
+    path('comprar/', views.comprar_moneda, name='comprar_moneda'),
+    path('operaciones/', views.listar_operaciones, name='listar_operaciones'),
 ]
