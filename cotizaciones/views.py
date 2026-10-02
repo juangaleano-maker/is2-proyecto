@@ -598,40 +598,94 @@ def api_simular_conversion(request):
 # ==============================================================================
 
 @login_required
+@login_required
 def comprar_moneda(request):
     """
-    Vista para que un usuario registre la compra de una moneda 
+    Vista para que un usuario registre la compra de una moneda
     a favor de un cliente asignado (IS2-15).
     Al completarse, redirige al proceso de confirmación y pago (IS2-52).
     """
-    from django.contrib import messages
-    from decimal import Decimal, ROUND_HALF_UP
-    from .forms import ComprarMonedaForm
-    from .models import Operacion
+    from .forms import CompraMonedaForm
+    from .services import (
+        obtener_clientes_asignados_usuario,
+        obtener_tasa_sugerida,
+        registrar_operacion_cambio
+    )
+    from monedas.models import Moneda
+
+    clientes_asignados = obtener_clientes_asignados_usuario(request.user)
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    cliente_inicial = None
+    if cliente_activo_id and clientes_asignados.filter(id=cliente_activo_id).exists():
+        cliente_inicial = cliente_activo_id
+    elif clientes_asignados.count() == 1:
+        cliente_inicial = clientes_asignados.first().id
+
+    monedas_activas = Moneda.objects.filter(activa=True).order_by('siglas')
+
+    # Pre-calcular mapa de tasas sugeridas para el frontend
+    tasas_map = {}
+    for m in monedas_activas:
+        tasa_info = obtener_tasa_sugerida(m, tipo='COMPRA')
+        if tasa_info:
+            tasas_map[m.id] = {
+                'tasa': float(tasa_info['tasa_sugerida']),
+                'compra': float(tasa_info['compra']),
+                'venta': float(tasa_info['venta']),
+                'par': tasa_info['par'],
+                'fecha': tasa_info['fecha']
+            }
+
+    # Pre-calcular mapa de comisiones por cliente
+    clientes_map = {}
+    for c in clientes_asignados:
+        clientes_map[c.id] = {
+            'nombre': str(c),
+            'documento': c.documento,
+            'segmento': c.segmento,
+            'segmento_display': c.get_segmento_display(),
+            'porcentaje_comision': 0.5 if c.segmento == 'VIP' else (1.0 if c.segmento == 'CORPORATIVO' else 1.5)
+        }
 
     if request.method == 'POST':
-        form = ComprarMonedaForm(request.POST)
+        form = CompraMonedaForm(request.POST, user=request.user)
         if form.is_valid():
-            operacion = form.save(commit=False)
-            operacion.tipo = Operacion.TipoOperacion.COMPRA
-            
-            # Comisión estimada del 2%
-            operacion.comision = (operacion.monto * Decimal('0.02')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-            
-            # Estado inicial PENDIENTE antes del pago
-            operacion.estado = Operacion.EstadoOperacion.PENDIENTE
-            operacion.save()
+            cliente = form.cleaned_data['cliente']
+            moneda = form.cleaned_data['moneda']
+            monto = form.cleaned_data['monto']
+            tasa_aplicada = form.cleaned_data['tasa_aplicada']
 
-            messages.info(
-                request, 
-                f'Operación de compra #{operacion.id} iniciada. '
-                f'Por favor revise la cotización vigente antes de confirmar el pago.'
-            )
-            return redirect('confirmar_operacion_pago', operacion_id=operacion.id)
+            try:
+                operacion, calculo = registrar_operacion_cambio(
+                    cliente=cliente,
+                    moneda=moneda,
+                    tipo=Operacion.TipoOperacion.COMPRA,
+                    monto=monto,
+                    tasa_aplicada=tasa_aplicada,
+                    usuario=request.user
+                )
+                messages.info(
+                    request,
+                    f'Operación de compra #{operacion.id} iniciada. '
+                    f'Por favor revise la cotización vigente antes de confirmar el pago.'
+                )
+                return redirect('confirmar_operacion_pago', operacion_id=operacion.id)
+            except Exception as e:
+                messages.error(request, f"Error al procesar la operación de compra: {str(e)}")
+        else:
+            messages.error(request, "Por favor corrija los errores indicados en el formulario.")
     else:
-        form = ComprarMonedaForm()
-        
-    return render(request, 'cotizaciones/comprar_moneda.html', {'form': form})
+        form = CompraMonedaForm(user=request.user, initial={'cliente': cliente_inicial})
+
+    return render(request, 'cotizaciones/operaciones/compra.html', {
+        'form': form,
+        'clientes_asignados': clientes_asignados,
+        'tiene_clientes': clientes_asignados.exists(),
+        'cliente_inicial': cliente_inicial,
+        'monedas': monedas_activas,
+        'tasas_json': json.dumps(tasas_map),
+        'clientes_json': json.dumps(clientes_map),
+    })
 
 
 @login_required
@@ -733,7 +787,6 @@ def venta_moneda_view(request):
 @login_required
 def detalle_operacion_view(request, operacion_id):
     """
-<<<<<<< HEAD
     Muestra la ficha y comprobante detallado de una operación registrada.
     """
     operacion = get_object_or_404(Operacion.objects.select_related('cliente', 'moneda', 'registrado_por'), id=operacion_id)
@@ -881,14 +934,6 @@ def api_tasa_vigente_operacion(request, moneda_id):
         'fecha': info['fecha'],
         'cotizacion_id': info['cotizacion_id']
     }, status=200)
-=======
-    Vista para que un usuario pueda ver el listado de operaciones
-    registradas en el sistema y realizar acciones de confirmación o cancelación.
-    """
-    from .models import Operacion
-    operaciones = Operacion.objects.select_related('cliente', 'moneda').order_by('-fecha')
-    return render(request, 'cotizaciones/listar_operaciones.html', {'operaciones': operaciones})
->>>>>>> origin/feature/IS2-52
 
 
 # =======================================================================
@@ -1080,3 +1125,25 @@ def api_cancelar_operacion(request, operacion_id):
         return JsonResponse({'exito': False, 'error': str(e)}, status=500)
 
 
+
+@login_required
+def historial_operaciones(request):
+    from .models import Operacion
+    estado_filtro = request.GET.get('estado', '')
+    operaciones_qs = Operacion.objects.select_related('cliente', 'moneda').order_by('-fecha')
+    if estado_filtro:
+        operaciones_qs = operaciones_qs.filter(estado=estado_filtro)
+    return render(request, 'cotizaciones/historial_operaciones.html', {
+        'operaciones': operaciones_qs,
+        'estado_filtro': estado_filtro,
+        'estados': Operacion.EstadoOperacion.choices,
+    })
+
+@login_required
+def descargar_comprobante_operacion(request, operacion_id):
+    from django.shortcuts import get_object_or_404
+    from .models import Operacion
+    operacion = get_object_or_404(Operacion, id=operacion_id)
+    return render(request, 'cotizaciones/comprobante_operacion.html', {
+        'operacion': operacion
+    })

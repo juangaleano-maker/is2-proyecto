@@ -1,0 +1,606 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Compra de Moneda | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .op-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #1d4ed8 100%);
+        border-radius: 14px;
+        padding: 28px 32px;
+        margin-bottom: 25px;
+        color: #ffffff;
+        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    .op-header h1 {
+        font-size: 24px;
+        font-weight: 800;
+        margin: 0 0 6px 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .op-header p {
+        margin: 0;
+        color: #cbd5e1;
+        font-size: 14px;
+        max-width: 650px;
+    }
+    .op-badge-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(8px);
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 600;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .op-layout {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 25px;
+        align-items: start;
+    }
+    @media (max-width: 992px) {
+        .op-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+    .form-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color, #e2e8f0);
+        border-radius: 12px;
+        padding: 28px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    }
+    .calc-card {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+        position: sticky;
+        top: 20px;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 600;
+        font-size: 13.5px;
+        color: #334155;
+        margin-bottom: 8px;
+    }
+    .form-control, .form-select {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14.5px;
+        font-family: inherit;
+        background-color: #ffffff;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: #059669;
+        box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+    }
+    .input-hint {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 5px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .badge-status-pending {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background-color: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    .pulse-amber {
+        width: 8px;
+        height: 8px;
+        background-color: #f59e0b;
+        border-radius: 50%;
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+        animation: pulseAmber 2s infinite;
+    }
+    @keyframes pulseAmber {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+    .calc-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px dashed #e2e8f0;
+        font-size: 14px;
+    }
+    .calc-row.total-row {
+        border-top: 2px solid #0f172a;
+        border-bottom: none;
+        margin-top: 10px;
+        padding-top: 14px;
+        font-size: 16px;
+        font-weight: 800;
+        color: #0f172a;
+    }
+    .calc-row .label {
+        color: #64748b;
+        font-weight: 500;
+    }
+    .calc-row .value {
+        font-weight: 700;
+        color: #1e293b;
+    }
+    .highlight-net {
+        font-size: 20px;
+        color: #059669;
+    }
+    .info-box {
+        background-color: #eff6ff;
+        border-left: 4px solid #3b82f6;
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        font-size: 13px;
+        color: #1e40af;
+        margin-bottom: 20px;
+        line-height: 1.45;
+    }
+    .client-badge-vip {
+        background: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+    .client-badge-corp {
+        background: #e0e7ff;
+        color: #4338ca;
+        border: 1px solid #c7d2fe;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+    .client-badge-min {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .btn-submit {
+        width: 100%;
+        padding: 13px 20px;
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 15px;
+        cursor: pointer;
+        transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 15px;
+    }
+    .btn-submit:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(5, 150, 105, 0.3);
+    }
+    .btn-submit:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1150px; margin: 0 auto; padding: 10px 15px 40px 15px;">
+
+    <!-- HEADER DE LA PANTALLA -->
+    <div class="op-header">
+        <div>
+            <h1>
+                <span>💵</span> Venta de Moneda
+            </h1>
+            <p>
+                Registre una operación de venta de divisas en nombre de un cliente asignado. 
+                Las comisiones se liquidan automáticamente y la operación ingresa en estado <strong>Pendiente</strong> para su control y verificación.
+            </p>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+            <span class="op-badge-tag">
+                <span>🔄</span> Operación Cambiaria (IS2-16)
+            </span>
+            <span class="badge-status-pending">
+                <span class="pulse-amber"></span> Estado Inicial: Pendiente
+            </span>
+        </div>
+    </div>
+
+    {% if not tiene_clientes %}
+    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 25px;">
+        <div style="font-size: 36px; margin-bottom: 10px;">⚠️</div>
+        <h3 style="color: #92400e; margin: 0 0 8px 0; font-size: 18px;">Sin Clientes Asignados</h3>
+        <p style="color: #78350f; font-size: 14px; max-width: 580px; margin: 0 auto 16px auto;">
+            Tu usuario no tiene cuentas de clientes activas asignadas para operar en su nombre. 
+            Por favor, solicita la asignación al administrador o utiliza el selector de cliente activo.
+        </p>
+        <a href="{% url 'clientes:elegir_cliente' %}" class="btn" style="background-color: #2563eb; color: white; padding: 8px 18px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13.5px; display: inline-block;">
+            🎯 Ir al Selector de Clientes
+        </a>
+    </div>
+    {% endif %}
+
+    <div class="op-layout">
+
+        <!-- COLUMNA IZQUIERDA: FORMULARIO DE CAPTURA -->
+        <div class="form-card">
+            <h2 style="font-size: 18px; color: #0f172a; margin: 0 0 16px 0; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 8px;">
+                <span>📝</span> Datos de la Transacción
+            </h2>
+
+            <form method="post" id="ventaForm" novalidate>
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div style="background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; font-size: 13.5px;">
+                    {% for error in form.non_field_errors %}
+                    <p style="margin: 0;">🚫 {{ error }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- 1. CLIENTE ASIGNADO -->
+                <div class="form-group">
+                    <label for="id_cliente">
+                        <span>👤</span> Cliente Asignado <span style="color: #ef4444;">*</span>
+                    </label>
+                    {{ form.cliente }}
+                    {% if form.cliente.errors %}
+                    <div style="color: #dc2626; font-size: 12.5px; margin-top: 4px;">
+                        {% for err in form.cliente.errors %}{{ err }}{% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="input-hint" id="clienteInfoBadge">
+                        <span>ℹ️</span> Selecciona el cliente a nombre del cual se realiza la venta.
+                    </div>
+                </div>
+
+                <!-- 2. MONEDA (DIVISA) -->
+                <div class="form-group">
+                    <label for="id_moneda">
+                        <span>💱</span> Moneda (Divisa a Vender) <span style="color: #ef4444;">*</span>
+                    </label>
+                    {{ form.moneda }}
+                    {% if form.moneda.errors %}
+                    <div style="color: #dc2626; font-size: 12.5px; margin-top: 4px;">
+                        {% for err in form.moneda.errors %}{{ err }}{% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="input-hint" id="monedaTasaHint">
+                        <span>📊</span> Al seleccionar una divisa, se cargará automáticamente la tasa de referencia vigente.
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <!-- 3. MONTO A VENDER -->
+                    <div class="form-group">
+                        <label for="id_monto">
+                            <span>💰</span> Monto a Vender <span style="color: #ef4444;">*</span>
+                        </label>
+                        <div style="position: relative;">
+                            {{ form.monto }}
+                        </div>
+                        {% if form.monto.errors %}
+                        <div style="color: #dc2626; font-size: 12.5px; margin-top: 4px;">
+                            {% for err in form.monto.errors %}{{ err }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="input-hint">Cantidad de divisa que entrega el cliente.</div>
+                    </div>
+
+                    <!-- 4. TASA APLICADA -->
+                    <div class="form-group">
+                        <label for="id_tasa_aplicada">
+                            <span>📈</span> Tasa Aplicada <span style="color: #ef4444;">*</span>
+                        </label>
+                        {{ form.tasa_aplicada }}
+                        {% if form.tasa_aplicada.errors %}
+                        <div style="color: #dc2626; font-size: 12.5px; margin-top: 4px;">
+                            {% for err in form.tasa_aplicada.errors %}{{ err }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="input-hint">Precio unitario de cambio aplicado (en PYG).</div>
+                    </div>
+                </div>
+
+                <!-- CAMPO COMISIÓN (CALCULADO AUTOMÁTICAMENTE) -->
+                <div class="form-group" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-top: 5px;">
+                    <label for="id_comision" style="color: #475569; margin-bottom: 6px;">
+                        <span>🏷️</span> Comisión Calculada (Automática)
+                    </label>
+                    {{ form.comision }}
+                    <div class="input-hint" style="color: #059669; font-weight: 500;">
+                        <span>✨</span> Se computa en tiempo real según el volumen y el segmento del cliente (Minorista 1.5%, Corp 1.0%, VIP 0.5%).
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="btnSubmit" {% if not tiene_clientes %}disabled{% endif %}>
+                    <span>✅</span> Confirmar Venta de Moneda
+                </button>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+                    <a href="{% url 'menu' %}" style="color: #64748b; text-decoration: none; font-size: 13.5px; display: inline-flex; align-items: center; gap: 4px;">
+                        <span>⬅️</span> Volver al Menú
+                    </a>
+                    <a href="{% url 'operaciones_lista' %}" style="color: #2563eb; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                        📋 Ver Historial de Operaciones
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- COLUMNA DERECHA: RESUMEN DE LIQUIDACIÓN Y CÁLCULO EN VIVO -->
+        <div class="calc-card">
+            <h3 style="font-size: 17px; color: #0f172a; margin: 0 0 14px 0; display: flex; align-items: center; gap: 8px;">
+                <span>🧾</span> Resumen de Liquidación
+            </h3>
+
+            <div class="info-box">
+                <strong>Flujo de Venta:</strong> El cliente entrega divisas a la entidad y recibe su contravalor en moneda local (PYG), deduciendo la comisión aplicable.
+            </div>
+
+            <div class="calc-row">
+                <span class="label">Tipo de Transacción:</span>
+                <span class="value" style="color: #047857;">VENTA DE DIVISAS</span>
+            </div>
+
+            <div class="calc-row">
+                <span class="label">Estado Inicial:</span>
+                <span class="badge-status-pending">
+                    <span class="pulse-amber"></span> PENDIENTE
+                </span>
+            </div>
+
+            <div class="calc-row">
+                <span class="label">Cliente:</span>
+                <span class="value" id="resumenCliente">—</span>
+            </div>
+
+            <div class="calc-row">
+                <span class="label">Segmento / Beneficio:</span>
+                <span class="value" id="resumenSegmento">—</span>
+            </div>
+
+            <div class="calc-row">
+                <span class="label">Divisa / Cantidad:</span>
+                <span class="value" id="resumenMonto">—</span>
+            </div>
+
+            <div class="calc-row">
+                <span class="label">Tasa Aplicada:</span>
+                <span class="value" id="resumenTasa">—</span>
+            </div>
+
+            <div class="calc-row">
+                <span class="label">Subtotal Bruto (PYG):</span>
+                <span class="value" id="resumenSubtotal">0 ₲</span>
+            </div>
+
+            <div class="calc-row">
+                <span class="label" id="resumenComisionLabel">Comisión (1.5%):</span>
+                <span class="value" id="resumenComision" style="color: #b45309;">- 0 ₲</span>
+            </div>
+
+            <div class="calc-row total-row">
+                <span>Neto a Liquidar (PYG):</span>
+                <span class="value highlight-net" id="resumenTotalNeto">0 ₲</span>
+            </div>
+
+            <div style="margin-top: 18px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12.5px; color: #475569; line-height: 1.5;">
+                🔒 <strong>Auditoría & Trazabilidad:</strong> Al confirmar, el sistema registrará la operación asociada a tu usuario y la marcará como <em>Pendiente</em> para la posterior validación y desembolso.
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Datos precargados del servidor
+    const TASAS_DATA = {{ tasas_json|safe }};
+    const CLIENTES_DATA = {{ clientes_json|safe }};
+
+    const clienteSelect = document.getElementById('id_cliente');
+    const monedaSelect = document.getElementById('id_moneda');
+    const montoInput = document.getElementById('id_monto');
+    const tasaInput = document.getElementById('id_tasa_aplicada');
+    const comisionInput = document.getElementById('id_comision');
+    const ventaForm = document.getElementById('ventaForm');
+
+    // Elementos de resumen
+    const resumenCliente = document.getElementById('resumenCliente');
+    const resumenSegmento = document.getElementById('resumenSegmento');
+    const resumenMonto = document.getElementById('resumenMonto');
+    const resumenTasa = document.getElementById('resumenTasa');
+    const resumenSubtotal = document.getElementById('resumenSubtotal');
+    const resumenComisionLabel = document.getElementById('resumenComisionLabel');
+    const resumenComision = document.getElementById('resumenComision');
+    const resumenTotalNeto = document.getElementById('resumenTotalNeto');
+    const monedaTasaHint = document.getElementById('monedaTasaHint');
+    const clienteInfoBadge = document.getElementById('clienteInfoBadge');
+
+    function formatearNumero(val, decimales = 0) {
+        if (isNaN(val) || val === null || val === undefined) return '0';
+        return Number(val).toLocaleString('es-PY', {
+            minimumFractionDigits: decimales,
+            maximumFractionDigits: decimales
+        });
+    }
+
+    // Actualiza la tasa de referencia sugerida cuando cambia la moneda
+    function onMonedaChange() {
+        const monedaId = monedaSelect.value;
+        if (!monedaId) {
+            monedaTasaHint.innerHTML = '<span>📊</span> Selecciona una divisa para ver la tasa vigente.';
+            return;
+        }
+
+        const info = TASAS_DATA[monedaId];
+        if (info && info.tasa) {
+            // Sugerir la tasa vigente automáticamente si el campo está vacío o es cambio de divisa
+            tasaInput.value = Number(info.tasa).toFixed(2);
+            monedaTasaHint.innerHTML = `<span>⚡</span> <strong>Tasa vigente:</strong> ${formatearNumero(info.tasa, 2)} PYG (${info.par}) ${info.fecha ? `— [${info.fecha}]` : ''}`;
+        } else {
+            monedaTasaHint.innerHTML = '<span>⚠️</span> Sin cotización activa predefinida. Ingrese la tasa acordada manualmente.';
+        }
+        recalcularOperacion();
+    }
+
+    // Actualiza información de segmento del cliente
+    function onClienteChange() {
+        const clienteId = clienteSelect.value;
+        if (clienteId && CLIENTES_DATA[clienteId]) {
+            const c = CLIENTES_DATA[clienteId];
+            let badgeClass = 'client-badge-min';
+            if (c.segmento === 'VIP') badgeClass = 'client-badge-vip';
+            else if (c.segmento === 'CORPORATIVO') badgeClass = 'client-badge-corp';
+
+            clienteInfoBadge.innerHTML = `<span>👤</span> Doc: <strong>${c.documento}</strong> | Segmento: <span class="${badgeClass}">${c.segmento_display}</span> (Comisión preferencial: ${c.porcentaje_comision}%)`;
+        } else {
+            clienteInfoBadge.innerHTML = '<span>ℹ️</span> Selecciona el cliente a nombre del cual se realiza la venta.';
+        }
+        recalcularOperacion();
+    }
+
+    // Cálculo automático en vivo de comisión y liquidación neta
+    function recalcularOperacion() {
+        const clienteId = clienteSelect.value;
+        const monto = parseFloat(montoInput.value) || 0;
+        const tasa = parseFloat(tasaInput.value) || 0;
+        const monedaTexto = monedaSelect.options[monedaSelect.selectedIndex]?.text || '';
+        const monedaSiglas = monedaTexto.split('-')[0].trim() || 'DIVISA';
+
+        // Porcentaje de comisión según segmento
+        let pctComision = 1.5;
+        let segmentoNombre = 'Minorista';
+        let clienteNombre = 'No seleccionado';
+
+        if (clienteId && CLIENTES_DATA[clienteId]) {
+            const c = CLIENTES_DATA[clienteId];
+            pctComision = c.porcentaje_comision;
+            segmentoNombre = c.segmento_display;
+            clienteNombre = c.nombre;
+        }
+
+        const subtotal = monto * tasa;
+        const comision = subtotal * (pctComision / 100);
+        const totalNeto = subtotal - comision;
+
+        // Actualizar campo de comisión en el formulario
+        if (comisionInput) {
+            comisionInput.value = comision > 0 ? comision.toFixed(2) : '0.00';
+        }
+
+        // Actualizar resumen visual
+        resumenCliente.textContent = clienteNombre;
+        resumenSegmento.innerHTML = `<span style="color: #047857; font-weight: 700;">${segmentoNombre}</span> (${pctComision}%)`;
+        resumenMonto.textContent = monto > 0 ? `${formatearNumero(monto, 2)} ${monedaSiglas}` : '—';
+        resumenTasa.textContent = tasa > 0 ? `${formatearNumero(tasa, 2)} PYG` : '—';
+        resumenSubtotal.textContent = `${formatearNumero(subtotal, 0)} ₲`;
+        resumenComisionLabel.textContent = `Comisión (${pctComision}%):`;
+        resumenComision.textContent = `- ${formatearNumero(comision, 0)} ₲`;
+        resumenTotalNeto.textContent = `${formatearNumero(totalNeto, 0)} ₲`;
+    }
+
+    // Event listeners para reactividad instantánea
+    clienteSelect.addEventListener('change', onClienteChange);
+    monedaSelect.addEventListener('change', onMonedaChange);
+    montoInput.addEventListener('input', recalcularOperacion);
+    tasaInput.addEventListener('input', recalcularOperacion);
+
+    // Confirmación amigable antes de enviar
+    ventaForm.addEventListener('submit', function(e) {
+        const monto = parseFloat(montoInput.value) || 0;
+        const tasa = parseFloat(tasaInput.value) || 0;
+        const clienteId = clienteSelect.value;
+        const monedaId = monedaSelect.value;
+
+        if (!clienteId || !monedaId || monto <= 0 || tasa <= 0) {
+            return; // dejar que las validaciones HTML/Django actúen
+        }
+
+        const clienteTexto = clienteSelect.options[clienteSelect.selectedIndex]?.text || '';
+        const monedaTexto = monedaSelect.options[monedaSelect.selectedIndex]?.text || '';
+        const subtotal = monto * tasa;
+        let pct = (CLIENTES_DATA[clienteId]?.porcentaje_comision) || 1.5;
+        const comision = subtotal * (pct / 100);
+        const neto = subtotal - comision;
+
+        const confirmMsg = 
+            `¿Confirmar operación de Venta de Moneda?\n\n` +
+            `• Cliente: ${clienteTexto}\n` +
+            `• Moneda: ${monedaTexto}\n` +
+            `• Monto a vender: ${formatearNumero(monto, 2)}\n` +
+            `• Tasa aplicada: ${formatearNumero(tasa, 2)} PYG\n` +
+            `• Subtotal: ${formatearNumero(subtotal, 0)} PYG\n` +
+            `• Comisión (${pct}%): ${formatearNumero(comision, 0)} PYG\n` +
+            `• Neto a liquidar: ${formatearNumero(neto, 0)} PYG\n\n` +
+            `La operación quedará guardada con estado inicial "PENDIENTE".`;
+
+        if (!confirm(confirmMsg)) {
+            e.preventDefault();
+        }
+    });
+
+    // Inicializar estado al cargar
+    document.addEventListener('DOMContentLoaded', function() {
+        if (clienteSelect.value) onClienteChange();
+        if (monedaSelect.value) {
+            const info = TASAS_DATA[monedaSelect.value];
+            if (info && !tasaInput.value) {
+                tasaInput.value = Number(info.tasa).toFixed(2);
+            }
+        }
+        recalcularOperacion();
+    });
+</script>
+{% endblock %}

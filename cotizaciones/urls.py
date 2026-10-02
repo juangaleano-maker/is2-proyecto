@@ -30,15 +30,19 @@ urlpatterns = [
     # Simulador de conversión de moneda (IS2-10)
     path('simulador/', views.simulador_conversion_view, name='simulador_conversion'),
     path('api/simular/', views.api_simular_conversion, name='api_simular_conversion'),
+
     # Historial de operaciones de clientes (IS2-18 / Sprint 3)
     path('operaciones/historial/', views.historial_operaciones, name='historial_operaciones'),
     path('operaciones/comprobante/<int:operacion_id>/', views.descargar_comprobante_operacion, name='comprobante_operacion'),
 
     # Operaciones de compra (IS2-15)
     path('comprar/', views.comprar_moneda, name='comprar_moneda'),
+
     # Operaciones de Cambio: Venta de Moneda (IS2-16) y consultas
     path('operaciones/venta/', views.venta_moneda_view, name='operacion_venta'),
     path('operaciones/', views.listar_operaciones_view, name='operaciones_lista'),
+    # Alias usado por las vistas IS2-52 (confirmar_pago / cancelar redirigen a 'listar_operaciones')
+    path('operaciones/lista/', views.listar_operaciones_view, name='listar_operaciones'),
     path('operaciones/<int:operacion_id>/', views.detalle_operacion_view, name='operacion_detalle'),
     path('operaciones/api/calcular/', views.api_calcular_operacion, name='api_calcular_operacion'),
     path('operaciones/api/tasa/<int:moneda_id>/', views.api_tasa_vigente_operacion, name='api_tasa_vigente_operacion'),
