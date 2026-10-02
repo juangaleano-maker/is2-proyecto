@@ -23,12 +23,26 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-jtvi36)u7u!a9q2%!j2!l%*qkg5&we@x$wq1k%86--(*e_v!50'
+SECRET_KEY = os.getenv('SECRET_KEY', config('SECRET_KEY', default='django-insecure-jtvi36)u7u!a9q2%!j2!l%*qkg5&we@x$wq1k%86--(*e_v!50'))
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', config('DEBUG', default='True')).lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', config('ALLOWED_HOSTS', default='*')).split(',') if h.strip()]
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        'CSRF_TRUSTED_ORIGINS',
+        config('CSRF_TRUSTED_ORIGINS', default='http://localhost,http://localhost:80,http://localhost:8000,http://127.0.0.1,http://127.0.0.1:80,http://127.0.0.1:8000')
+    ).split(',')
+    if origin.strip()
+]
+
+# Configuración para proxy inverso Nginx
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 # Application definition
@@ -198,17 +212,19 @@ DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@globalexchange.com
 EMAIL_TOKEN_EXPIRATION_HOURS = int(os.getenv('EMAIL_TOKEN_EXPIRATION_HOURS', '24'))
 
 # Keycloak Integration Settings (Admin REST API)
-KEYCLOAK_SERVER_URL = os.getenv('KEYCLOAK_SERVER_URL', 'http://localhost:8080')
-KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM', 'global-exchange')
-KEYCLOAK_ADMIN_CLIENT_ID = os.getenv('KEYCLOAK_ADMIN_CLIENT_ID', 'admin-cli')
-KEYCLOAK_ADMIN_CLIENT_SECRET = os.getenv('KEYCLOAK_ADMIN_CLIENT_SECRET', '')
-KEYCLOAK_ADMIN_USERNAME = os.getenv('KEYCLOAK_ADMIN_USERNAME', 'admin')
-KEYCLOAK_ADMIN_PASSWORD = os.getenv('KEYCLOAK_ADMIN_PASSWORD', 'admin')
-KEYCLOAK_CLIENT_ID = os.getenv('KEYCLOAK_CLIENT_ID', 'global-exchange-app')
-KEYCLOAK_ENABLED = os.getenv('KEYCLOAK_ENABLED', 'True').lower() in ('true', '1', 'yes')
+KEYCLOAK_SERVER_URL = os.getenv('KEYCLOAK_SERVER_URL', config('KEYCLOAK_SERVER_URL', default=KEYCLOAK_BASE_URL))
+KEYCLOAK_REALM = os.getenv('KEYCLOAK_REALM', config('KEYCLOAK_REALM', default='global-exchange'))
+KEYCLOAK_ADMIN_CLIENT_ID = os.getenv('KEYCLOAK_ADMIN_CLIENT_ID', config('KEYCLOAK_ADMIN_CLIENT_ID', default='admin-cli'))
+KEYCLOAK_ADMIN_CLIENT_SECRET = os.getenv('KEYCLOAK_ADMIN_CLIENT_SECRET', config('KEYCLOAK_ADMIN_CLIENT_SECRET', default=''))
+KEYCLOAK_ADMIN_USERNAME = os.getenv('KEYCLOAK_ADMIN_USERNAME', config('KEYCLOAK_ADMIN_USERNAME', default='admin'))
+KEYCLOAK_ADMIN_PASSWORD = os.getenv('KEYCLOAK_ADMIN_PASSWORD', config('KEYCLOAK_ADMIN_PASSWORD', default='admin'))
+KEYCLOAK_CLIENT_ID = os.getenv('KEYCLOAK_CLIENT_ID', config('KEYCLOAK_CLIENT_ID', default='django-app'))
+KEYCLOAK_ENABLED = os.getenv('KEYCLOAK_ENABLED', config('KEYCLOAK_ENABLED', default='True')).lower() in ('true', '1', 'yes')
 
 # Base URL for email verification links
-APP_BASE_URL = os.getenv('APP_BASE_URL', 'http://127.0.0.1:8000')
+APP_BASE_URL = os.getenv('APP_BASE_URL', config('APP_BASE_URL', default='http://127.0.0.1:8000'))
 
 SESSION_COOKIE_SAMESITE = 'Lax'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

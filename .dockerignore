@@ -1,0 +1,21 @@
+.git
+.gitignore
+.venv
+venv
+env
+ENV
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+db.sqlite3
+.vscode
+.idea
+*.log
+docs/
+docs CHIA/
+docs_old/
+temp_*.py
+fix_*.py
+check_venta.py
+find_quotes.py

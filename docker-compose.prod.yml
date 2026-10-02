@@ -27,6 +27,10 @@ services:
     restart: always
     environment:
       - DEBUG=False
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-prod-key-change-me-in-production}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-http://localhost,http://localhost:80,http://localhost:8000,http://127.0.0.1,http://127.0.0.1:80,http://127.0.0.1:8000}
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost}
       - DB_NAME=${DB_NAME:-global_exchange_prod}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-prod_secure_password_2026}
@@ -39,6 +43,8 @@ services:
       - KEYCLOAK_BASE_URL=${KEYCLOAK_BASE_URL:-http://localhost:8080}
       - KEYCLOAK_SERVER_URL=http://keycloak-prod:8080
       - KEYCLOAK_REALM=global-exchange
+      - KEYCLOAK_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin_prod_password}
       - OIDC_RP_CLIENT_ID=${OIDC_RP_CLIENT_ID:-django-app}
       - OIDC_RP_CLIENT_SECRET=${OIDC_RP_CLIENT_SECRET:-maie fyxm kzlx tyur}
       - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
@@ -101,6 +107,8 @@ services:
     restart: always
     command: celery -A global_exchange worker --loglevel=info
     environment:
+      - DEBUG=False
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-prod-key-change-me-in-production}
       - DB_NAME=${DB_NAME:-global_exchange_prod}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-prod_secure_password_2026}
@@ -108,9 +116,21 @@ services:
       - DB_PORT=5432
       - CELERY_BROKER_URL=redis://redis-prod:6379/0
       - CELERY_RESULT_BACKEND=redis://redis-prod:6379/0
+      - KEYCLOAK_BASE_URL=${KEYCLOAK_BASE_URL:-http://localhost:8080}
+      - KEYCLOAK_SERVER_URL=http://keycloak-prod:8080
+      - KEYCLOAK_REALM=global-exchange
+      - KEYCLOAK_ADMIN_USERNAME=${KEYCLOAK_ADMIN_USERNAME:-admin}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD:-admin_prod_password}
+      - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      - EMAIL_HOST=${EMAIL_HOST:-smtp.gmail.com}
+      - EMAIL_PORT=${EMAIL_PORT:-587}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-globalexchangegrupo1@gmail.com}
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost}
     depends_on:
-      - db-prod
-      - redis-prod
+      db-prod:
+        condition: service_healthy
+      redis-prod:
+        condition: service_healthy
 
   celery-beat:
     build:
@@ -120,10 +140,13 @@ services:
     restart: always
     command: celery -A global_exchange beat --loglevel=info
     environment:
+      - DEBUG=False
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-prod-key-change-me-in-production}
       - CELERY_BROKER_URL=redis://redis-prod:6379/0
       - CELERY_RESULT_BACKEND=redis://redis-prod:6379/0
     depends_on:
-      - redis-prod
+      redis-prod:
+        condition: service_healthy
 
   # ========================================================
   # 6. SERVIDOR DE IDENTIDAD SSO (Keycloak Producción)

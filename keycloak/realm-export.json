@@ -69,12 +69,23 @@
       "protocol": "openid-connect",
       "publicClient": false,
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
       "redirectUris": [
-        "http://localhost:8000/oidc/callback/"
+        "http://localhost:8000/oidc/callback/",
+        "http://localhost/oidc/callback/",
+        "http://localhost:80/oidc/callback/",
+        "http://127.0.0.1:8000/oidc/callback/",
+        "http://127.0.0.1/oidc/callback/",
+        "http://127.0.0.1:80/oidc/callback/",
+        "/*"
       ],
       "webOrigins": [
-        "http://localhost:8000"
+        "http://localhost:8000",
+        "http://localhost",
+        "http://localhost:80",
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:80",
+        "+"
       ],
       "fullScopeAllowed": true,
       "protocolMappers": [
