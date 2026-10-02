@@ -236,16 +236,16 @@
     <div class="op-header">
         <div>
             <h1>
-                <span>💵</span> Venta de Moneda
+                <span>💵</span> Compra de Moneda
             </h1>
             <p>
-                Registre una operación de venta de divisas en nombre de un cliente asignado. 
+                Registre una operación de compra de divisas a nombre de un cliente asignado. 
                 Las comisiones se liquidan automáticamente y la operación ingresa en estado <strong>Pendiente</strong> para su control y verificación.
             </p>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
             <span class="op-badge-tag">
-                <span>🔄</span> Operación Cambiaria (IS2-16)
+                <span>🔄</span> Operación Cambiaria (IS2-15)
             </span>
             <span class="badge-status-pending">
                 <span class="pulse-amber"></span> Estado Inicial: Pendiente
@@ -275,7 +275,7 @@
                 <span>📝</span> Datos de la Transacción
             </h2>
 
-            <form method="post" id="ventaForm" novalidate>
+            <form method="post" id="compraForm" action="{% url 'comprar_moneda' %}" novalidate>
                 {% csrf_token %}
 
                 {% if form.non_field_errors %}
@@ -298,7 +298,7 @@
                     </div>
                     {% endif %}
                     <div class="input-hint" id="clienteInfoBadge">
-                        <span>ℹ️</span> Selecciona el cliente a nombre del cual se realiza la venta.
+                        <span>ℹ️</span> Selecciona el cliente a nombre del cual se realiza la compra.
                     </div>
                 </div>
 
@@ -362,7 +362,7 @@
                 </div>
 
                 <button type="submit" class="btn-submit" id="btnSubmit" {% if not tiene_clientes %}disabled{% endif %}>
-                    <span>✅</span> Confirmar Venta de Moneda
+                    <span>✅</span> Confirmar Compra de Moneda
                 </button>
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
@@ -383,12 +383,12 @@
             </h3>
 
             <div class="info-box">
-                <strong>Flujo de Venta:</strong> El cliente entrega divisas a la entidad y recibe su contravalor en moneda local (PYG), deduciendo la comisión aplicable.
+                <strong>Flujo de Compra:</strong> El cliente recibe divisas de la entidad entregando su contravalor en moneda local (PYG), más la comisión aplicable.
             </div>
 
             <div class="calc-row">
                 <span class="label">Tipo de Transacción:</span>
-                <span class="value" style="color: #047857;">VENTA DE DIVISAS</span>
+                <span class="value" style="color: #1d4ed8;">COMPRA DE DIVISAS</span>
             </div>
 
             <div class="calc-row">
@@ -454,7 +454,7 @@
     const montoInput = document.getElementById('id_monto');
     const tasaInput = document.getElementById('id_tasa_aplicada');
     const comisionInput = document.getElementById('id_comision');
-    const ventaForm = document.getElementById('ventaForm');
+    const ventaForm = document.getElementById('compraForm');
 
     // Elementos de resumen
     const resumenCliente = document.getElementById('resumenCliente');
@@ -506,7 +506,7 @@
 
             clienteInfoBadge.innerHTML = `<span>👤</span> Doc: <strong>${c.documento}</strong> | Segmento: <span class="${badgeClass}">${c.segmento_display}</span> (Comisión preferencial: ${c.porcentaje_comision}%)`;
         } else {
-            clienteInfoBadge.innerHTML = '<span>ℹ️</span> Selecciona el cliente a nombre del cual se realiza la venta.';
+            clienteInfoBadge.innerHTML = '<span>ℹ️</span> Selecciona el cliente a nombre del cual se realiza la compra.';
         }
         recalcularOperacion();
     }
@@ -576,7 +576,7 @@
         const neto = subtotal - comision;
 
         const confirmMsg = 
-            `¿Confirmar operación de Venta de Moneda?\n\n` +
+            `¿Confirmar operación de Compra de Moneda?\n\n` +
             `• Cliente: ${clienteTexto}\n` +
             `• Moneda: ${monedaTexto}\n` +
             `• Monto a vender: ${formatearNumero(monto, 2)}\n` +
