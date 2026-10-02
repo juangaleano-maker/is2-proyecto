@@ -6,7 +6,9 @@ from decimal import Decimal
 import time
 
 from monedas.models import Moneda
-from cotizaciones.models import Cotizacion
+from cotizaciones.models import Cotizacion, Operacion
+from clientes.models import Cliente
+
 
 User = get_user_model()
 
@@ -654,3 +656,285 @@ class SimuladorConversionViewsTest(TestCase):
         self.assertEqual(resp.status_code, 400)
         data = resp.json()
         self.assertFalse(data['exito'])
+
+
+class VentaMonedaTestCase(TestCase):
+    """
+    Pruebas unitarias e integrales para la Historia de Usuario IS2-16:
+    'Venta de Moneda' a nombre de un cliente asignado.
+    """
+
+    def setUp(self):
+        # 1. Crear usuarios (operador y cliente regular)
+        self.user_operador = User.objects.create_user(
+            username='operador_carlos',
+            email='carlos@exchange.com',
+            password='password123'
+        )
+        grupo_op, _ = Group.objects.get_or_create(name='operador')
+        self.user_operador.groups.add(grupo_op)
+
+        self.user_cliente = User.objects.create_user(
+            username='cliente_miguel',
+            email='miguel@gmail.com',
+            password='password123'
+        )
+        grupo_cl, _ = Group.objects.get_or_create(name='cliente')
+        self.user_cliente.groups.add(grupo_cl)
+
+        # 2. Crear divisas
+        self.usd = Moneda.objects.create(nombre='Dólar Estadounidense', siglas='USD', activa=True)
+        self.pyg = Moneda.objects.create(nombre='Guaraní Paraguayo', siglas='PYG', activa=True)
+        self.eur = Moneda.objects.create(nombre='Euro', siglas='EUR', activa=True)
+
+        # 3. Crear clientes (Minorista y VIP)
+        self.cliente_minorista = Cliente.objects.create(
+            tipo_persona=Cliente.TipoPersona.FISICA,
+            segmento=Cliente.Segmento.MINORISTA,
+            documento='1234567',
+            nombre='Juan',
+            apellido='Pérez',
+            email='miguel@gmail.com',
+            activo=True
+        )
+
+        self.cliente_vip = Cliente.objects.create(
+            tipo_persona=Cliente.TipoPersona.JURIDICA,
+            segmento=Cliente.Segmento.VIP,
+            documento='80012345-6',
+            razon_social='Inversiones Globales S.A.',
+            email='vip@inversiones.com',
+            activo=True
+        )
+
+        # 4. Crear cotización activa vigente (USD -> PYG: Compra 7900, Venta 7980)
+        self.cot_usd_pyg = Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7900.00'),
+            venta=Decimal('7980.00'),
+            activo=True,
+            registrado_por=self.user_operador
+        )
+
+    def test_autenticacion_requerida_acceso_anonimo(self):
+        """
+        Criterio 1: La funcionalidad/pantalla debe requerir autenticación válida.
+        Un usuario anónimo debe ser redirigido a login.
+        """
+        url = reverse('operacion_venta')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('login', response.url)
+
+    def test_usuario_autenticado_puede_acceder(self):
+        """Un usuario con sesión activa puede acceder a la pantalla de venta."""
+        self.client.force_login(self.user_operador)
+        url = reverse('operacion_venta')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'cotizaciones/operaciones/venta.html')
+        self.assertIn('form', response.context)
+
+    def test_formulario_contiene_campos_requeridos(self):
+        """
+        Criterio 2: El formulario debe solicitar:
+        - Cliente asignado
+        - Moneda (divisa)
+        - Monto a vender
+        - Tasa aplicada
+        """
+        from cotizaciones.forms import VentaMonedaForm
+        form = VentaMonedaForm(user=self.user_operador)
+        self.assertIn('cliente', form.fields)
+        self.assertIn('moneda', form.fields)
+        self.assertIn('monto', form.fields)
+        self.assertIn('tasa_aplicada', form.fields)
+        self.assertIn('comision', form.fields)
+
+    def test_calculo_automatico_comision_minorista(self):
+        """
+        Cálculo automático: La comisión correspondiente a cliente minorista (1.5%)
+        se computa automáticamente sobre el subtotal antes de confirmar.
+        """
+        from cotizaciones.services import calcular_comision_operacion
+        # 100 USD @ 7900 PYG = 790,000 Subtotal
+        # Comisión 1.5% de 790,000 = 11,850 PYG
+        # Total neto = 778,150 PYG
+        calc = calcular_comision_operacion(
+            cliente=self.cliente_minorista,
+            monto='100.00',
+            tasa_aplicada='7900.00',
+            tipo='VENTA'
+        )
+        self.assertTrue(calc['exito'])
+        self.assertEqual(calc['subtotal'], Decimal('790000.00'))
+        self.assertEqual(calc['porcentaje_comision'], Decimal('1.5'))
+        self.assertEqual(calc['comision'], Decimal('11850.00'))
+        self.assertEqual(calc['total_neto'], Decimal('778150.00'))
+
+    def test_calculo_automatico_comision_vip(self):
+        """Cálculo automático para cliente VIP aplica 0.5% de comisión."""
+        from cotizaciones.services import calcular_comision_operacion
+        # 1,000 USD @ 8000 PYG = 8,000,000 Subtotal
+        # Comisión 0.5% de 8,000,000 = 40,000 PYG
+        # Total neto = 7,960,000 PYG
+        calc = calcular_comision_operacion(
+            cliente=self.cliente_vip,
+            monto='1000.00',
+            tasa_aplicada='8000.00',
+            tipo='VENTA'
+        )
+        self.assertTrue(calc['exito'])
+        self.assertEqual(calc['porcentaje_comision'], Decimal('0.5'))
+        self.assertEqual(calc['comision'], Decimal('40000.00'))
+        self.assertEqual(calc['total_neto'], Decimal('7960000.00'))
+
+    def test_registro_operacion_venta_estado_inicial_pendiente(self):
+        """
+        Criterio 3: Al confirmar la venta:
+        - Tipo de transacción: Venta.
+        - Estado inicial obligatorio: 'Pendiente'.
+        - La operación debe guardarse en la BD.
+        """
+        self.client.force_login(self.user_operador)
+        url = reverse('operacion_venta')
+        datos = {
+            'cliente': self.cliente_minorista.id,
+            'moneda': self.usd.id,
+            'monto': '200.00',
+            'tasa_aplicada': '7900.00',
+        }
+        response = self.client.post(url, data=datos)
+        
+        # Debe redirigir al detalle de la operación creada
+        self.assertEqual(response.status_code, 302)
+        
+        # Verificar la operación en la BD
+        operacion = Operacion.objects.filter(cliente=self.cliente_minorista).first()
+        self.assertIsNotNone(operacion)
+        self.assertEqual(operacion.tipo, Operacion.TipoOperacion.VENTA)
+        self.assertEqual(operacion.estado, Operacion.EstadoOperacion.PENDIENTE)
+        self.assertEqual(operacion.monto, Decimal('200.00'))
+        self.assertEqual(operacion.tasa_aplicada, Decimal('7900.00'))
+        # Subtotal: 200 * 7900 = 1,580,000. Comisión 1.5% = 23,700
+        self.assertEqual(operacion.comision, Decimal('23700.00'))
+        self.assertEqual(operacion.subtotal, Decimal('1580000.00'))
+        self.assertEqual(operacion.total_neto, Decimal('1556300.00'))
+        self.assertEqual(operacion.registrado_por, self.user_operador)
+
+    def test_validacion_monto_o_tasa_negativa(self):
+        """El formulario rechaza montos o tasas menores o iguales a cero."""
+        self.client.force_login(self.user_operador)
+        url = reverse('operacion_venta')
+        
+        # Monto negativo
+        resp = self.client.post(url, {
+            'cliente': self.cliente_minorista.id,
+            'moneda': self.usd.id,
+            'monto': '-50.00',
+            'tasa_aplicada': '7900.00',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(Operacion.objects.exists())
+
+        # Tasa cero
+        resp = self.client.post(url, {
+            'cliente': self.cliente_minorista.id,
+            'moneda': self.usd.id,
+            'monto': '100.00',
+            'tasa_aplicada': '0.00',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(Operacion.objects.exists())
+
+    def test_compatibilidad_generica_compra(self):
+        """
+        La estructura de datos y servicios es genérica y compatible
+        para la función simétrica de Compra de Moneda.
+        """
+        from cotizaciones.services import registrar_operacion_cambio
+        operacion, calculo = registrar_operacion_cambio(
+            cliente=self.cliente_vip,
+            moneda=self.eur,
+            tipo=Operacion.TipoOperacion.COMPRA,
+            monto='500.00',
+            tasa_aplicada='8500.00',
+            usuario=self.user_operador
+        )
+        self.assertEqual(operacion.tipo, Operacion.TipoOperacion.COMPRA)
+        self.assertEqual(operacion.estado, Operacion.EstadoOperacion.PENDIENTE)
+        # Subtotal: 500 * 8500 = 4,250,000. Comisión VIP 0.5% = 21,250.
+        # En compra: Total neto a abonar = subtotal + comision = 4,271,250
+        self.assertEqual(operacion.subtotal, Decimal('4250000.00'))
+        self.assertEqual(operacion.comision, Decimal('21250.00'))
+        self.assertEqual(operacion.total_neto, Decimal('4271250.00'))
+
+    def test_api_calcular_operacion(self):
+        """Endpoint JSON de cálculo automático de comisión en tiempo real."""
+        self.client.force_login(self.user_operador)
+        url = reverse('api_calcular_operacion')
+        resp = self.client.get(url, {
+            'cliente_id': self.cliente_minorista.id,
+            'monto': '150.00',
+            'tasa_aplicada': '7950.00',
+            'tipo': 'VENTA'
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['exito'])
+        self.assertEqual(data['monto'], 150.0)
+        self.assertEqual(data['tasa_aplicada'], 7950.0)
+        self.assertEqual(data['subtotal'], 1192500.0)
+        self.assertEqual(data['comision'], 17887.5)
+        self.assertEqual(data['total_neto'], 1174612.5)
+
+    def test_api_tasa_vigente_operacion(self):
+        """Endpoint JSON que devuelve la tasa de referencia vigente para la divisa."""
+        self.client.force_login(self.user_operador)
+        url = reverse('api_tasa_vigente_operacion', args=[self.usd.id])
+        resp = self.client.get(url, {'tipo': 'VENTA'})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['exito'])
+        self.assertEqual(data['tasa_sugerida'], 7900.0)
+        self.assertEqual(data['compra'], 7900.0)
+        self.assertEqual(data['venta'], 7980.0)
+
+    def test_detalle_operacion_view(self):
+        """Visualización del comprobante de operación en estado Pendiente."""
+        from cotizaciones.services import registrar_operacion_cambio
+        op, _ = registrar_operacion_cambio(
+            cliente=self.cliente_minorista,
+            moneda=self.usd,
+            tipo=Operacion.TipoOperacion.VENTA,
+            monto='100.00',
+            tasa_aplicada='7900.00',
+            usuario=self.user_operador
+        )
+        self.client.force_login(self.user_operador)
+        url = reverse('operacion_detalle', args=[op.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'cotizaciones/operaciones/detalle.html')
+        self.assertContains(response, f"Operación #{op.id}")
+        self.assertContains(response, "PENDIENTE")
+
+    def test_listar_operaciones_view(self):
+        """Listado de operaciones con soporte para filtros."""
+        from cotizaciones.services import registrar_operacion_cambio
+        registrar_operacion_cambio(
+            cliente=self.cliente_minorista,
+            moneda=self.usd,
+            tipo=Operacion.TipoOperacion.VENTA,
+            monto='100.00',
+            tasa_aplicada='7900.00',
+            usuario=self.user_operador
+        )
+        self.client.force_login(self.user_operador)
+        url = reverse('operaciones_lista')
+        response = self.client.get(url, {'tipo': 'VENTA', 'estado': 'PENDIENTE'})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'cotizaciones/operaciones/lista.html')
+        self.assertEqual(len(response.context['operaciones']), 1)
+

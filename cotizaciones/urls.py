@@ -34,7 +34,14 @@ urlpatterns = [
     path('operaciones/historial/', views.historial_operaciones, name='historial_operaciones'),
     path('operaciones/comprobante/<int:operacion_id>/', views.descargar_comprobante_operacion, name='comprobante_operacion'),
 
-    # Operaciones de compra
+    # Operaciones de compra (IS2-15)
     path('comprar/', views.comprar_moneda, name='comprar_moneda'),
-    path('operaciones/', views.listar_operaciones, name='listar_operaciones'),
+
+    # Operaciones de Cambio: Venta de Moneda (IS2-16) y consultas
+    path('operaciones/venta/', views.venta_moneda_view, name='operacion_venta'),
+    path('operaciones/', views.listar_operaciones_view, name='operaciones_lista'),
+    path('operaciones/<int:operacion_id>/', views.detalle_operacion_view, name='operacion_detalle'),
+    path('operaciones/api/calcular/', views.api_calcular_operacion, name='api_calcular_operacion'),
+    path('operaciones/api/tasa/<int:moneda_id>/', views.api_tasa_vigente_operacion, name='api_tasa_vigente_operacion'),
 ]
+

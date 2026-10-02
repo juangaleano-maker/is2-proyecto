@@ -177,3 +177,222 @@ def simular_conversion(
     raise ValueError(
         f"No se encontró una cotización activa vigente entre {origen_obj.siglas} y {destino_obj.siglas}."
     )
+
+
+def obtener_clientes_asignados_usuario(user):
+    """
+    Retorna el QuerySet de clientes asignados a un usuario autenticado.
+    - Personal administrativo u operadores: tienen acceso a todos los clientes activos.
+    - Clientes / usuarios asignados: únicamente aquellos clientes vinculados explícitamente.
+    """
+    from clientes.models import Cliente
+    from agregar_usuario.models import UsuarioCliente
+    from django.db import models
+
+    if not user or not user.is_authenticated:
+        return Cliente.objects.none()
+
+    user_roles = set(getattr(user, 'roles', []))
+    if hasattr(user, 'groups'):
+        user_roles.update(user.groups.values_list('name', flat=True))
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    es_personal = bool(user_roles.intersection(roles_gestion)) or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)
+
+    if es_personal:
+        return Cliente.objects.filter(activo=True).order_by('nombre', 'razon_social')
+
+
+    user_email = user.email or user.username
+    clientes_ids = UsuarioCliente.objects.filter(email__iexact=user_email).values_list('cliente_id', flat=True)
+    return Cliente.objects.filter(
+        models.Q(id__in=clientes_ids) | models.Q(email__iexact=user_email),
+        activo=True
+    ).order_by('nombre', 'razon_social')
+
+
+def obtener_tasa_sugerida(moneda, tipo='VENTA'):
+    """
+    Busca la tasa vigente en Cotizacion para la moneda especificada.
+    Para una VENTA (el cliente vende divisa a la casa de cambio):
+    sugiere la tasa de compra de la casa (precio al que la entidad adquiere la divisa).
+    Para una COMPRA: sugiere la tasa de venta de la casa.
+    """
+    from .models import Cotizacion
+    from monedas.models import Moneda
+
+    if isinstance(moneda, (int, str)) and str(moneda).isdigit():
+        moneda_obj = Moneda.objects.filter(id=int(moneda), activa=True).first()
+    elif isinstance(moneda, str):
+        moneda_obj = Moneda.objects.filter(siglas__iexact=moneda.strip(), activa=True).first()
+    else:
+        moneda_obj = moneda
+
+    if not moneda_obj:
+        return None
+
+    # Si es moneda base (PYG), la tasa de referencia es 1.00
+    if moneda_obj.siglas.upper() == 'PYG':
+        return {
+            'tasa_sugerida': Decimal('1.00'),
+            'compra': Decimal('1.00'),
+            'venta': Decimal('1.00'),
+            'cotizacion_id': None,
+            'par': 'PYG a PYG',
+            'fecha': None
+        }
+
+    # Buscar cotización activa de la divisa respecto a PYG (o cualquier contraparte activa)
+    cot = (
+        Cotizacion.objects.filter(
+            moneda_origen=moneda_obj,
+            activo=True
+        )
+        .order_by('-fecha')
+        .first()
+    )
+
+    if not cot:
+        # Intentar en sentido inverso
+        cot = (
+            Cotizacion.objects.filter(
+                moneda_destino=moneda_obj,
+                activo=True
+            )
+            .order_by('-fecha')
+            .first()
+        )
+
+    if cot:
+        # En una casa de cambio:
+        # Cuando el cliente VENDE moneda extranjera, la casa de cambios COMPRA (tasa cot.compra).
+        # Cuando el cliente COMPRA moneda extranjera, la casa de cambios VENDE (tasa cot.venta).
+        if str(tipo).upper() == 'VENTA':
+            tasa = cot.compra
+        else:
+            tasa = cot.venta
+
+        return {
+            'tasa_sugerida': tasa,
+            'compra': cot.compra,
+            'venta': cot.venta,
+            'cotizacion_id': cot.id,
+            'par': str(cot),
+            'fecha': cot.fecha.strftime('%d/%m/%Y %H:%M') if cot.fecha else None
+        }
+
+    return None
+
+
+def calcular_comision_operacion(cliente, monto, tasa_aplicada, tipo='VENTA') -> dict:
+    """
+    Calcula de forma automática la comisión y liquidación de una operación de cambio (Venta o Compra).
+    
+    Criterios:
+    1. Subtotal = Monto * Tasa Aplicada.
+    2. Porcentaje de comisión segmentado por cliente:
+       - VIP: 0.5%
+       - Corporativo: 1.0%
+       - Minorista / Regular: 1.5%
+    3. Comisión = Subtotal * (Porcentaje / 100).
+    4. Liquidación neta:
+       - VENTA: Subtotal - Comisión (monto a entregar al cliente en moneda local).
+       - COMPRA: Subtotal + Comisión (monto a abonar por el cliente).
+    """
+    from clientes.models import Cliente
+
+    if monto is None or str(monto).strip() == '':
+        raise ValueError("Debe ingresar el monto de la operación.")
+    
+    if tasa_aplicada is None or str(tasa_aplicada).strip() == '':
+        raise ValueError("Debe ingresar la tasa aplicada.")
+
+    try:
+        monto_dec = Decimal(str(monto))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError("El monto ingresado no es un valor numérico válido.")
+
+    try:
+        tasa_dec = Decimal(str(tasa_aplicada))
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError("La tasa aplicada no es un valor numérico válido.")
+
+    if monto_dec <= Decimal('0'):
+        raise ValueError("El monto debe ser un valor positivo mayor a cero.")
+
+    if tasa_dec <= Decimal('0'):
+        raise ValueError("La tasa aplicada debe ser mayor a cero.")
+
+    # Determinar cliente y segmento
+    cliente_obj = None
+    if isinstance(cliente, (int, str)) and str(cliente).isdigit():
+        cliente_obj = Cliente.objects.filter(id=int(cliente)).first()
+    elif isinstance(cliente, Cliente):
+        cliente_obj = cliente
+
+    segmento = getattr(cliente_obj, 'segmento', Cliente.Segmento.MINORISTA if hasattr(Cliente, 'Segmento') else 'MINORISTA')
+    
+    # Tabla de comisiones por segmento
+    if segmento == 'VIP':
+        porcentaje_comision = Decimal('0.5')
+    elif segmento == 'CORPORATIVO':
+        porcentaje_comision = Decimal('1.0')
+    else:
+        porcentaje_comision = Decimal('1.5')
+
+    subtotal = (monto_dec * tasa_dec).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    comision = (subtotal * (porcentaje_comision / Decimal('100'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    tipo_upper = str(tipo).upper().strip()
+    if tipo_upper == 'VENTA':
+        total_neto = (subtotal - comision).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    else:
+        total_neto = (subtotal + comision).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    return {
+        'exito': True,
+        'tipo': tipo_upper,
+        'monto': monto_dec,
+        'tasa_aplicada': tasa_dec,
+        'subtotal': subtotal,
+        'segmento': segmento,
+        'porcentaje_comision': porcentaje_comision,
+        'comision': comision,
+        'total_neto': total_neto,
+    }
+
+
+def registrar_operacion_cambio(cliente, moneda, tipo, monto, tasa_aplicada, usuario=None):
+    """
+    Crea y persiste una Operacion en estado PENDIENTE, calculando la comisión
+    correspondiente según las reglas del negocio de manera auditable e íntegra.
+    Compatible tanto para 'VENTA' como para 'COMPRA'.
+    """
+    from .models import Operacion
+    from monedas.models import Moneda
+    from clientes.models import Cliente
+
+    if isinstance(cliente, (int, str)):
+        cliente = Cliente.objects.get(id=int(cliente), activo=True)
+    if isinstance(moneda, (int, str)):
+        moneda = Moneda.objects.get(id=int(moneda), activa=True)
+
+    calculo = calcular_comision_operacion(
+        cliente=cliente,
+        monto=monto,
+        tasa_aplicada=tasa_aplicada,
+        tipo=tipo
+    )
+
+    operacion = Operacion.objects.create(
+        cliente=cliente,
+        moneda=moneda,
+        tipo=calculo['tipo'],
+        monto=calculo['monto'],
+        tasa_aplicada=calculo['tasa_aplicada'],
+        comision=calculo['comision'],
+        estado=Operacion.EstadoOperacion.PENDIENTE,
+        registrado_por=usuario if (usuario and getattr(usuario, 'is_authenticated', False)) else None,
+    )
+
+    return operacion, calculo
+

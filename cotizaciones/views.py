@@ -1,8 +1,10 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from authentication.decorators import rol_requerido
 from .models import Cotizacion, Operacion
 from .forms import CotizacionForm
+
 import json
 import csv
 from datetime import datetime
@@ -590,83 +592,254 @@ def api_simular_conversion(request):
     except Exception as e:
         return JsonResponse({'exito': False, 'error': str(e)}, status=500)
 
+
+# ==============================================================================
+# OPERACIONES DE CAMBIO: VENTA Y COMPRA DE MONEDA (IS2-16)
+# ==============================================================================
+
 @login_required
-def historial_operaciones(request):
+def venta_moneda_view(request):
     """
-    Muestra el historial de transacciones/operaciones de los clientes asignados al usuario.
+    Vista y flujo para vender moneda a nombre de un cliente asignado (IS2-16).
+    Requerimientos:
+    1. Requiere autenticación válida.
+    2. Formulario con Cliente asignado, Moneda, Monto a vender y Tasa aplicada.
+    3. Cálculo automático de la comisión correspondiente antes de confirmar.
+    4. Registro de Operación: Tipo 'Venta', estado inicial obligatorio 'Pendiente'.
     """
-    # En un caso real, filtraríamos por los clientes del usuario activo.
-    # Por ahora, mostraremos todas las operaciones o filtraremos por estado.
-    estado_filtro = request.GET.get('estado', '')
-    
-    operaciones_qs = Operacion.objects.select_related('cliente', 'moneda').order_by('-fecha')
-    
-    if estado_filtro:
-        operaciones_qs = operaciones_qs.filter(estado=estado_filtro)
-        
-    return render(request, 'cotizaciones/historial_operaciones.html', {
-        'operaciones': operaciones_qs,
+    from .forms import VentaMonedaForm
+    from .services import (
+        obtener_clientes_asignados_usuario,
+        obtener_tasa_sugerida,
+        calcular_comision_operacion,
+        registrar_operacion_cambio
+    )
+    from monedas.models import Moneda
+
+    clientes_asignados = obtener_clientes_asignados_usuario(request.user)
+    cliente_activo_id = request.session.get('cliente_activo_id')
+    cliente_inicial = None
+    if cliente_activo_id and clientes_asignados.filter(id=cliente_activo_id).exists():
+        cliente_inicial = cliente_activo_id
+    elif clientes_asignados.count() == 1:
+        cliente_inicial = clientes_asignados.first().id
+
+    monedas_activas = Moneda.objects.filter(activa=True).order_by('siglas')
+
+    # Pre-calcular mapa de tasas sugeridas para el frontend en JSON
+    tasas_map = {}
+    for m in monedas_activas:
+        tasa_info = obtener_tasa_sugerida(m, tipo='VENTA')
+        if tasa_info:
+            tasas_map[m.id] = {
+                'tasa': float(tasa_info['tasa_sugerida']),
+                'compra': float(tasa_info['compra']),
+                'venta': float(tasa_info['venta']),
+                'par': tasa_info['par'],
+                'fecha': tasa_info['fecha']
+            }
+
+    # Pre-calcular mapa de comisiones por cliente
+    clientes_map = {}
+    for c in clientes_asignados:
+        clientes_map[c.id] = {
+            'nombre': str(c),
+            'documento': c.documento,
+            'segmento': c.segmento,
+            'segmento_display': c.get_segmento_display(),
+            'porcentaje_comision': 0.5 if c.segmento == 'VIP' else (1.0 if c.segmento == 'CORPORATIVO' else 1.5)
+        }
+
+    if request.method == 'POST':
+        form = VentaMonedaForm(request.POST, user=request.user)
+        if form.is_valid():
+            cliente = form.cleaned_data['cliente']
+            moneda = form.cleaned_data['moneda']
+            monto = form.cleaned_data['monto']
+            tasa_aplicada = form.cleaned_data['tasa_aplicada']
+
+            try:
+                operacion, calculo = registrar_operacion_cambio(
+                    cliente=cliente,
+                    moneda=moneda,
+                    tipo=Operacion.TipoOperacion.VENTA,
+                    monto=monto,
+                    tasa_aplicada=tasa_aplicada,
+                    usuario=request.user
+                )
+
+                messages.success(
+                    request,
+                    f"¡Operación de Venta #{operacion.id} registrada con éxito! "
+                    f"Monto: {operacion.monto} {operacion.moneda.siglas} — Estado inicial: {operacion.get_estado_display()}."
+                )
+                return redirect('operacion_detalle', operacion_id=operacion.id)
+            except Exception as e:
+                messages.error(request, f"Error al procesar la operación de venta: {str(e)}")
+        else:
+            messages.error(request, "Por favor corrija los errores indicados en el formulario.")
+    else:
+        form = VentaMonedaForm(user=request.user, initial={'cliente': cliente_inicial})
+
+    return render(request, 'cotizaciones/operaciones/venta.html', {
+        'form': form,
+        'clientes_asignados': clientes_asignados,
+        'tiene_clientes': clientes_asignados.exists(),
+        'cliente_inicial': cliente_inicial,
+        'monedas': monedas_activas,
+        'tasas_json': json.dumps(tasas_map),
+        'clientes_json': json.dumps(clientes_map),
+    })
+
+
+@login_required
+def detalle_operacion_view(request, operacion_id):
+    """
+    Muestra la ficha y comprobante detallado de una operación registrada.
+    """
+    operacion = get_object_or_404(Operacion.objects.select_related('cliente', 'moneda', 'registrado_por'), id=operacion_id)
+
+    # Validar que el usuario tenga acceso a la operación
+    roles = set(getattr(request, 'roles', [])) | set(getattr(request.user, 'roles', []))
+    if hasattr(request.user, 'groups'):
+        roles.update(request.user.groups.values_list('name', flat=True))
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    es_personal = bool(roles.intersection(roles_gestion)) or getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
+
+    if not es_personal:
+        from .services import obtener_clientes_asignados_usuario
+        clientes_ids = obtener_clientes_asignados_usuario(request.user).values_list('id', flat=True)
+        if operacion.cliente_id not in clientes_ids and operacion.registrado_por_id != request.user.id:
+            messages.error(request, "No tienes permiso para consultar esta operación.")
+            return redirect('menu')
+
+    return render(request, 'cotizaciones/operaciones/detalle.html', {
+        'operacion': operacion,
+        'es_personal': es_personal,
+    })
+
+
+@login_required
+def listar_operaciones_view(request):
+    """
+    Listado y consulta de operaciones (Ventas y Compras) para el usuario autenticado.
+    """
+    from .services import obtener_clientes_asignados_usuario
+
+    roles = set(getattr(request, 'roles', [])) | set(getattr(request.user, 'roles', []))
+    if hasattr(request.user, 'groups'):
+        roles.update(request.user.groups.values_list('name', flat=True))
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    es_personal = bool(roles.intersection(roles_gestion)) or getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
+
+    if es_personal:
+        operaciones = Operacion.objects.all()
+    else:
+        clientes_ids = obtener_clientes_asignados_usuario(request.user).values_list('id', flat=True)
+        operaciones = Operacion.objects.filter(cliente_id__in=clientes_ids)
+
+
+    # Filtros opcionales
+    tipo_filtro = request.GET.get('tipo', '').strip().upper()
+    estado_filtro = request.GET.get('estado', '').strip().upper()
+    q = request.GET.get('q', '').strip()
+
+    if tipo_filtro and tipo_filtro in Operacion.TipoOperacion.values:
+        operaciones = operaciones.filter(tipo=tipo_filtro)
+    if estado_filtro and estado_filtro in Operacion.EstadoOperacion.values:
+        operaciones = operaciones.filter(estado=estado_filtro)
+    if q:
+        from django.db.models import Q
+        operaciones = operaciones.filter(
+            Q(cliente__nombre__icontains=q) |
+            Q(cliente__apellido__icontains=q) |
+            Q(cliente__razon_social__icontains=q) |
+            Q(cliente__documento__icontains=q) |
+            Q(moneda__siglas__icontains=q) |
+            Q(id__icontains=q)
+        )
+
+    operaciones = operaciones.select_related('cliente', 'moneda', 'registrado_por').order_by('-fecha')
+
+    return render(request, 'cotizaciones/operaciones/lista.html', {
+        'operaciones': operaciones,
+        'tipo_filtro': tipo_filtro,
         'estado_filtro': estado_filtro,
+        'q': q,
+        'es_personal': es_personal,
+        'tipos': Operacion.TipoOperacion.choices,
         'estados': Operacion.EstadoOperacion.choices,
     })
 
-@login_required
-def descargar_comprobante_operacion(request, operacion_id):
-    """
-    Genera una vista imprimible (o PDF/CSV) del comprobante de una transacción confirmada/pagada.
-    """
-    from django.shortcuts import get_object_or_404
-    
-    operacion = get_object_or_404(Operacion, id=operacion_id)
-    
-    # Podríamos restringir para que solo se imprima si está PAGADA
-    # if operacion.estado != Operacion.EstadoOperacion.PAGADA:
-    #     return redirect('historial_operaciones')
-        
-    return render(request, 'cotizaciones/comprobante_operacion.html', {
-        'operacion': operacion
-    })
 
 @login_required
-def comprar_moneda(request):
+@require_http_methods(["GET", "POST"])
+def api_calcular_operacion(request):
     """
-    Vista para que un usuario registre la compra de una moneda 
-    a favor de un cliente asignado.
+    Endpoint JSON para calcular la comisión y totales en tiempo real antes de confirmar.
     """
-    from django.contrib import messages
-    from decimal import Decimal
-    from .forms import ComprarMonedaForm
-    from .models import Operacion
+    from .services import calcular_comision_operacion
 
-    if request.method == 'POST':
-        form = ComprarMonedaForm(request.POST)
-        if form.is_valid():
-            operacion = form.save(commit=False)
-            operacion.tipo = Operacion.TipoOperacion.COMPRA
-            
-            # El sistema debe calcular automáticamente la comisión
-            # Ejemplo: 2% sobre el monto
-            operacion.comision = operacion.monto * Decimal('0.02')
-            
-            # Estado por defecto puede ser PENDIENTE o COMPLETADA
-            operacion.estado = Operacion.EstadoOperacion.PENDIENTE
-            
-            operacion.save()
-            messages.success(request, f'Operación de compra registrada exitosamente con comisión de {operacion.comision}.')
-            return redirect('comprar_moneda')
-    else:
-        form = ComprarMonedaForm()
-        
-    return render(request, 'cotizaciones/comprar_moneda.html', {'form': form})
+    data = request.POST if request.method == 'POST' else request.GET
+    cliente_id = data.get('cliente_id') or data.get('cliente')
+    monto = data.get('monto')
+    tasa_aplicada = data.get('tasa_aplicada') or data.get('tasa')
+    tipo = data.get('tipo', 'VENTA')
+
+    if not all([cliente_id, monto, tasa_aplicada]):
+        return JsonResponse({
+            'exito': False,
+            'error': 'Parámetros obligatorios: cliente_id, monto y tasa_aplicada.'
+        }, status=400)
+
+    try:
+        resultado = calcular_comision_operacion(
+            cliente=cliente_id,
+            monto=monto,
+            tasa_aplicada=tasa_aplicada,
+            tipo=tipo
+        )
+        return JsonResponse({
+            'exito': True,
+            'tipo': resultado['tipo'],
+            'monto': float(resultado['monto']),
+            'tasa_aplicada': float(resultado['tasa_aplicada']),
+            'subtotal': float(resultado['subtotal']),
+            'segmento': resultado['segmento'],
+            'porcentaje_comision': float(resultado['porcentaje_comision']),
+            'comision': float(resultado['comision']),
+            'total_neto': float(resultado['total_neto']),
+        }, status=200)
+    except ValueError as ve:
+        return JsonResponse({'exito': False, 'error': str(ve)}, status=400)
+    except Exception as e:
+        return JsonResponse({'exito': False, 'error': f"Error en cálculo: {str(e)}"}, status=500)
+
 
 @login_required
-def listar_operaciones(request):
+@require_http_methods(["GET"])
+def api_tasa_vigente_operacion(request, moneda_id):
     """
-    Vista para que un usuario pueda ver el listado de operaciones
-    registradas en el sistema.
+    Endpoint JSON que retorna la tasa sugerida/vigente para una divisa en la operación.
     """
-    from .models import Operacion
-    # Traemos todas las operaciones ordenadas por fecha descendente
-    operaciones = Operacion.objects.select_related('cliente', 'moneda').order_by('-fecha')
-    return render(request, 'cotizaciones/listar_operaciones.html', {'operaciones': operaciones})
+    from .services import obtener_tasa_sugerida
+
+    tipo = request.GET.get('tipo', 'VENTA')
+    info = obtener_tasa_sugerida(moneda_id, tipo=tipo)
+
+    if not info:
+        return JsonResponse({
+            'exito': False,
+            'mensaje': 'No se encontró cotización activa para esta divisa.'
+        }, status=200)
+
+    return JsonResponse({
+        'exito': True,
+        'tasa_sugerida': float(info['tasa_sugerida']),
+        'compra': float(info['compra']),
+        'venta': float(info['venta']),
+        'par': info['par'],
+        'fecha': info['fecha'],
+        'cotizacion_id': info['cotizacion_id']
+    }, status=200)
 
