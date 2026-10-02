@@ -481,17 +481,3 @@ Endpoints JSON para integración con sistemas externos:
 
 ---
 
-### 8.4. Módulo de Comprar Moneda (Historia IS2-15)
-
-- **Contexto / Problema:** Se requirió implementar el módulo "Comprar Moneda" asignado a la rama `feature/is2-15`. Los criterios de aceptación establecían: autenticación obligatoria, solicitud de datos específicos (cliente, moneda, monto, tasa aplicada), cálculo automático de la comisión y registro en estado `Pendiente`. Adicionalmente, el frontend no debía permitir valores nulos o negativos, y la tabla de operaciones debía ser visible directamente en la plataforma web (sin depender de Django Admin).
-- **Análisis de la IA:**
-  1. Se agregó el modelo `Operacion` en `cotizaciones/models.py` relacionando las claves foráneas con las apps de `clientes` y `monedas`.
-  2. Se configuró un formulario `ComprarMonedaForm` en `cotizaciones/forms.py` y se implementaron validaciones de integridad de datos (atributos HTML `min="0.01"` y métodos de saneamiento backend `clean_monto`, `clean_tasa_aplicada`) para bloquear transacciones inválidas.
-  3. Se programó la vista controladora `comprar_moneda` en `cotizaciones/views.py` gestionando la lógica de negocio subyacente: inyección del estado predeterminado (`PENDIENTE`), tipo de operación (`COMPRA`) y cálculo porcentual paramétrico de la comisión.
-  4. Se constató la usabilidad del sistema integrando botones de redirección en el `menu.html` principal.
-  5. Tras un `ProgrammingError` ("relation does not exist"), se ejecutaron por consola las migraciones correspondientes `makemigrations` y `migrate` sobre el contenedor del servicio web (`docker compose exec web-dev`).
-  6. Para responder a los requerimientos de la interfaz, se construyó una vista pública de historial en `listar_operaciones.html` orquestada por el controlador `listar_operaciones` con soporte para insignias descriptivas, evadiendo la dependencia al backend administrativo de Django.
-- **Solución Aplicada:**
-  - Código inyectado y estabilizado en `cotizaciones/models.py`, `forms.py`, `urls.py`, y `views.py`.
-  - Interfaces visuales desplegadas en `comprar_moneda.html`, `listar_operaciones.html` y actualización del `menu.html`.
-  - Migraciones de base de datos sincronizadas sobre contenedores Docker.
