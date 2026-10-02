@@ -598,6 +598,43 @@ def api_simular_conversion(request):
 # ==============================================================================
 
 @login_required
+def comprar_moneda(request):
+    """
+    Vista para que un usuario registre la compra de una moneda 
+    a favor de un cliente asignado (IS2-15).
+    Al completarse, redirige al proceso de confirmación y pago (IS2-52).
+    """
+    from django.contrib import messages
+    from decimal import Decimal, ROUND_HALF_UP
+    from .forms import ComprarMonedaForm
+    from .models import Operacion
+
+    if request.method == 'POST':
+        form = ComprarMonedaForm(request.POST)
+        if form.is_valid():
+            operacion = form.save(commit=False)
+            operacion.tipo = Operacion.TipoOperacion.COMPRA
+            
+            # Comisión estimada del 2%
+            operacion.comision = (operacion.monto * Decimal('0.02')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            
+            # Estado inicial PENDIENTE antes del pago
+            operacion.estado = Operacion.EstadoOperacion.PENDIENTE
+            operacion.save()
+
+            messages.info(
+                request, 
+                f'Operación de compra #{operacion.id} iniciada. '
+                f'Por favor revise la cotización vigente antes de confirmar el pago.'
+            )
+            return redirect('confirmar_operacion_pago', operacion_id=operacion.id)
+    else:
+        form = ComprarMonedaForm()
+        
+    return render(request, 'cotizaciones/comprar_moneda.html', {'form': form})
+
+
+@login_required
 def venta_moneda_view(request):
     """
     Vista y flujo para vender moneda a nombre de un cliente asignado (IS2-16).
@@ -692,9 +729,11 @@ def venta_moneda_view(request):
     })
 
 
+
 @login_required
 def detalle_operacion_view(request, operacion_id):
     """
+<<<<<<< HEAD
     Muestra la ficha y comprobante detallado de una operación registrada.
     """
     operacion = get_object_or_404(Operacion.objects.select_related('cliente', 'moneda', 'registrado_por'), id=operacion_id)
@@ -842,4 +881,202 @@ def api_tasa_vigente_operacion(request, moneda_id):
         'fecha': info['fecha'],
         'cotizacion_id': info['cotizacion_id']
     }, status=200)
+=======
+    Vista para que un usuario pueda ver el listado de operaciones
+    registradas en el sistema y realizar acciones de confirmación o cancelación.
+    """
+    from .models import Operacion
+    operaciones = Operacion.objects.select_related('cliente', 'moneda').order_by('-fecha')
+    return render(request, 'cotizaciones/listar_operaciones.html', {'operaciones': operaciones})
+>>>>>>> origin/feature/IS2-52
+
+
+# =======================================================================
+# Flujo de Confirmación, Validación de Cotización y Cancelación (IS2-52)
+# =======================================================================
+
+@login_required
+def confirmar_operacion_pago(request, operacion_id):
+    """
+    Vista para el proceso de confirmación y pago de una transacción (IS2-52).
+    - Criterio 1: Durante el proceso de confirmación/pago, valida si la cotización cambió respecto al inicio.
+    - Criterio 2: Si cambió, notifica al usuario.
+    - Criterio 3: Permite al usuario cancelar la transacción sin que se registre ningún cargo ni movimiento definitivo.
+    """
+    from django.shortcuts import get_object_or_404
+    from django.contrib import messages
+    from decimal import Decimal, ROUND_HALF_UP
+    from .models import Operacion
+    from .services import (
+        verificar_cambio_cotizacion, 
+        confirmar_y_pagar_operacion,
+        cancelar_operacion_por_cambio_tasa
+    )
+
+    operacion = get_object_or_404(
+        Operacion.objects.select_related('cliente', 'moneda'), 
+        id=operacion_id
+    )
+
+    # Si ya está cancelada o pagada, redirigir con mensaje
+    if operacion.estado == Operacion.EstadoOperacion.CANCELADA:
+        messages.info(request, f"La transacción #{operacion.id} ya se encuentra cancelada. No se aplicó ningún cargo.")
+        return redirect('listar_operaciones')
+
+    if operacion.estado == Operacion.EstadoOperacion.PAGADA:
+        messages.success(request, f"La transacción #{operacion.id} ya fue pagada y procesada.")
+        return redirect('listar_operaciones')
+
+    # Validación de cambio de cotización (Criterio 1)
+    validacion = verificar_cambio_cotizacion(operacion)
+
+    # Procesar acción vía POST
+    if request.method == 'POST':
+        accion = request.POST.get('accion', 'pagar')
+
+        if accion == 'cancelar':
+            # Cancelación de la transacción (Criterio 3)
+            cancelar_operacion_por_cambio_tasa(
+                operacion, 
+                motivo=request.POST.get('motivo', 'Cancelada por cambio de cotización')
+            )
+            messages.success(
+                request,
+                f"La transacción #{operacion.id} ha sido cancelada exitosamente. "
+                f"No se ha registrado ningún cargo ni movimiento financiero definitivo."
+            )
+            return redirect('listar_operaciones')
+
+        elif accion == 'pagar':
+            aceptar_cambio = request.POST.get('aceptar_cambio') == '1'
+
+            if validacion['cambio'] and not aceptar_cambio:
+                messages.error(
+                    request,
+                    "La cotización cambió. Por favor revise el nuevo valor y confirme si desea "
+                    "aceptar la nueva cotización o cancelar la transacción."
+                )
+            else:
+                try:
+                    confirmar_y_pagar_operacion(operacion, aceptar_cambio_tasa=aceptar_cambio)
+                    messages.success(
+                        request,
+                        f"¡Pago confirmado exitosamente! Transacción #{operacion.id} pagada."
+                    )
+                    return redirect('listar_operaciones')
+                except ValueError as ve:
+                    messages.error(request, str(ve))
+
+    # Notificación al usuario si la cotización cambió (Criterio 2)
+    if validacion['cambio']:
+        messages.warning(request, validacion['notificacion'])
+
+    # Totales para la pantalla
+    total_inicial = (operacion.monto * operacion.tasa_aplicada + operacion.comision).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    tasa_actual = validacion['tasa_vigente'] if validacion['tasa_vigente'] is not None else operacion.tasa_aplicada
+    total_actual = (operacion.monto * tasa_actual + operacion.comision).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    return render(request, 'cotizaciones/operaciones/confirmar_pago.html', {
+        'operacion': operacion,
+        'validacion': validacion,
+        'total_inicial': total_inicial,
+        'total_actual': total_actual,
+        'diferencia_total': (total_actual - total_inicial).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+    })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def cancelar_operacion_view(request, operacion_id):
+    """
+    Cancela una transacción antes de realizar el pago (IS2-52).
+    Criterio 3: Permite al usuario cancelar la transacción sin que se registre ningún cargo
+    ni movimiento definitivo.
+    """
+    from django.shortcuts import get_object_or_404
+    from django.contrib import messages
+    from .models import Operacion
+    from .services import cancelar_operacion_por_cambio_tasa
+
+    operacion = get_object_or_404(
+        Operacion.objects.select_related('cliente', 'moneda'), 
+        id=operacion_id
+    )
+
+    try:
+        motivo = request.POST.get('motivo', 'Cancelación voluntaria por cambio de cotización')
+        cancelar_operacion_por_cambio_tasa(operacion, motivo=motivo, usuario=request.user)
+        messages.success(
+            request,
+            f"La transacción #{operacion.id} ha sido cancelada exitosamente. "
+            f"No se ha registrado ningún cargo ni movimiento definitivo."
+        )
+    except ValueError as ve:
+        messages.error(request, str(ve))
+
+    return redirect('listar_operaciones')
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_validar_tasa_operacion(request, operacion_id):
+    """
+    Endpoint JSON para validar si la cotización cambió respecto al inicio de la operación (IS2-52).
+    """
+    from django.shortcuts import get_object_or_404
+    from .models import Operacion
+    from .services import verificar_cambio_cotizacion
+
+    operacion = get_object_or_404(Operacion, id=operacion_id)
+    validacion = verificar_cambio_cotizacion(operacion)
+
+    return JsonResponse({
+        'exito': True,
+        'operacion_id': operacion.id,
+        'estado': operacion.estado,
+        'cambio': validacion['cambio'],
+        'tasa_inicial': float(validacion['tasa_inicial']),
+        'tasa_vigente': float(validacion['tasa_vigente']) if validacion['tasa_vigente'] is not None else None,
+        'diferencia': float(validacion['diferencia']),
+        'porcentaje_variacion': float(validacion['porcentaje_variacion']),
+        'notificacion': validacion['notificacion'],
+        'puede_cancelar': operacion.estado == Operacion.EstadoOperacion.PENDIENTE,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_cancelar_operacion(request, operacion_id):
+    """
+    Endpoint API JSON para cancelar una operación sin cargos ni movimientos definitivos (IS2-52).
+    """
+    from django.shortcuts import get_object_or_404
+    from .models import Operacion
+    from .services import cancelar_operacion_por_cambio_tasa
+
+    operacion = get_object_or_404(Operacion, id=operacion_id)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+        motivo = data.get('motivo', 'Cancelación por cambio de cotización')
+    except (json.JSONDecodeError, AttributeError):
+        motivo = request.POST.get('motivo', 'Cancelación por cambio de cotización')
+
+    try:
+        op_cancelada = cancelar_operacion_por_cambio_tasa(operacion, motivo=motivo, usuario=request.user)
+        return JsonResponse({
+            'exito': True,
+            'operacion_id': op_cancelada.id,
+            'estado': op_cancelada.estado,
+            'comision': float(op_cancelada.comision),
+            'mensaje': (
+                f"La transacción #{op_cancelada.id} fue cancelada exitosamente. "
+                f"No se registró ningún cargo ni movimiento definitivo."
+            )
+        }, status=200)
+    except ValueError as ve:
+        return JsonResponse({'exito': False, 'error': str(ve)}, status=400)
+    except Exception as e:
+        return JsonResponse({'exito': False, 'error': str(e)}, status=500)
+
 

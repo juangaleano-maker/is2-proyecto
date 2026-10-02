@@ -36,12 +36,17 @@ urlpatterns = [
 
     # Operaciones de compra (IS2-15)
     path('comprar/', views.comprar_moneda, name='comprar_moneda'),
-
     # Operaciones de Cambio: Venta de Moneda (IS2-16) y consultas
     path('operaciones/venta/', views.venta_moneda_view, name='operacion_venta'),
     path('operaciones/', views.listar_operaciones_view, name='operaciones_lista'),
     path('operaciones/<int:operacion_id>/', views.detalle_operacion_view, name='operacion_detalle'),
     path('operaciones/api/calcular/', views.api_calcular_operacion, name='api_calcular_operacion'),
     path('operaciones/api/tasa/<int:moneda_id>/', views.api_tasa_vigente_operacion, name='api_tasa_vigente_operacion'),
+
+    # Flujo de confirmación, validación de cotización y cancelación (IS2-52)
+    path('operaciones/<int:operacion_id>/confirmar/', views.confirmar_operacion_pago, name='confirmar_operacion_pago'),
+    path('operaciones/<int:operacion_id>/cancelar/', views.cancelar_operacion_view, name='cancelar_operacion'),
+    path('api/operaciones/<int:operacion_id>/validar-tasa/', views.api_validar_tasa_operacion, name='api_validar_tasa_operacion'),
+    path('api/operaciones/<int:operacion_id>/cancelar/', views.api_cancelar_operacion, name='api_cancelar_operacion'),
 ]
 

@@ -481,3 +481,39 @@ Endpoints JSON para integración con sistemas externos:
 
 ---
 
+### 8.4. Módulo de Comprar Moneda (Historia IS2-15)
+
+- **Contexto / Problema:** Se requirió implementar el módulo "Comprar Moneda" asignado a la rama `feature/is2-15`. Los criterios de aceptación establecían: autenticación obligatoria, solicitud de datos específicos (cliente, moneda, monto, tasa aplicada), cálculo automático de la comisión y registro en estado `Pendiente`. Adicionalmente, el frontend no debía permitir valores nulos o negativos, y la tabla de operaciones debía ser visible directamente en la plataforma web (sin depender de Django Admin).
+- **Análisis de la IA:**
+  1. Se agregó el modelo `Operacion` en `cotizaciones/models.py` relacionando las claves foráneas con las apps de `clientes` y `monedas`.
+  2. Se configuró un formulario `ComprarMonedaForm` en `cotizaciones/forms.py` y se implementaron validaciones de integridad de datos (atributos HTML `min="0.01"` y métodos de saneamiento backend `clean_monto`, `clean_tasa_aplicada`) para bloquear transacciones inválidas.
+  3. Se programó la vista controladora `comprar_moneda` en `cotizaciones/views.py` gestionando la lógica de negocio subyacente: inyección del estado predeterminado (`PENDIENTE`), tipo de operación (`COMPRA`) y cálculo porcentual paramétrico de la comisión.
+  4. Se constató la usabilidad del sistema integrando botones de redirección en el `menu.html` principal.
+  5. Tras un `ProgrammingError` ("relation does not exist"), se ejecutaron por consola las migraciones correspondientes `makemigrations` y `migrate` sobre el contenedor del servicio web (`docker compose exec web-dev`).
+  6. Para responder a los requerimientos de la interfaz, se construyó una vista pública de historial en `listar_operaciones.html` orquestada por el controlador `listar_operaciones` con soporte para insignias descriptivas, evadiendo la dependencia al backend administrativo de Django.
+- **Solución Aplicada:**
+  - Código inyectado y estabilizado en `cotizaciones/models.py`, `forms.py`, `urls.py`, y `views.py`.
+  - Interfaces visuales desplegadas en `comprar_moneda.html`, `listar_operaciones.html` y actualización del `menu.html`.
+  - Migraciones de base de datos sincronizadas sobre contenedores Docker.
+
+---
+
+### 8.5. Cancelación de Transacción por Cambio de Cotización (Historia IS2-52)
+
+- **Contexto / Problema:** Como usuario, se requiere poder cancelar una transacción de compra/venta antes de realizar el pago en caso de que la cotización de la moneda haya cambiado.
+- **Criterios de Aceptación Cumplidos:**
+  1. Durante el proceso de pago/confirmación, el sistema valida automáticamente si la cotización de la moneda cambió respecto al inicio de la operación (`tasa_aplicada`).
+  2. Si la cotización cambió, el sistema notifica de forma clara y destacada al usuario indicando la tasa anterior, la nueva tasa y la diferencia.
+  3. El sistema permite al usuario cancelar la transacción sin que se registre ningún cargo ni movimiento financiero definitivo (`comision=0.00`, estado `CANCELADA`).
+- **Análisis de la IA:**
+  1. Se implementaron los servicios `obtener_tasa_vigente_operacion`, `verificar_cambio_cotizacion`, `cancelar_operacion_por_cambio_tasa` y `confirmar_y_pagar_operacion` en `cotizaciones/services.py`.
+  2. Se configuraron las vistas `confirmar_operacion_pago` y `cancelar_operacion_view`, así como los endpoints JSON `api_validar_tasa_operacion` y `api_cancelar_operacion` en `cotizaciones/views.py`.
+  3. Se conectó el flujo redirigiendo desde `comprar_moneda` a la pantalla de confirmación `confirmar_pago.html` y habilitando acciones de confirmación y cancelación en `listar_operaciones.html`.
+  4. Se redactó la suite de pruebas unitarias exhaustiva `CancelacionTransaccionCambioCotizacionTests` en `cotizaciones/tests.py` validando los 3 criterios de aceptación.
+- **Solución Aplicada:**
+  - Lógica de negocio en `cotizaciones/services.py`.
+  - Rutas y controladores en `cotizaciones/urls.py` y `cotizaciones/views.py`.
+  - Pantallas de usuario en `cotizaciones/templates/cotizaciones/operaciones/confirmar_pago.html` y `cotizaciones/templates/cotizaciones/listar_operaciones.html`.
+  - Pruebas automatizadas en `cotizaciones/tests.py`.
+
+  - Pruebas automatizadas en `cotizaciones/tests.py`.

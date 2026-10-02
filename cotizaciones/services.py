@@ -396,3 +396,140 @@ def registrar_operacion_cambio(cliente, moneda, tipo, monto, tasa_aplicada, usua
 
     return operacion, calculo
 
+# =======================================================================
+# Cancelación de Transacción por Cambio de Cotización (Historia IS2-52)
+# =======================================================================
+
+def obtener_tasa_vigente_operacion(moneda, tipo: str) -> tuple[Optional[Decimal], Optional[Cotizacion]]:
+    """
+    Obtiene la cotización y tasa vigente en el sistema para la moneda y tipo de operación especificados.
+    Para tipo COMPRA se toma el precio de compra; para VENTA, el precio de venta.
+    """
+    tipo_norm = str(tipo).upper()
+    
+    # 1. Buscar cotización donde la divisa sea moneda_origen
+    cotizacion = (
+        Cotizacion.objects.filter(moneda_origen=moneda, activo=True)
+        .order_by('-fecha')
+        .first()
+    )
+    if cotizacion:
+        tasa = cotizacion.compra if tipo_norm == 'COMPRA' else cotizacion.venta
+        return tasa, cotizacion
+
+    # 2. Buscar cotización donde la divisa sea moneda_destino (par inverso)
+    cotizacion_inv = (
+        Cotizacion.objects.filter(moneda_destino=moneda, activo=True)
+        .order_by('-fecha')
+        .first()
+    )
+    if cotizacion_inv:
+        tasa = cotizacion_inv.compra if tipo_norm == 'COMPRA' else cotizacion_inv.venta
+        return tasa, cotizacion_inv
+
+    return None, None
+
+
+def verificar_cambio_cotizacion(operacion) -> Dict[str, Any]:
+    """
+    Criterio 1 y 2 (IS2-52):
+    Durante el proceso de pago/confirmación, valida si la cotización de la moneda
+    cambió respecto al inicio de la operación (tasa_aplicada).
+    Si cambió, genera los datos para la notificación al usuario.
+    """
+    tasa_vigente, cotizacion_vigente = obtener_tasa_vigente_operacion(
+        moneda=operacion.moneda,
+        tipo=operacion.tipo
+    )
+
+    tasa_inicial = operacion.tasa_aplicada
+
+    if tasa_vigente is None:
+        # Si no hay nueva cotización registrada, se asume que no cambió
+        return {
+            'cambio': False,
+            'tasa_inicial': tasa_inicial,
+            'tasa_vigente': tasa_inicial,
+            'diferencia': Decimal('0.00'),
+            'porcentaje_variacion': Decimal('0.00'),
+            'cotizacion_vigente': None,
+            'notificacion': None,
+        }
+
+    ha_cambiado = (tasa_vigente != tasa_inicial)
+    diferencia = (tasa_vigente - tasa_inicial).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    
+    porcentaje = Decimal('0.00')
+    if tasa_inicial > Decimal('0'):
+        porcentaje = ((diferencia / tasa_inicial) * Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    notificacion = None
+    if ha_cambiado:
+        sentido = "subió" if diferencia > Decimal('0') else "bajó"
+        notificacion = (
+            f"La cotización de {operacion.moneda.siglas} cambió respecto al inicio de la operación: "
+            f"pasó de {tasa_inicial} a {tasa_vigente} ({sentido} {abs(diferencia)} / {abs(porcentaje)}%). "
+            f"Puedes cancelar la transacción sin ningún cargo o aceptar la nueva cotización."
+        )
+
+    return {
+        'cambio': ha_cambiado,
+        'tasa_inicial': tasa_inicial,
+        'tasa_vigente': tasa_vigente,
+        'diferencia': diferencia,
+        'porcentaje_variacion': porcentaje,
+        'cotizacion_vigente': cotizacion_vigente,
+        'notificacion': notificacion,
+    }
+
+
+def cancelar_operacion_por_cambio_tasa(operacion, motivo: str = "Cambio de cotización", usuario=None):
+    """
+    Criterio 3 (IS2-52):
+    Permite al usuario cancelar la transacción sin que se registre ningún cargo
+    ni movimiento financiero definitivo.
+    """
+    from .models import Operacion
+
+    if operacion.estado == Operacion.EstadoOperacion.PAGADA:
+        raise ValueError("No se puede cancelar una transacción que ya ha sido pagada y completada.")
+
+    if operacion.estado == Operacion.EstadoOperacion.CANCELADA:
+        return operacion
+
+    # Cancelar la operación
+    operacion.estado = Operacion.EstadoOperacion.CANCELADA
+    # Criterio 3: Sin que se registre ningún cargo ni movimiento definitivo
+    operacion.comision = Decimal('0.00')
+    operacion.save()
+
+    return operacion
+
+
+def confirmar_y_pagar_operacion(operacion, aceptar_cambio_tasa: bool = False):
+    """
+    Procesa el pago y confirmación definitiva de la operación.
+    Si la tasa cambió y el usuario no aceptó expresamente la nueva cotización,
+    rechaza la confirmación para proteger al usuario.
+    """
+    from .models import Operacion
+
+    if operacion.estado != Operacion.EstadoOperacion.PENDIENTE:
+        raise ValueError(f"No se puede confirmar una operación en estado '{operacion.get_estado_display()}'.")
+
+    validacion = verificar_cambio_cotizacion(operacion)
+    if validacion['cambio']:
+        if not aceptar_cambio_tasa:
+            raise ValueError(
+                "La cotización ha cambiado desde el inicio de la operación. "
+                "Debe aceptar la nueva cotización o cancelar la transacción sin cargos."
+            )
+        # Si aceptó la nueva tasa, actualizar tasa_aplicada
+        operacion.tasa_aplicada = validacion['tasa_vigente']
+        # Recalcular comisión según la nueva tasa (2% estándar o paramétrico)
+        operacion.comision = (operacion.monto * Decimal('0.02')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    operacion.estado = Operacion.EstadoOperacion.PAGADA
+    operacion.save()
+    return operacion
+

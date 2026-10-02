@@ -24,6 +24,7 @@
                             <th>Tasa</th>
                             <th>Comisión</th>
                             <th>Estado</th>
+                            <th class="text-end">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -45,12 +46,33 @@
                                     <span class="badge bg-success">{{ op.get_estado_display }}</span>
                                 {% else %}
                                     <span class="badge bg-danger">{{ op.get_estado_display }}</span>
+                                    <small class="d-block text-muted" style="font-size: 0.75rem;">Sin cargos</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if op.estado == 'PENDIENTE' %}
+                                    <div class="d-inline-flex gap-1">
+                                        <a href="{% url 'confirmar_operacion_pago' op.id %}" class="btn btn-sm btn-primary" title="Confirmar y proceder al pago">
+                                            💳 Pagar / Confirmar
+                                        </a>
+                                        <form method="post" action="{% url 'cancelar_operacion' op.id %}" class="d-inline" onsubmit="return confirm('¿Deseas cancelar la transacción #{{ op.id }}? No se cobrará ningún cargo.');">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="motivo" value="Cancelación desde el listado">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Cancelar transacción sin cargos">
+                                                ❌ Cancelar
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% elif op.estado == 'CANCELADA' %}
+                                    <span class="text-muted" style="font-size: 0.85rem;">🚫 Cancelada</span>
+                                {% else %}
+                                    <span class="text-success" style="font-size: 0.85rem;">✓ Procesada</span>
                                 {% endif %}
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="8" class="text-center py-4 text-muted">
+                            <td colspan="9" class="text-center py-4 text-muted">
                                 No hay operaciones registradas aún.
                             </td>
                         </tr>

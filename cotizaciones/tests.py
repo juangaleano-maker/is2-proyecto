@@ -938,3 +938,215 @@ class VentaMonedaTestCase(TestCase):
         self.assertTemplateUsed(response, 'cotizaciones/operaciones/lista.html')
         self.assertEqual(len(response.context['operaciones']), 1)
 
+# =======================================================================
+# Pruebas Unitarias para Historia de Usuario IS2-52:
+# "Cancelación de transacción por cambio de cotización"
+# =======================================================================
+
+class CancelacionTransaccionCambioCotizacionTests(TestCase):
+    """
+    Pruebas para los 3 Criterios de Aceptación de IS2-52:
+    1. Durante el proceso de pago/confirmación, el sistema valida si la cotización cambió.
+    2. Si la cotización cambió, se notifica al usuario.
+    3. El sistema permite al usuario cancelar la transacción sin ningún cargo ni movimiento definitivo.
+    """
+
+    def setUp(self):
+        from clientes.models import Cliente
+        from cotizaciones.models import Operacion
+
+        # Usuario autenticado
+        self.usuario = User.objects.create_user(
+            username='carlos_usuario',
+            email='carlos@empresa.com',
+            password='testpassword123'
+        )
+
+        # Monedas
+        self.usd = Moneda.objects.create(nombre='Dólar Estadounidense', siglas='USD', activa=True)
+        self.pyg = Moneda.objects.create(nombre='Guaraní Paraguayo', siglas='PYG', activa=True)
+
+        # Cliente
+        self.cliente = Cliente.objects.create(
+            tipo_persona=Cliente.TipoPersona.FISICA,
+            segmento=Cliente.Segmento.MINORISTA,
+            documento='4567890',
+            nombre='Carlos',
+            apellido='Pérez',
+            email='carlos@perez.com'
+        )
+
+        # Cotización inicial (vigente al crear la orden)
+        self.cotizacion_inicial = Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7500.00'),
+            venta=Decimal('7550.00'),
+            activo=True
+        )
+
+        # Operación iniciada en estado PENDIENTE con tasa inicial 7500.00
+        self.operacion = Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.usd,
+            tipo=Operacion.TipoOperacion.COMPRA,
+            monto=Decimal('100.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('2.00'),
+            estado=Operacion.EstadoOperacion.PENDIENTE
+        )
+
+    def test_criterio_1_sin_cambio_cotizacion(self):
+        """Si la cotización no cambió, la validación retorna cambio=False."""
+        from cotizaciones.services import verificar_cambio_cotizacion
+
+        resultado = verificar_cambio_cotizacion(self.operacion)
+        self.assertFalse(resultado['cambio'])
+        self.assertEqual(resultado['tasa_inicial'], Decimal('7500.00'))
+        self.assertEqual(resultado['tasa_vigente'], Decimal('7500.00'))
+        self.assertEqual(resultado['diferencia'], Decimal('0.00'))
+
+    def test_criterio_1_y_2_detecta_cambio_y_genera_notificacion(self):
+        """
+        Criterios 1 y 2:
+        Si la cotización cambió respecto al inicio de la operación, el sistema lo detecta
+        y genera la notificación explicativa al usuario.
+        """
+        from cotizaciones.services import verificar_cambio_cotizacion
+
+        # Desactivar la anterior y registrar una nueva cotización con aumento
+        self.cotizacion_inicial.activo = False
+        self.cotizacion_inicial.save()
+
+        Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7650.00'),
+            venta=Decimal('7700.00'),
+            activo=True
+        )
+
+        resultado = verificar_cambio_cotizacion(self.operacion)
+        self.assertTrue(resultado['cambio'])
+        self.assertEqual(resultado['tasa_inicial'], Decimal('7500.00'))
+        self.assertEqual(resultado['tasa_vigente'], Decimal('7650.00'))
+        self.assertEqual(resultado['diferencia'], Decimal('150.00'))
+        self.assertIsNotNone(resultado['notificacion'])
+        self.assertIn("cambió respecto al inicio de la operación", resultado['notificacion'])
+        self.assertIn("7500", resultado['notificacion'])
+        self.assertIn("7650", resultado['notificacion'])
+
+    def test_criterio_3_cancelar_operacion_sin_cargos_ni_movimientos(self):
+        """
+        Criterio 3:
+        Permite al usuario cancelar la transacción sin que se registre ningún cargo
+        ni movimiento financiero definitivo (comisión=0, estado=CANCELADA).
+        """
+        from cotizaciones.models import Operacion
+        from cotizaciones.services import cancelar_operacion_por_cambio_tasa
+
+        self.assertEqual(self.operacion.estado, Operacion.EstadoOperacion.PENDIENTE)
+        self.assertGreater(self.operacion.comision, Decimal('0.00'))
+
+        op_cancelada = cancelar_operacion_por_cambio_tasa(self.operacion, motivo="Cambio de cotización")
+
+        self.assertEqual(op_cancelada.estado, Operacion.EstadoOperacion.CANCELADA)
+        # Verificación explícita de no cargos ni comisión
+        self.assertEqual(op_cancelada.comision, Decimal('0.00'))
+
+        # Recargar de BD para asegurar persistencia
+        self.operacion.refresh_from_db()
+        self.assertEqual(self.operacion.estado, Operacion.EstadoOperacion.CANCELADA)
+        self.assertEqual(self.operacion.comision, Decimal('0.00'))
+
+    def test_no_se_puede_cancelar_operacion_ya_pagada(self):
+        """Una operación pagada y completada no puede ser cancelada retroactivamente."""
+        from cotizaciones.models import Operacion
+        from cotizaciones.services import cancelar_operacion_por_cambio_tasa
+
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+
+        with self.assertRaises(ValueError):
+            cancelar_operacion_por_cambio_tasa(self.operacion)
+
+    def test_confirmar_pago_requiere_aceptar_cambio_de_tasa(self):
+        """Si la tasa cambió, no se puede pagar sin aceptar expresamente la nueva cotización."""
+        from cotizaciones.services import confirmar_y_pagar_operacion
+
+        # Modificar cotización
+        self.cotizacion_inicial.activo = False
+        self.cotizacion_inicial.save()
+        Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7800.00'),
+            venta=Decimal('7850.00'),
+            activo=True
+        )
+
+        # Intento de pagar sin aceptar nueva tasa -> debe fallar
+        with self.assertRaises(ValueError):
+            confirmar_y_pagar_operacion(self.operacion, aceptar_cambio_tasa=False)
+
+        # Si el usuario acepta la nueva tasa -> debe proceder y actualizar la tasa aplicada
+        op_pagada = confirmar_y_pagar_operacion(self.operacion, aceptar_cambio_tasa=True)
+        self.assertEqual(op_pagada.tasa_aplicada, Decimal('7800.00'))
+        self.assertEqual(op_pagada.estado, op_pagada.EstadoOperacion.PAGADA)
+
+    def test_vista_confirmar_operacion_pago_muestra_alerta(self):
+        """La vista web de confirmación muestra la advertencia cuando la tasa cambia."""
+        self.client.force_login(self.usuario)
+
+        # Cambiar cotización
+        self.cotizacion_inicial.activo = False
+        self.cotizacion_inicial.save()
+        Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7700.00'),
+            venta=Decimal('7750.00'),
+            activo=True
+        )
+
+        url = reverse('confirmar_operacion_pago', kwargs={'operacion_id': self.operacion.id})
+        resp = self.client.get(url)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "La cotización de la moneda ha cambiado")
+        self.assertContains(resp, "Cancelar Transacción (Sin Cargos)")
+        self.assertContains(resp, "Aceptar Nueva Cotización y Pagar")
+
+    def test_vista_cancelar_operacion(self):
+        """Al enviar la solicitud de cancelación desde la vista web, la operación pasa a CANCELADA sin cargos."""
+        self.client.force_login(self.usuario)
+        url = reverse('cancelar_operacion', kwargs={'operacion_id': self.operacion.id})
+
+        resp = self.client.post(url, {'motivo': 'No estoy de acuerdo con el nuevo precio'})
+
+        self.assertRedirects(resp, reverse('listar_operaciones'))
+        self.operacion.refresh_from_db()
+        self.assertEqual(self.operacion.estado, self.operacion.EstadoOperacion.CANCELADA)
+        self.assertEqual(self.operacion.comision, Decimal('0.00'))
+
+    def test_api_validar_tasa_y_api_cancelar(self):
+        """Endpoints API JSON para validar tasa y cancelar sin cargos."""
+        self.client.force_login(self.usuario)
+
+        # API Validar tasa
+        url_validar = reverse('api_validar_tasa_operacion', kwargs={'operacion_id': self.operacion.id})
+        resp_val = self.client.get(url_validar)
+        self.assertEqual(resp_val.status_code, 200)
+        data_val = resp_val.json()
+        self.assertTrue(data_val['exito'])
+        self.assertEqual(data_val['tasa_inicial'], 7500.0)
+
+        # API Cancelar operación
+        url_cancelar = reverse('api_cancelar_operacion', kwargs={'operacion_id': self.operacion.id})
+        resp_canc = self.client.post(url_cancelar, content_type='application/json')
+        self.assertEqual(resp_canc.status_code, 200)
+        data_canc = resp_canc.json()
+        self.assertTrue(data_canc['exito'])
+        self.assertEqual(data_canc['estado'], 'CANCELADA')
+        self.assertEqual(data_canc['comision'], 0.0)
+
