@@ -54,3 +54,23 @@ Tras la unificación del modelo `Operacion`, la IA fue instruida para codificar 
   - Código inyectado y estabilizado en `cotizaciones/models.py`, `forms.py`, `urls.py`, y `views.py`.
   - Interfaces visuales desplegadas en `comprar_moneda.html`, `listar_operaciones.html` y actualización del `menu.html`.
   - Migraciones de base de datos sincronizadas sobre contenedores Docker.
+
+
+
+### 8.5. Cancelación de Transacción por Cambio de Cotización (Historia IS2-52)
+
+- **Contexto / Problema:** Como usuario, se requiere poder cancelar una transacción de compra/venta antes de realizar el pago en caso de que la cotización de la moneda haya cambiado.
+- **Criterios de Aceptación Cumplidos:**
+  1. Durante el proceso de pago/confirmación, el sistema valida automáticamente si la cotización de la moneda cambió respecto al inicio de la operación (`tasa_aplicada`).
+  2. Si la cotización cambió, el sistema notifica de forma clara y destacada al usuario indicando la tasa anterior, la nueva tasa y la diferencia.
+  3. El sistema permite al usuario cancelar la transacción sin que se registre ningún cargo ni movimiento financiero definitivo (`comision=0.00`, estado `CANCELADA`).
+- **Análisis de la IA:**
+  1. Se implementaron los servicios `obtener_tasa_vigente_operacion`, `verificar_cambio_cotizacion`, `cancelar_operacion_por_cambio_tasa` y `confirmar_y_pagar_operacion` en `cotizaciones/services.py`.
+  2. Se configuraron las vistas `confirmar_operacion_pago` y `cancelar_operacion_view`, así como los endpoints JSON `api_validar_tasa_operacion` y `api_cancelar_operacion` en `cotizaciones/views.py`.
+  3. Se conectó el flujo redirigiendo desde `comprar_moneda` a la pantalla de confirmación `confirmar_pago.html` y habilitando acciones de confirmación y cancelación en `listar_operaciones.html`.
+  4. Se redactó la suite de pruebas unitarias exhaustiva `CancelacionTransaccionCambioCotizacionTests` en `cotizaciones/tests.py` validando los 3 criterios de aceptación.
+- **Solución Aplicada:**
+  - Lógica de negocio en `cotizaciones/services.py`.
+  - Rutas y controladores en `cotizaciones/urls.py` y `cotizaciones/views.py`.
+  - Pantallas de usuario en `cotizaciones/templates/cotizaciones/operaciones/confirmar_pago.html` y `cotizaciones/templates/cotizaciones/listar_operaciones.html`.
+  - Pruebas automatizadas en `cotizaciones/tests.py`.
