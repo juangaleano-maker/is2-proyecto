@@ -677,7 +677,7 @@ def comprar_moneda(request):
     else:
         form = CompraMonedaForm(user=request.user, initial={'cliente': cliente_inicial})
 
-    return render(request, 'cotizaciones/operaciones/compra.html', {
+    return render(request, 'cotizaciones/comprar_moneda.html', {
         'form': form,
         'clientes_asignados': clientes_asignados,
         'tiene_clientes': clientes_asignados.exists(),
