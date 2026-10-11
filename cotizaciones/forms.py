@@ -47,11 +47,12 @@ class BaseOperacionForm(forms.ModelForm):
                 'required': 'required',
             }),
             'tasa_aplicada': forms.NumberInput(attrs={
-                'class': 'form-control',
+                'class': 'form-control bg-light',
                 'id': 'id_tasa_aplicada',
                 'step': '0.01',
                 'min': '0.01',
-                'placeholder': 'Ej. 7950.00',
+                'placeholder': 'Cotización vigente automática',
+                'readonly': 'readonly',
                 'required': 'required',
             }),
             'comision': forms.NumberInput(attrs={
@@ -78,8 +79,8 @@ class BaseOperacionForm(forms.ModelForm):
             lambda c: f"{c} ({c.documento}) — [{c.get_segmento_display()}]"
         )
 
-        # Monedas activas
-        self.fields['moneda'].queryset = Moneda.objects.filter(activa=True).order_by('siglas')
+        # Monedas activas (divisas extranjeras a operar contra PYG)
+        self.fields['moneda'].queryset = Moneda.objects.filter(activa=True).exclude(siglas__iexact='PYG').order_by('siglas')
         self.fields['moneda'].empty_label = "--- Seleccione la divisa ---"
         self.fields['moneda'].label_from_instance = (
             lambda m: f"{m.siglas} - {m.nombre}"

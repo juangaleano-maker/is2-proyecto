@@ -621,7 +621,7 @@ def comprar_moneda(request):
     elif clientes_asignados.count() == 1:
         cliente_inicial = clientes_asignados.first().id
 
-    monedas_activas = Moneda.objects.filter(activa=True).order_by('siglas')
+    monedas_activas = Moneda.objects.filter(activa=True).exclude(siglas__iexact='PYG').order_by('siglas')
 
     # Pre-calcular mapa de tasas sugeridas para el frontend
     tasas_map = {}
@@ -677,7 +677,7 @@ def comprar_moneda(request):
     else:
         form = CompraMonedaForm(user=request.user, initial={'cliente': cliente_inicial})
 
-    return render(request, 'cotizaciones/comprar_moneda.html', {
+    return render(request, 'cotizaciones/operaciones/compra.html', {
         'form': form,
         'clientes_asignados': clientes_asignados,
         'tiene_clientes': clientes_asignados.exists(),
@@ -685,6 +685,7 @@ def comprar_moneda(request):
         'monedas': monedas_activas,
         'tasas_json': json.dumps(tasas_map),
         'clientes_json': json.dumps(clientes_map),
+        'es_compra': True,
     })
 
 
@@ -715,7 +716,7 @@ def venta_moneda_view(request):
     elif clientes_asignados.count() == 1:
         cliente_inicial = clientes_asignados.first().id
 
-    monedas_activas = Moneda.objects.filter(activa=True).order_by('siglas')
+    monedas_activas = Moneda.objects.filter(activa=True).exclude(siglas__iexact='PYG').order_by('siglas')
 
     # Pre-calcular mapa de tasas sugeridas para el frontend en JSON
     tasas_map = {}
@@ -780,6 +781,7 @@ def venta_moneda_view(request):
         'monedas': monedas_activas,
         'tasas_json': json.dumps(tasas_map),
         'clientes_json': json.dumps(clientes_map),
+        'es_compra': False,
     })
 
 
