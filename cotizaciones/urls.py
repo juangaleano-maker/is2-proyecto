@@ -52,5 +52,6 @@ urlpatterns = [
     path('operaciones/<int:operacion_id>/cancelar/', views.cancelar_operacion_view, name='cancelar_operacion'),
     path('api/operaciones/<int:operacion_id>/validar-tasa/', views.api_validar_tasa_operacion, name='api_validar_tasa_operacion'),
     path('api/operaciones/<int:operacion_id>/cancelar/', views.api_cancelar_operacion, name='api_cancelar_operacion'),
+
 ]
 

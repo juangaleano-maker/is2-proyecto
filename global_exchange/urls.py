@@ -19,6 +19,7 @@ from django.shortcuts import redirect
 from django.urls import path, include
 from django.views.generic import RedirectView
 from authentication import views as authentication_views
+from cotizaciones import views as caja_views
 
 urlpatterns = [
     path('', RedirectView.as_view(pattern_name='login', permanent=False)),
@@ -33,4 +34,10 @@ urlpatterns = [
     path('oidc/', include('mozilla_django_oidc.urls')),
     path('', include('authentication.urls')),
     path('monedas/', include('monedas.urls')),
+
+    # Apertura y Cierre de Caja (IS2-60) — rutas propias bajo /caja/
+    path('caja/apertura/', caja_views.apertura_caja_view, name='apertura_caja'),
+    path('caja/estado/',   caja_views.caja_dashboard_view, name='caja_dashboard'),
+    path('caja/cierre/',   caja_views.cierre_caja_view,   name='cierre_caja'),
 ]
+

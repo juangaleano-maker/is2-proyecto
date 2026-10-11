@@ -136,3 +136,76 @@ class CompraMonedaForm(BaseOperacionForm):
             'aria-label': 'Monto de divisa a comprar'
         })
 
+
+# ---------------------------------------------------------------------------
+# Apertura y Cierre de Caja (IS2-60)
+# ---------------------------------------------------------------------------
+
+class AperturaCajaForm(forms.Form):
+    """
+    Formulario para aperturar una sesión de caja al inicio del turno.
+    """
+    nombre_caja = forms.CharField(
+        max_length=100,
+        initial='Caja Principal',
+        label='Nombre / Identificador de Caja',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej. Caja 1, Caja Principal…',
+            'id': 'id_nombre_caja',
+        }),
+    )
+    monto_inicial = forms.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        label='Monto Inicial (Fondo de Caja)',
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.01',
+            'min': '0.00',
+            'placeholder': 'Ej. 500000.00',
+            'id': 'id_monto_inicial',
+        }),
+    )
+
+    def clean_monto_inicial(self):
+        monto = self.cleaned_data.get('monto_inicial')
+        if monto is not None and monto < Decimal('0'):
+            raise forms.ValidationError('El monto inicial no puede ser negativo.')
+        return monto
+
+
+class CierreCajaForm(forms.Form):
+    """
+    Formulario para cerrar la sesión de caja activa,
+    declarando el monto físico final.
+    """
+    monto_final_declarado = forms.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        label='Monto Final Declarado (efectivo en caja)',
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.01',
+            'min': '0.00',
+            'placeholder': 'Ingresá el total físico de la caja',
+            'id': 'id_monto_final_declarado',
+        }),
+    )
+    observaciones = forms.CharField(
+        required=False,
+        label='Observaciones (opcional)',
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Notas adicionales sobre el cierre…',
+            'id': 'id_observaciones',
+        }),
+    )
+
+    def clean_monto_final_declarado(self):
+        monto = self.cleaned_data.get('monto_final_declarado')
+        if monto is not None and monto < Decimal('0'):
+            raise forms.ValidationError('El monto final declarado no puede ser negativo.')
+        return monto
+

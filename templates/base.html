@@ -46,6 +46,13 @@
                     <span>💱</span> Tasas de Cambio
                 </a>
             </li>
+            {% if 'cajero' in request.roles or 'operador' in request.roles or 'admin' in request.roles or 'supervisor' in request.roles %}
+            <li>
+                <a href="{% url 'caja_dashboard' %}" class="nav-link" style="color: #a78bfa; font-weight: 600;">
+                    <span>🏦</span> Caja
+                </a>
+            </li>
+            {% endif %}
             {% endif %}
             {% if 'admin' in request.roles or 'supervisor' in request.roles or 'operador' in request.roles or 'empleado' in request.roles or request.user.is_staff %}
             <li>

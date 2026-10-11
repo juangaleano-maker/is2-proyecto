@@ -1147,3 +1147,157 @@ def descargar_comprobante_operacion(request, operacion_id):
     return render(request, 'cotizaciones/comprobante_operacion.html', {
         'operacion': operacion
     })
+
+
+# ===========================================================================
+# Apertura y Cierre de Caja (IS2-60)
+# ===========================================================================
+
+@rol_requerido('cajero', 'admin', 'operador', 'supervisor')
+def apertura_caja_view(request):
+    """
+    Vista para aperturar una sesión de caja al inicio del turno.
+    Valida que el cajero no tenga ya una sesión abierta.
+    """
+    from .models import SesionCaja
+    from .forms import AperturaCajaForm
+
+    # Verificar si el cajero ya tiene una sesión abierta
+    sesion_activa = SesionCaja.objects.filter(
+        cajero=request.user,
+        estado=SesionCaja.EstadoSesion.ABIERTA,
+    ).first()
+
+    if sesion_activa:
+        messages.warning(
+            request,
+            f'Ya tenés una sesión de caja abierta desde '
+            f'{sesion_activa.fecha_apertura.strftime("%d/%m/%Y %H:%M")}. '
+            f'Debés cerrarla antes de abrir una nueva.',
+        )
+        return redirect('caja_dashboard')
+
+    if request.method == 'POST':
+        form = AperturaCajaForm(request.POST)
+        if form.is_valid():
+            sesion = SesionCaja.objects.create(
+                cajero=request.user,
+                nombre_caja=form.cleaned_data['nombre_caja'],
+                monto_inicial=form.cleaned_data['monto_inicial'],
+            )
+            messages.success(
+                request,
+                f'✅ Caja "{sesion.nombre_caja}" aperturada correctamente con un fondo inicial de '
+                f'Gs. {sesion.monto_inicial:,.2f}.',
+            )
+            return redirect('caja_dashboard')
+    else:
+        form = AperturaCajaForm()
+
+    return render(request, 'cotizaciones/caja/apertura.html', {'form': form})
+
+
+@rol_requerido('cajero', 'admin', 'operador', 'supervisor')
+def caja_dashboard_view(request):
+    """
+    Dashboard del cajero: muestra el estado de la sesión actual,
+    el saldo calculado hasta ahora y las operaciones del turno.
+    """
+    from .models import SesionCaja, Operacion
+
+    sesion_activa = SesionCaja.objects.filter(
+        cajero=request.user,
+        estado=SesionCaja.EstadoSesion.ABIERTA,
+    ).first()
+
+    # Historial de sesiones cerradas del usuario
+    sesiones_cerradas = SesionCaja.objects.filter(
+        cajero=request.user,
+        estado=SesionCaja.EstadoSesion.CERRADA,
+    ).order_by('-fecha_cierre')[:10]
+
+    # Operaciones del turno actual (si hay sesión abierta)
+    operaciones_turno = []
+    saldo_estimado = None
+    if sesion_activa:
+        from django.utils import timezone
+        operaciones_turno = Operacion.objects.filter(
+            registrado_por=request.user,
+            estado=Operacion.EstadoOperacion.PAGADA,
+            fecha__gte=sesion_activa.fecha_apertura,
+        ).order_by('-fecha')
+        saldo_estimado = sesion_activa.calcular_saldo_esperado()
+
+    return render(request, 'cotizaciones/caja/dashboard.html', {
+        'sesion_activa': sesion_activa,
+        'sesiones_cerradas': sesiones_cerradas,
+        'operaciones_turno': operaciones_turno,
+        'saldo_estimado': saldo_estimado,
+    })
+
+
+@rol_requerido('cajero', 'admin', 'operador', 'supervisor')
+def cierre_caja_view(request):
+    """
+    Vista para cerrar la sesión de caja activa.
+    El cajero declara el monto físico final; el sistema calcula el arqueo.
+    """
+    from .models import SesionCaja
+    from .forms import CierreCajaForm
+
+    sesion_activa = SesionCaja.objects.filter(
+        cajero=request.user,
+        estado=SesionCaja.EstadoSesion.ABIERTA,
+    ).first()
+
+    if not sesion_activa:
+        messages.error(
+            request,
+            'No tenés ninguna sesión de caja abierta. Debés aperturar la caja primero.',
+        )
+        return redirect('apertura_caja')
+
+    saldo_esperado_preview = sesion_activa.calcular_saldo_esperado()
+
+    if request.method == 'POST':
+        form = CierreCajaForm(request.POST)
+        if form.is_valid():
+            monto_final = form.cleaned_data['monto_final_declarado']
+            observaciones = form.cleaned_data.get('observaciones', '')
+            sesion_activa.cerrar(
+                monto_final_declarado=monto_final,
+                observaciones=observaciones,
+            )
+
+            tipo = sesion_activa.tipo_diferencia
+            diferencia_abs = abs(sesion_activa.diferencia)
+
+            if tipo == 'EXACTO':
+                messages.success(
+                    request,
+                    f'✅ Caja "{sesion_activa.nombre_caja}" cerrada. Saldo EXACTO — '
+                    f'no hay diferencias.',
+                )
+            elif tipo == 'SOBRANTE':
+                messages.warning(
+                    request,
+                    f'⚠️ Caja "{sesion_activa.nombre_caja}" cerrada. '
+                    f'SOBRANTE de Gs. {diferencia_abs:,.2f}.',
+                )
+            else:
+                messages.error(
+                    request,
+                    f'🚨 Caja "{sesion_activa.nombre_caja}" cerrada. '
+                    f'FALTANTE de Gs. {diferencia_abs:,.2f}.',
+                )
+
+            return redirect('caja_dashboard')
+    else:
+        form = CierreCajaForm()
+
+    return render(request, 'cotizaciones/caja/cierre.html', {
+        'form': form,
+        'sesion': sesion_activa,
+        'saldo_esperado_preview': saldo_esperado_preview,
+    })
+

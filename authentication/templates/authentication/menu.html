@@ -217,6 +217,63 @@
 
 </div>
 
+{% if 'cajero' in roles or 'operador' in roles or 'admin' in roles or 'supervisor' in roles %}
+<!-- SECCIÓN: CAJA (IS2-60) -->
+<div style="border-top: 2px dashed #a78bfa; padding-top: 25px; margin-top: 10px; margin-bottom: 30px;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
+        <span style="font-size: 20px;">🏦</span>
+        <h3 style="font-size: 16px; color: #1e293b; margin: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+            Apertura y Cierre de Caja
+        </h3>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+
+        <!-- APERTURAR CAJA -->
+        <div style="background: linear-gradient(145deg, #ecfdf5, #d1fae5); border: 1px solid #6ee7b7; border-radius: 10px; padding: 22px; box-shadow: 0 4px 12px rgba(16,185,129,0.1); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="font-size: 28px; margin-bottom: 10px;">🔓</div>
+                <h4 style="color: #065f46; font-size: 16px; margin: 0 0 6px 0;">Apertura de Caja</h4>
+                <p style="color: #047857; font-size: 13px; line-height: 1.4; margin-bottom: 12px;">
+                    Registrá el fondo inicial y abrí tu turno de caja.
+                </p>
+            </div>
+            <a href="{% url 'apertura_caja' %}" style="display: block; text-align: center; padding: 9px; background: linear-gradient(135deg, #059669, #10b981); color: white; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 13px;">
+                🔓 Aperturar Caja
+            </a>
+        </div>
+
+        <!-- DASHBOARD DE CAJA -->
+        <div style="background: linear-gradient(145deg, #eff6ff, #dbeafe); border: 1px solid #93c5fd; border-radius: 10px; padding: 22px; box-shadow: 0 4px 12px rgba(59,130,246,0.1); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="font-size: 28px; margin-bottom: 10px;">📊</div>
+                <h4 style="color: #1e40af; font-size: 16px; margin: 0 0 6px 0;">Estado de Caja</h4>
+                <p style="color: #1d4ed8; font-size: 13px; line-height: 1.4; margin-bottom: 12px;">
+                    Consultá el saldo actual, operaciones del turno e historial de sesiones.
+                </p>
+            </div>
+            <a href="{% url 'caja_dashboard' %}" style="display: block; text-align: center; padding: 9px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 13px;">
+                📊 Ver Estado de Caja
+            </a>
+        </div>
+
+        <!-- CIERRE DE CAJA -->
+        <div style="background: linear-gradient(145deg, #faf5ff, #ede9fe); border: 1px solid #c4b5fd; border-radius: 10px; padding: 22px; box-shadow: 0 4px 12px rgba(139,92,246,0.1); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="font-size: 28px; margin-bottom: 10px;">🔒</div>
+                <h4 style="color: #5b21b6; font-size: 16px; margin: 0 0 6px 0;">Cierre de Caja y Arqueo</h4>
+                <p style="color: #6d28d9; font-size: 13px; line-height: 1.4; margin-bottom: 12px;">
+                    Declará el monto final y obtén el resumen de faltante o sobrante.
+                </p>
+            </div>
+            <a href="{% url 'cierre_caja' %}" style="display: block; text-align: center; padding: 9px; background: linear-gradient(135deg, #7c3aed, #8b5cf6); color: white; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 13px;">
+                🔒 Cerrar Caja / Arqueo
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endif %}
+
 
 {% if es_personal or es_admin or es_finanzas %}
 <!-- SECCIÓN EXCLUSIVA: ADMINISTRACIÓN DEL SISTEMA -->
