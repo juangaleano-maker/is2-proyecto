@@ -70,7 +70,7 @@
             <br>
             <span class="usuario-rol">{{ usuario.rol }} &mdash; {{ usuario.email }}</span>
         </div>
-        <a href="{% url 'modificar_usuario' usuario.id %}" class="btn-modificar">Modificar</a>
+        <a href="{% url 'usuarios:modificar_usuario' usuario.id %}" class="btn-modificar">Modificar</a>
     </div>
     {% empty %}
     <p>No hay usuarios registrados en el sistema.</p>

@@ -12,7 +12,7 @@ def elegir_cliente(request):
     Selector de cliente activo en sesión.
     Permite al usuario seleccionar el cliente con el que desea operar/consultar durante la sesión.
     """
-    user_email = request.user.email or request.user.username
+    user_email = getattr(request.user, 'email', '') or getattr(request.user, 'username', '')
     roles = set(getattr(request, 'roles', []))
     roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
     es_personal = bool(roles.intersection(roles_gestion))
