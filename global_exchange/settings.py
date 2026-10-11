@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'authentication',
     'cotizaciones',
     'monedas',
+    'pagos',
 ]
 
 MIDDLEWARE = [
@@ -228,3 +229,8 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- Stripe (modo test/sandbox) ---
+# Configurar en .env: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', config('STRIPE_SECRET_KEY', default=''))
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', config('STRIPE_WEBHOOK_SECRET', default=''))

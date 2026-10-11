@@ -33,4 +33,5 @@ urlpatterns = [
     path('oidc/', include('mozilla_django_oidc.urls')),
     path('', include('authentication.urls')),
     path('monedas/', include('monedas.urls')),
+    path('pagos/', include('pagos.urls')),
 ]

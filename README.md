@@ -32,5 +32,34 @@ Actualmente, Django 5.1 presenta incompatibilidades con **Python 3.14** (especí
    python manage.py test
    ```
 
+   O ejecutar específicamente los módulos de cotizaciones y pagos:
+   ```bash
+   python manage.py test cotizaciones pagos
+   ```
+
+## Módulo de Pagos (Stripe & SIPAP — IS2-55)
+
+### Variables de Entorno (.env)
+Agrega tus claves de Stripe en modo test (ver `.env.example`):
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+### Pruebas Locales con Stripe CLI
+Para recibir y probar webhooks localmente:
+```bash
+# 1. Escuchar y reenviar al endpoint local
+stripe listen --forward-to localhost:8000/pagos/webhooks/stripe/
+
+# 2. En otra terminal, simular pago exitoso
+stripe trigger payment_intent.succeeded
+
+# 3. Simular pago fallido
+stripe trigger payment_intent.payment_failed
+```
+
+Consulta la documentación detallada del flujo en `docs/chia/sprint4-confirmacion-pagos.md`.
+
 **Nota sobre Docker:**
 El entorno contenerizado (`docker-compose.yml`) utiliza la imagen oficial `python:3.12-slim-bullseye`, por lo que los comandos ejecutados dentro del contenedor (incluyendo los tests) ya operan bajo Python 3.12 de forma segura.

@@ -46,8 +46,11 @@ class Operacion(models.Model):
 
     class EstadoOperacion(models.TextChoices):
         PENDIENTE = "PENDIENTE", "Pendiente"
+        PENDIENTE_CONFIRMACION = "PENDIENTE_CONFIRMACION", "Pendiente de confirmación"
         PAGADA = "PAGADA", "Pagada"
         CANCELADA = "CANCELADA", "Cancelada"
+        PAGO_FALLIDO = "PAGO_FALLIDO", "Pago fallido"
+        RECHAZADA = "RECHAZADA", "Rechazada"
 
     cliente = models.ForeignKey(
         'clientes.Cliente', 
@@ -87,8 +90,8 @@ class Operacion(models.Model):
         verbose_name="Fecha de Registro"
     )
     estado = models.CharField(
-        max_length=15, 
-        choices=EstadoOperacion.choices, 
+        max_length=25,
+        choices=EstadoOperacion.choices,
         default=EstadoOperacion.PENDIENTE,
         verbose_name="Estado"
     )
@@ -99,6 +102,14 @@ class Operacion(models.Model):
         blank=True,
         verbose_name="Registrado por",
         related_name='operaciones_registradas'
+    )
+    stripe_payment_intent_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        db_index=True,
+        verbose_name="Stripe Payment Intent ID",
+        help_text="ID del PaymentIntent en Stripe (solo flujo Stripe).",
     )
 
     class Meta:

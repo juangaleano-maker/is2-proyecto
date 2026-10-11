@@ -56,6 +56,21 @@
         color: #991b1b;
         border: 1px solid #fecaca;
     }
+    .status-pendiente-confirmacion {
+        background-color: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+    .status-rechazada {
+        background-color: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+    .status-fallido {
+        background-color: #fff1f2;
+        color: #9f1239;
+        border: 1px solid #fecdd3;
+    }
     .pulse-dot {
         width: 8px;
         height: 8px;
@@ -182,9 +197,21 @@
                 <span class="badge-status status-pendiente">
                     <span class="pulse-dot"></span> {{ operacion.get_estado_display }}
                 </span>
+                {% elif operacion.estado == 'PENDIENTE_CONFIRMACION' %}
+                <span class="badge-status status-pendiente-confirmacion">
+                    ⏳ {{ operacion.get_estado_display }}
+                </span>
                 {% elif operacion.estado == 'PAGADA' %}
                 <span class="badge-status status-pagada">
                     ✅ {{ operacion.get_estado_display }}
+                </span>
+                {% elif operacion.estado == 'PAGO_FALLIDO' %}
+                <span class="badge-status status-fallido">
+                    ❌ {{ operacion.get_estado_display }}
+                </span>
+                {% elif operacion.estado == 'RECHAZADA' %}
+                <span class="badge-status status-rechazada">
+                    🛑 {{ operacion.get_estado_display }}
                 </span>
                 {% else %}
                 <span class="badge-status status-cancelada">
@@ -196,12 +223,97 @@
 
         <div class="receipt-body">
 
+            <!-- NOTIFICACIONES RETORNO STRIPE CHECKOUT -->
+            {% if request.GET.stripe == 'success' and operacion.estado != 'PAGADA' %}
+            <div style="background-color: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px;">
+                <span style="font-size: 24px;">⏳</span>
+                <div style="font-size: 13.5px; color: #1e40af; line-height: 1.5;">
+                    <strong>Pago enviado a Stripe:</strong> Tu pago ha sido procesado por Stripe. La confirmación oficial y emisión del ticket se completarán automáticamente en cuanto el servidor reciba y valide el webhook firmado (<code>checkout.session.completed</code>).
+                </div>
+            </div>
+            {% elif request.GET.stripe == 'cancelled' %}
+            <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px;">
+                <span style="font-size: 24px;">↩️</span>
+                <div style="font-size: 13.5px; color: #9f1239; line-height: 1.5;">
+                    <strong>Pago en Stripe cancelado:</strong> El proceso de pago fue cancelado. La operación continúa en estado pendiente.
+                </div>
+            </div>
+            {% endif %}
+
             <!-- AVISO DE ESTADO PENDIENTE -->
             {% if operacion.estado == 'PENDIENTE' %}
-            <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px;">
-                <span style="font-size: 24px;">⏳</span>
-                <div style="font-size: 13.5px; color: #92400e; line-height: 1.5;">
-                    <strong>Operación en Estado Pendiente:</strong> Esta venta ha sido registrada formalmente en el sistema y se encuentra a la espera del flujo de revisión y confirmación de pago por parte de Tesorería/Operaciones.
+                {% if operacion.stripe_payment_intent_id %}
+                {# Ya se inició una sesión Stripe — esperando webhook de confirmación #}
+                <div style="background-color: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px;">
+                    <span style="font-size: 24px;">⏳</span>
+                    <div style="font-size: 13.5px; color: #1e40af; line-height: 1.5;">
+                        <strong>Pago en proceso — Esperando confirmación de Stripe:</strong>
+                        La sesión de pago fue iniciada. Una vez que el pago se procese, la operación se confirmará automáticamente al recibir el webhook firmado (<code>checkout.session.completed</code>).
+                        <br><span style="color: #3b82f6; font-size: 12.5px;">Referencia de sesión: <code>{{ operacion.stripe_payment_intent_id }}</code></span>
+                    </div>
+                </div>
+                {% else %}
+                {# Aún no se inició ningún pago — mostrar opciones #}
+                <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 12px; align-items: flex-start;">
+                        <span style="font-size: 24px;">⏳</span>
+                        <div style="font-size: 13.5px; color: #92400e; line-height: 1.5;">
+                            <strong>Operación en Estado Pendiente:</strong> Registrada a la espera de pago. Podés adjuntar tu comprobante de transferencia bancaria SIPAP o pagar mediante pasarela digital.
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <a href="{% url 'pagos:iniciar_pago_stripe' operacion.id %}" class="btn" style="background-color: #4f46e5; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                            💳 Pagar con Stripe
+                        </a>
+                        <a href="{% url 'pagos:subir_comprobante_sipap' operacion.id %}" class="btn" style="background-color: #0284c7; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                            🏦 Adjuntar SIPAP
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            {% elif operacion.estado == 'PENDIENTE_CONFIRMACION' %}
+            <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px;">
+                <span style="font-size: 24px;">📥</span>
+                <div style="font-size: 13.5px; color: #1e40af; line-height: 1.5;">
+                    <strong>Comprobante SIPAP en Revisión:</strong> Has adjuntado tu comprobante de transferencia. El cajero o administrador de tesorería lo validará a la brevedad para confirmar y liquidar la operación.
+                </div>
+            </div>
+            {% elif operacion.estado == 'PAGADA' %}
+            <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <span style="font-size: 24px;">🎉</span>
+                    <div style="font-size: 13.5px; color: #065f46; line-height: 1.5;">
+                        <strong>Pago Confirmado:</strong> Esta transacción cuenta con su comprobante auditado y ticket oficial de transacción emitido.
+                    </div>
+                </div>
+                <div>
+                    <a href="{% url 'pagos:detalle_ticket' operacion.id %}" class="btn" style="background-color: #059669; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                        🧾 Ver Ticket Oficial
+                    </a>
+                </div>
+            </div>
+            {% elif operacion.estado == 'RECHAZADA' %}
+            <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: flex-start; gap: 12px;">
+                <span style="font-size: 24px;">❌</span>
+                <div style="font-size: 13.5px; color: #991b1b; line-height: 1.5;">
+                    <strong>Comprobante Rechazado:</strong> Esta operación ha sido rechazada por el cajero.
+                    {% if operacion.comprobante_sipap.motivo_rechazo %}
+                    <br><strong>Motivo:</strong> {{ operacion.comprobante_sipap.motivo_rechazo }}
+                    {% endif %}
+                </div>
+            </div>
+            {% elif operacion.estado == 'PAGO_FALLIDO' %}
+            <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 12px; align-items: flex-start;">
+                    <span style="font-size: 24px;">⚠️</span>
+                    <div style="font-size: 13.5px; color: #9f1239; line-height: 1.5;">
+                        <strong>Pago Fallido:</strong> La pasarela de pagos rechazó el intento de cobro. Podés intentar nuevamente con Stripe.
+                    </div>
+                </div>
+                <div>
+                    <a href="{% url 'pagos:iniciar_pago_stripe' operacion.id %}" class="btn" style="background-color: #4f46e5; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                        🔁 Reintentar pago con Stripe
+                    </a>
                 </div>
             </div>
             {% endif %}
@@ -320,6 +432,23 @@
                     <button onclick="window.print()" class="btn no-print" style="background-color: #0284c7; color: white; border: none; padding: 9px 18px; border-radius: 6px; font-size: 13.5px; font-weight: 600; cursor: pointer;">
                         🖨️ Imprimir
                     </button>
+                    {% if operacion.estado == 'PAGADA' %}
+                    <a href="{% url 'pagos:detalle_ticket' operacion.id %}" class="btn" style="background-color: #065f46; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                        🧾 Ver Ticket
+                    </a>
+                    {% elif operacion.estado == 'PENDIENTE' and not operacion.stripe_payment_intent_id %}
+                    {# Solo mostrar opciones de pago si NO hay sesión Stripe en vuelo #}
+                    <a href="{% url 'pagos:iniciar_pago_stripe' operacion.id %}" class="btn" style="background-color: #4f46e5; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                        💳 Pagar con Stripe
+                    </a>
+                    <a href="{% url 'pagos:subir_comprobante_sipap' operacion.id %}" class="btn" style="background-color: #0284c7; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                        🏦 Adjuntar SIPAP
+                    </a>
+                    {% elif operacion.estado == 'PAGO_FALLIDO' %}
+                    <a href="{% url 'pagos:iniciar_pago_stripe' operacion.id %}" class="btn" style="background-color: #4f46e5; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                        🔁 Reintentar pago con Stripe
+                    </a>
+                    {% endif %}
                     <a href="{% url 'operacion_venta' %}" class="btn" style="background-color: #059669; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
                         ➕ Nueva Venta de Moneda
                     </a>

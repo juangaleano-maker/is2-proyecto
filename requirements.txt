@@ -6,3 +6,4 @@ gunicorn==23.0.*
 redis==5.2.*
 celery==5.4.*
 requests==2.32.*
+stripe>=7.0

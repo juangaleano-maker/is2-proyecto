@@ -53,6 +53,11 @@
                     <span>👥</span> Panel Clientes
                 </a>
             </li>
+            <li>
+                <a href="{% url 'pagos:lista_comprobantes_pendientes' %}" class="nav-link">
+                    <span>🏦</span> Comprobantes SIPAP
+                </a>
+            </li>
             {% endif %}
             {% if request.session.cliente_activo_nombre %}
             <li style="display: flex; align-items: center; padding: 0 10px;">
