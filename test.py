@@ -1,48 +1,74 @@
 from django.test import TestCase, Client
 from django.urls import reverse
+from django.contrib.auth.models import User, Group
+from clientes.models import Cliente
+from usuarios.models import Usuario
 
 class EndpointTests(TestCase):
     def setUp(self):
         # Inicializa el cliente de pruebas de Django
         self.client = Client()
-        # Aquí puedes crear datos de prueba en la base de datos si los endpoints lo requieren,
-        # por ejemplo, crear un usuario o un cliente.
+
+        # Cliente de prueba para consultar
+        self.cliente = Cliente.objects.create(
+            tipo_persona="FISICA",
+            documento="12345678",
+            nombre="Juan",
+            apellido="Pérez",
+            email="juan@example.com",
+            segmento="MINORISTA"
+        )
+
+        # Usuario de prueba para modificar (obtenido de los creados por migración o creado)
+        self.usuario = Usuario.objects.first()
+        if not self.usuario:
+            self.usuario = Usuario.objects.create(
+                nombre="Carlos",
+                apellido="Gómez",
+                email="carlos.test@example.com",
+                telefono="123456789",
+                rol="Empleado"
+            )
+
+        # Usuario autenticado con rol admin para vistas protegidas
+        self.admin_user, _ = User.objects.get_or_create(
+            username='admin_test',
+            defaults={'email': 'admin@example.com'}
+        )
+        self.admin_user.set_password('password123')
+        self.admin_user.save()
+
+        grupo_admin, _ = Group.objects.get_or_create(name='admin')
+        self.admin_user.groups.add(grupo_admin)
 
     def test_seleccionar_cliente(self):
-        """Prueba que el endpoint /seleccionarCliente devuelva una respuesta exitosa."""
-        response = self.client.get('/seleccionarCliente/')
-        # Verifica que la respuesta sea 200 OK (o el código que esperes, ej. 302 si hay redirección)
+        """Prueba que el endpoint /clientes/seleccionarCliente/ devuelva una respuesta exitosa."""
+        self.client.force_login(self.admin_user)
+        response = self.client.get('/clientes/seleccionarCliente/')
         self.assertEqual(response.status_code, 200)
 
     def test_consultar_cliente_asignado(self):
-        """Prueba que el endpoint /consultarClienteAsignado devuelva una respuesta exitosa."""
-        response = self.client.get('/consultarClienteAsignado/')
+        """Prueba que el endpoint /clientes/consultarClienteAsignado/<id>/ devuelva una respuesta exitosa."""
+        self.client.force_login(self.admin_user)
+        response = self.client.get(f'/clientes/consultarClienteAsignado/{self.cliente.id}/')
         self.assertEqual(response.status_code, 200)
 
     def test_agregar_usuario(self):
-        """Prueba que el endpoint /agregarUsuario funcione correctamente."""
-        # Prueba GET para cargar el formulario
-        response = self.client.get('/agregarUsuario/')
+        """Prueba que el endpoint /agregar_usuario/agregarUsuario/ funcione correctamente."""
+        self.client.force_login(self.admin_user)
+        response = self.client.get('/agregar_usuario/agregarUsuario/')
         self.assertEqual(response.status_code, 200)
-        
-        # Ejemplo de prueba POST (debes ajustar los datos según tu formulario)
-        # data = {'nombre': 'Test', 'email': 'test@test.com', ...}
-        # response = self.client.post('/agregarUsuario/', data)
-        # self.assertEqual(response.status_code, 302) # si redirige al terminar
 
     def test_modificar_usuario_listado(self):
-        """Prueba el listado o página general de modificar usuario /modificarUsuario/."""
-        response = self.client.get('/modificarUsuario/')
+        """Prueba el listado o página general de modificar usuario /usuarios/modificarUsuario/."""
+        self.client.force_login(self.admin_user)
+        response = self.client.get('/usuarios/modificarUsuario/')
         self.assertEqual(response.status_code, 200)
 
     def test_modificar_usuario_especifico(self):
-        """Prueba modificar un usuario específico /modificarUsuario/<int:usuario_id>/."""
-        # Reemplaza '1' por el ID de un usuario de prueba que hayas creado en setUp
-        usuario_id_prueba = 1 
-        url = f'/modificarUsuario/{usuario_id_prueba}/'
-        
-        # Prueba GET
+        """Prueba modificar un usuario específico /usuarios/modificarUsuario/<int:usuario_id>/."""
+        self.client.force_login(self.admin_user)
+        url = f'/usuarios/modificarUsuario/{self.usuario.id}/'
         response = self.client.get(url)
-        # Asumiendo que el ID 1 no existe en la BD vacía de prueba, podría dar 404.
-        # Ajusta el código de estado esperado a tu lógica (ej. 200 si existe).
-        self.assertIn(response.status_code, [200, 302, 404])
+        self.assertEqual(response.status_code, 200)
+
