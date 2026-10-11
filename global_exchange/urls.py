@@ -35,9 +35,10 @@ urlpatterns = [
     path('', include('authentication.urls')),
     path('monedas/', include('monedas.urls')),
 
-    # Apertura y Cierre de Caja (IS2-60) — rutas propias bajo /caja/
-    path('caja/apertura/', caja_views.apertura_caja_view, name='apertura_caja'),
-    path('caja/estado/',   caja_views.caja_dashboard_view, name='caja_dashboard'),
-    path('caja/cierre/',   caja_views.cierre_caja_view,   name='cierre_caja'),
+    # Apertura y Cierre de Caja (IS2-60) y Movimientos (IS2-61) — rutas bajo /caja/
+    path('caja/apertura/',    caja_views.apertura_caja_view,         name='apertura_caja'),
+    path('caja/estado/',      caja_views.caja_dashboard_view,        name='caja_dashboard'),
+    path('caja/cierre/',      caja_views.cierre_caja_view,           name='cierre_caja'),
+    path('caja/movimientos/', caja_views.historial_movimientos_view, name='historial_movimientos'),
 ]
 

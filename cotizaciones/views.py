@@ -993,6 +993,20 @@ def confirmar_operacion_pago(request, operacion_id):
             return redirect('listar_operaciones')
 
         elif accion == 'pagar':
+            # IS2-61: Verificar que el cajero tenga una sesión de caja abierta antes de confirmar
+            from .models import SesionCaja
+            caja_abierta = SesionCaja.objects.filter(
+                cajero=request.user,
+                estado=SesionCaja.EstadoSesion.ABIERTA,
+            ).exists()
+            if not caja_abierta:
+                messages.error(
+                    request,
+                    "⚠️ No tenés ninguna sesión de caja abierta. "
+                    "Debés aperturar una caja antes de poder confirmar y registrar pagos."
+                )
+                return redirect('apertura_caja')
+
             aceptar_cambio = request.POST.get('aceptar_cambio') == '1'
 
             if validacion['cambio'] and not aceptar_cambio:
@@ -1003,6 +1017,9 @@ def confirmar_operacion_pago(request, operacion_id):
                 )
             else:
                 try:
+                    if not operacion.registrado_por:
+                        operacion.registrado_por = request.user
+                        operacion.save(update_fields=['registrado_por'])
                     confirmar_y_pagar_operacion(operacion, aceptar_cambio_tasa=aceptar_cambio)
                     messages.success(
                         request,
@@ -1201,9 +1218,11 @@ def apertura_caja_view(request):
 def caja_dashboard_view(request):
     """
     Dashboard del cajero: muestra el estado de la sesión actual,
-    el saldo calculado hasta ahora y las operaciones del turno.
+    el saldo calculado hasta ahora y los movimientos registrados (IS2-61).
     """
-    from .models import SesionCaja, Operacion
+    from .models import SesionCaja, MovimientoCaja
+    from decimal import Decimal
+
 
     sesion_activa = SesionCaja.objects.filter(
         cajero=request.user,
@@ -1216,24 +1235,95 @@ def caja_dashboard_view(request):
         estado=SesionCaja.EstadoSesion.CERRADA,
     ).order_by('-fecha_cierre')[:10]
 
-    # Operaciones del turno actual (si hay sesión abierta)
-    operaciones_turno = []
+    # Movimientos del turno actual
+    movimientos_turno = []
     saldo_estimado = None
+    total_ingresos = Decimal('0.00')
+    total_egresos = Decimal('0.00')
+
     if sesion_activa:
-        from django.utils import timezone
-        operaciones_turno = Operacion.objects.filter(
-            registrado_por=request.user,
-            estado=Operacion.EstadoOperacion.PAGADA,
-            fecha__gte=sesion_activa.fecha_apertura,
-        ).order_by('-fecha')
+        movimientos_turno = sesion_activa.movimientos.select_related('operacion', 'registrado_por').all()
+        total_ingresos, total_egresos = sesion_activa.calcular_ingresos_turno()
         saldo_estimado = sesion_activa.calcular_saldo_esperado()
 
     return render(request, 'cotizaciones/caja/dashboard.html', {
         'sesion_activa': sesion_activa,
         'sesiones_cerradas': sesiones_cerradas,
-        'operaciones_turno': operaciones_turno,
+        'movimientos_turno': movimientos_turno,
+        'total_ingresos': total_ingresos,
+        'total_egresos': total_egresos,
         'saldo_estimado': saldo_estimado,
     })
+
+
+@rol_requerido('cajero', 'admin', 'operador', 'supervisor')
+def historial_movimientos_view(request):
+    """
+    Historial de movimientos de caja (IS2-61).
+    - Para Cajero: ve los movimientos de su sesión de caja actual y pasadas.
+    - Para Admin / Supervisor: puede filtrar por cajero, tipo de movimiento y fechas.
+    """
+    from .models import MovimientoCaja, SesionCaja
+    from django.contrib.auth.models import User
+    from django.utils.dateparse import parse_date
+    from decimal import Decimal
+
+
+    user_roles = getattr(request, 'roles', set())
+    is_admin = bool({'admin', 'supervisor'} & user_roles)
+
+    movimientos = MovimientoCaja.objects.select_related('sesion', 'sesion__cajero', 'operacion', 'registrado_por')
+
+    cajero_filtro = request.GET.get('cajero', '').strip()
+    tipo_filtro = request.GET.get('tipo', '').strip()
+    fecha_desde = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+
+    if not is_admin:
+        # El cajero regular solo ve movimientos de sus sesiones
+        movimientos = movimientos.filter(sesion__cajero=request.user)
+    else:
+        # Administrador/supervisor puede filtrar por cualquier cajero
+        if cajero_filtro:
+            movimientos = movimientos.filter(sesion__cajero__id=cajero_filtro)
+
+    if tipo_filtro in ['INGRESO', 'EGRESO']:
+        movimientos = movimientos.filter(tipo=tipo_filtro)
+
+    if fecha_desde:
+        f_d = parse_date(fecha_desde)
+        if f_d:
+            movimientos = movimientos.filter(fecha__date__gte=f_d)
+
+    if fecha_hasta:
+        f_h = parse_date(fecha_hasta)
+        if f_h:
+            movimientos = movimientos.filter(fecha__date__lte=f_h)
+
+    # Lista de cajeros disponibles para el dropdown del admin
+    cajeros_list = []
+    if is_admin:
+        cajeros_ids = SesionCaja.objects.values_list('cajero_id', flat=True).distinct()
+        cajeros_list = User.objects.filter(id__in=cajeros_ids).order_by('first_name', 'username')
+
+    # Totales acumulados del conjunto filtrado
+    from django.db.models import Sum
+    total_ingresos = movimientos.filter(tipo='INGRESO').aggregate(s=Sum('monto'))['s'] or Decimal('0.00')
+    total_egresos = movimientos.filter(tipo='EGRESO').aggregate(s=Sum('monto'))['s'] or Decimal('0.00')
+
+    return render(request, 'cotizaciones/caja/movimientos.html', {
+        'movimientos': movimientos[:100],  # límite de 100 más recientes
+        'is_admin': is_admin,
+        'cajeros_list': cajeros_list,
+        'cajero_filtro': cajero_filtro,
+        'tipo_filtro': tipo_filtro,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'total_ingresos': total_ingresos,
+        'total_egresos': total_egresos,
+        'balance_neto': total_ingresos - total_egresos,
+    })
+
 
 
 @rol_requerido('cajero', 'admin', 'operador', 'supervisor')

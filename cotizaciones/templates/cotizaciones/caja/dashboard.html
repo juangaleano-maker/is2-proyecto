@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}Dashboard de Caja | Global Exchange{% endblock %}
 
@@ -109,44 +109,63 @@
       <div class="stat-value green">Gs. {{ sesion_activa.monto_inicial|floatformat:2 }}</div>
     </div>
     <div class="stat-card">
+      <div class="stat-label">🟢 Ingresos del Turno</div>
+      <div class="stat-value green">+ Gs. {{ total_ingresos|floatformat:2 }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🔴 Egresos del Turno</div>
+      <div class="stat-value red">- Gs. {{ total_egresos|floatformat:2 }}</div>
+    </div>
+    <div class="stat-card">
       <div class="stat-label">📊 Saldo Estimado Actual</div>
       <div class="stat-value green">Gs. {{ saldo_estimado|floatformat:2 }}</div>
     </div>
   </div>
 
-  <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+  <div style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
     <a href="{% url 'cierre_caja' %}" class="action-btn btn-cerrar">🔒 Cerrar Caja</a>
+    <a href="{% url 'historial_movimientos' %}" class="action-btn btn-abrir" style="background: rgba(59, 130, 246, 0.2); border-color: #3b82f6; color: #93c5fd;">📜 Ver Historial Completo</a>
   </div>
 
-  <!-- Operaciones del turno -->
-  <p class="section-title">📑 Operaciones del Turno Actual</p>
-  {% if operaciones_turno %}
+  <!-- Movimientos del turno -->
+  <p class="section-title">📑 Movimientos de Caja del Turno Actual</p>
+  {% if movimientos_turno %}
     <table class="caja-table" style="margin-bottom: 2rem;">
       <thead>
         <tr>
-          <th>Fecha</th>
-          <th>Cliente</th>
+          <th>Fecha / Hora</th>
           <th>Tipo</th>
-          <th>Moneda</th>
+          <th>Concepto</th>
           <th>Monto</th>
-          <th>Subtotal</th>
+          <th>Operación</th>
         </tr>
       </thead>
       <tbody>
-        {% for op in operaciones_turno %}
+        {% for mov in movimientos_turno %}
         <tr>
-          <td>{{ op.fecha|date:"d/m/Y H:i" }}</td>
-          <td>{{ op.cliente }}</td>
+          <td>{{ mov.fecha|date:"d/m/Y H:i:s" }}</td>
           <td>
-            {% if op.tipo == "COMPRA" %}
-              <span class="badge-abierta">Compra</span>
+            {% if mov.tipo == "INGRESO" %}
+              <span class="badge-abierta">🟢 Ingreso</span>
             {% else %}
-              <span class="badge-sobrante">Venta</span>
+              <span class="badge-sobrante">🔴 Egreso</span>
             {% endif %}
           </td>
-          <td>{{ op.moneda.siglas }}</td>
-          <td>{{ op.monto|floatformat:2 }}</td>
-          <td><strong>Gs. {{ op.subtotal|floatformat:2 }}</strong></td>
+          <td>{{ mov.concepto }}</td>
+          <td>
+            {% if mov.tipo == "INGRESO" %}
+              <strong style="color: #34d399;">+ Gs. {{ mov.monto|floatformat:2 }}</strong>
+            {% else %}
+              <strong style="color: #f87171;">- Gs. {{ mov.monto|floatformat:2 }}</strong>
+            {% endif %}
+          </td>
+          <td>
+            {% if mov.operacion %}
+              <span style="color: #94a3b8;">#{{ mov.operacion.id }}</span>
+            {% else %}
+              <span style="color: #64748b;">-</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -154,9 +173,10 @@
   {% else %}
     <div class="empty-state">
       <div class="empty-icon">📭</div>
-      <p>No hay operaciones registradas en este turno aún.</p>
+      <p>No hay movimientos registrados en este turno aún. Se registrarán automáticamente al confirmar compras o ventas.</p>
     </div>
   {% endif %}
+
 
 {% else %}
   <!-- Sin sesión activa -->

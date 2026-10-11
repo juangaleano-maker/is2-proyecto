@@ -1488,3 +1488,219 @@ class SesionCajaViewTestCase(TestCase):
         self.assertEqual(sesion.diferencia, Decimal('-50000.00'))
         self.assertEqual(sesion.tipo_diferencia, 'FALTANTE')
 
+
+# =======================================================================
+# TESTS: Registro de Movimientos de Caja (IS2-61)
+# =======================================================================
+
+class MovimientoCajaTestCase(TestCase):
+    """
+    Tests para IS2-61:
+    - Criterio 1: Registro automático de transacciones (compra/venta) en caja activa
+    - Criterio 2: Operación compra = INGRESO, operación venta = EGRESO
+    - Criterio 3: Actualización del saldo en tiempo real a través de los movimientos
+    - Criterio 4: Bloqueo de confirmación de pago si no hay caja abierta
+    - Criterio 5: Vista de historial de movimientos accesible
+    """
+
+    def setUp(self):
+        from .models import SesionCaja, MovimientoCaja, Operacion
+        from monedas.models import Moneda
+        from clientes.models import Cliente
+        self.SesionCaja = SesionCaja
+        self.MovimientoCaja = MovimientoCaja
+        self.Operacion = Operacion
+
+        self.grupo_cajero = Group.objects.get_or_create(name='cajero')[0]
+        self.cajero = User.objects.create_user(
+            username='cajero_mov',
+            password='Password123!',
+            email='cajero_mov@test.com',
+            first_name='Cajero',
+            last_name='Movimientos',
+        )
+        self.cajero.groups.add(self.grupo_cajero)
+
+
+        self.cliente = Cliente.objects.create(
+            tipo_persona=Cliente.TipoPersona.FISICA,
+            documento='9876543',
+            nombre='Cliente',
+            apellido='Prueba',
+            email='cliente_prueba@test.com',
+            telefono='0981123456',
+        )
+
+        self.moneda = Moneda.objects.create(
+            nombre='Dólar Estadounidense',
+            siglas='USD',
+            activa=True,
+        )
+
+        # Crear sesión abierta con fondo inicial de 1.000.000 Gs.
+        self.sesion = self.SesionCaja.objects.create(
+            cajero=self.cajero,
+            nombre_caja='Caja Principal',
+            monto_inicial=Decimal('1000000.00'),
+            estado=self.SesionCaja.EstadoSesion.ABIERTA,
+        )
+
+
+    def test_operacion_compra_pagada_crea_movimiento_ingreso(self):
+        """
+        Una compra pagada (cliente vende dólares a la casa de cambios) genera
+        un movimiento de tipo INGRESO en la caja activa con el subtotal correspondiente.
+        """
+        op = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.COMPRA,
+            monto=Decimal('100.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PENDIENTE,
+            registrado_por=self.cajero,
+        )
+
+        # Confirmar la operación pasando a PAGADA
+        op.estado = self.Operacion.EstadoOperacion.PAGADA
+        op.save()
+
+        # Debe haberse creado un MovimientoCaja automáticamente
+        movs = self.MovimientoCaja.objects.filter(operacion=op)
+        self.assertEqual(movs.count(), 1)
+        mov = movs.first()
+        self.assertEqual(mov.sesion, self.sesion)
+        self.assertEqual(mov.tipo, self.MovimientoCaja.TipoMovimiento.INGRESO)
+        self.assertEqual(mov.monto, Decimal('750000.00'))  # 100 * 7500
+        self.assertEqual(mov.registrado_por, self.cajero)
+
+    def test_operacion_venta_pagada_crea_movimiento_egreso(self):
+        """
+        Una venta pagada genera un movimiento de tipo EGRESO en la caja activa.
+        """
+        op = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.VENTA,
+            monto=Decimal('50.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PENDIENTE,
+            registrado_por=self.cajero,
+        )
+
+        op.estado = self.Operacion.EstadoOperacion.PAGADA
+        op.save()
+
+        movs = self.MovimientoCaja.objects.filter(operacion=op)
+        self.assertEqual(movs.count(), 1)
+        mov = movs.first()
+        self.assertEqual(mov.sesion, self.sesion)
+        self.assertEqual(mov.tipo, self.MovimientoCaja.TipoMovimiento.EGRESO)
+        self.assertEqual(mov.monto, Decimal('375000.00'))  # 50 * 7500
+
+    def test_actualizacion_de_saldo_esperado_por_movimientos(self):
+        """
+        El saldo esperado de la sesión se actualiza sumando ingresos y restando egresos.
+        Fondo inicial: 1.000.000 + Ingreso (750.000) - Egreso (375.000) = 1.375.000 Gs.
+        """
+        # Compra
+        op1 = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.COMPRA,
+            monto=Decimal('100.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PAGADA,
+            registrado_por=self.cajero,
+        )
+
+        # Venta
+        op2 = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.VENTA,
+            monto=Decimal('50.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PAGADA,
+            registrado_por=self.cajero,
+        )
+
+        ingresos, egresos = self.sesion.calcular_ingresos_turno()
+        self.assertEqual(ingresos, Decimal('750000.00'))
+        self.assertEqual(egresos, Decimal('375000.00'))
+        saldo = self.sesion.calcular_saldo_esperado()
+        self.assertEqual(saldo, Decimal('1375000.00'))
+
+    def test_no_crea_movimiento_duplicado_al_guardar_nuevamente(self):
+        """Guardar varias veces una operación ya PAGADA no debe duplicar el movimiento."""
+        op = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.COMPRA,
+            monto=Decimal('100.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PAGADA,
+            registrado_por=self.cajero,
+        )
+        # Volver a llamar save()
+        op.save()
+        self.assertEqual(self.MovimientoCaja.objects.filter(operacion=op).count(), 1)
+
+    def test_operacion_sin_caja_abierta_no_falla_pero_no_crea_movimiento(self):
+        """Si el cajero no tiene caja abierta, la señal registra un log sin lanzar excepción."""
+        cajero_sin_caja = User.objects.create_user(username='sin_caja', password='Password123!')
+        op = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.COMPRA,
+            monto=Decimal('100.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PAGADA,
+            registrado_por=cajero_sin_caja,
+        )
+        self.assertEqual(self.MovimientoCaja.objects.filter(operacion=op).count(), 0)
+
+    def test_bloqueo_confirmacion_pago_si_cajero_no_tiene_caja_abierta(self):
+        """
+        En la vista confirmar_operacion_pago, si el usuario no tiene caja abierta,
+        se le impide confirmar el pago y se le redirige a la apertura de caja.
+        """
+        # Cerrar la caja activa
+        self.sesion.estado = self.SesionCaja.EstadoSesion.CERRADA
+        self.sesion.save()
+
+        op = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.COMPRA,
+            monto=Decimal('100.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PENDIENTE,
+            registrado_por=self.cajero,
+        )
+
+        self.client.force_login(self.cajero)
+        resp = self.client.post(
+            reverse('confirmar_operacion_pago', kwargs={'operacion_id': op.id}),
+            {'accion': 'pagar'}
+        )
+        # Redirige a apertura de caja con mensaje de advertencia
+        self.assertRedirects(resp, reverse('apertura_caja'))
+        op.refresh_from_db()
+        self.assertEqual(op.estado, self.Operacion.EstadoOperacion.PENDIENTE)
+
+    def test_vista_historial_movimientos_accesible(self):
+        """La vista historial_movimientos_view responde 200 y renderiza movimientos."""
+        self.client.force_login(self.cajero)
+        resp = self.client.get(reverse('historial_movimientos'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Historial de Movimientos de Caja')
+
+
