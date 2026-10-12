@@ -84,18 +84,18 @@ class BasePagosTestCase(TestCase):
             activo=True,
         )
 
-        # Operación en estado PENDIENTE
+        # Operación en estado PENDIENTE (COMPRA de divisas)
         self.operacion = Operacion.objects.create(
             cliente=self.cliente_entidad,
             moneda=self.usd,
             monto=Decimal("100.00"),
             tasa_aplicada=Decimal("7500.00"),
-            tipo=Operacion.TipoOperacion.VENTA,
+            tipo=Operacion.TipoOperacion.COMPRA,
             estado=Operacion.EstadoOperacion.PENDIENTE,
             registrado_por=self.user_cliente,
             comision=Decimal("15000.00"),
         )
-        # total_neto = subtotal (750.000) - comision (15.000) = 735.000
+        # total_neto = subtotal (750.000) + comision (15.000) = 765.000
 
 
 class StripeWebhookTests(BasePagosTestCase):
@@ -510,10 +510,10 @@ class StripeCheckoutWebTests(BasePagosTestCase):
 
     def test_calcular_monto_stripe_usd_respeta_minimo_y_conversion(self):
         """Verifica que el cálculo en USD respete el mínimo de 0.50 USD."""
-        # 1. Operación normal: 735.000 PYG con tasa 7.500 PYG/USD = 98.00 USD
+        # 1. Operación normal: 765.000 PYG con tasa 7.500 PYG/USD = 102.00 USD
         monto_usd, centavos = StripePasarela.calcular_monto_stripe_usd(self.operacion)
-        self.assertEqual(monto_usd, Decimal("98.00"))
-        self.assertEqual(centavos, 9800)
+        self.assertEqual(monto_usd, Decimal("102.00"))
+        self.assertEqual(centavos, 10200)
 
         # 2. Operación mínima: forzar monto diminuto
         self.operacion.monto = Decimal("0.01")  # 0.01 * 7500 = 75 PYG
@@ -529,7 +529,7 @@ class StripeCheckoutWebTests(BasePagosTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "pagos/checkout_stripe.html")
         self.assertContains(response, "Pagar con Stripe")
-        self.assertContains(response, "$98.00 USD")
+        self.assertContains(response, "$102.00 USD")
 
     def test_iniciar_pago_stripe_post_crea_checkout_session_y_redirige(self):
         """POST a /pagos/stripe/<id>/iniciar/ crea Checkout Session y redirige a session.url."""
@@ -537,8 +537,8 @@ class StripeCheckoutWebTests(BasePagosTestCase):
             "exito": True,
             "session_id": "cs_test_mock_12345",
             "url": "https://checkout.stripe.com/c/pay/cs_test_mock_12345",
-            "monto_usd": Decimal("98.00"),
-            "monto_centavos": 9800,
+            "monto_usd": Decimal("102.00"),
+            "monto_centavos": 10200,
         }
 
         with patch.object(
@@ -577,4 +577,25 @@ class StripeCheckoutWebTests(BasePagosTestCase):
         self.operacion.refresh_from_db()
         # No debe haber cambiado de estado
         self.assertEqual(self.operacion.estado, Operacion.EstadoOperacion.PENDIENTE)
+
+    def test_iniciar_pago_stripe_rechaza_operacion_tipo_venta(self):
+        """Operación de tipo VENTA no puede ser pagada por pasarela Stripe."""
+        self.operacion.tipo = Operacion.TipoOperacion.VENTA
+        self.operacion.save(update_fields=["tipo"])
+        response = self.client.get(self.iniciar_url)
+        self.assertRedirects(
+            response,
+            reverse("operacion_detalle", kwargs={"operacion_id": self.operacion.id}),
+        )
+
+    def test_subir_comprobante_sipap_rechaza_operacion_tipo_venta(self):
+        """Operación de tipo VENTA no puede adjuntar comprobante SIPAP."""
+        self.operacion.tipo = Operacion.TipoOperacion.VENTA
+        self.operacion.save(update_fields=["tipo"])
+        url = reverse("pagos:subir_comprobante_sipap", kwargs={"operacion_id": self.operacion.id})
+        response = self.client.get(url)
+        self.assertRedirects(
+            response,
+            reverse("operacion_detalle", kwargs={"operacion_id": self.operacion.id}),
+        )
 

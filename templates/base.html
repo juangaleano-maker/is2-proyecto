@@ -25,35 +25,10 @@
                     <span>🏠</span> Menú
                 </a>
             </li>
-            <li>
-                <a href="{% url 'clientes:elegir_cliente' %}" class="nav-link">
-                    <span>🎯</span> Selector Cliente
-                </a>
-            </li>
             {% if request.user.is_authenticated %}
             <li>
-                <a href="{% url 'comprar_moneda' %}" class="nav-link" style="color: #93c5fd; font-weight: 600;">
-                    <span>🛒</span> Compra de Moneda
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'operacion_venta' %}" class="nav-link" style="color: #6ee7b7; font-weight: 600;">
-                    <span>💵</span> Venta de Moneda
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'operaciones_lista' %}" class="nav-link">
-                    <span>📋</span> Operaciones
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'tasas_vigentes' %}" class="nav-link">
-                    <span>💱</span> Tasas de Cambio
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'alertas_tasas' %}" class="nav-link" style="color: #fde047; font-weight: 600;">
-                    <span>🔔</span> Alertas
+                <a href="{% url 'clientes:elegir_cliente' %}" class="nav-link">
+                    <span>🎯</span> Elegir Cliente
                 </a>
             </li>
             {% if 'cajero' in request.roles or 'operador' in request.roles or 'admin' in request.roles or 'supervisor' in request.roles %}
@@ -61,6 +36,13 @@
                 <a href="{% url 'caja_dashboard' %}" class="nav-link" style="color: #a78bfa; font-weight: 600;">
                     <span>🏦</span> Caja
                 </a>
+            </li>
+            {% endif %}
+            {% if request.session.cliente_activo_nombre %}
+            <li style="display: flex; align-items: center; padding: 0 8px;">
+                <span style="background: rgba(255,255,255,0.15); color: #ffffff; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                    🏢 {{ request.session.cliente_activo_nombre }}
+                </span>
             </li>
             {% endif %}
             <!-- Campanita interactiva (IS2-58) -->
@@ -88,32 +70,6 @@
                     </div>
                 </div>
             </li>
-            {% endif %}
-            {% if 'admin' in request.roles or 'supervisor' in request.roles or 'operador' in request.roles or 'empleado' in request.roles or request.user.is_staff %}
-            <li>
-                <a href="{% url 'clientes:listado' %}" class="nav-link">
-                    <span>👥</span> Panel Clientes
-                </a>
-            </li>
-            <li>
-                <a href="{% url 'pagos:lista_comprobantes_pendientes' %}" class="nav-link">
-                    <span>🏦</span> Comprobantes SIPAP
-                </a>
-            </li>
-            {% endif %}
-            {% if request.session.cliente_activo_nombre %}
-            <li style="display: flex; align-items: center; padding: 0 10px;">
-                <span style="background: rgba(255,255,255,0.15); color: #ffffff; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
-                    🏢 {{ request.session.cliente_activo_nombre }}
-                </span>
-            </li>
-            <li>
-                <a href="{% url 'clientes:listar_medios_pago' %}" class="nav-link">
-                    <span>💳</span> Medios de Pago
-                </a>
-            </li>
-            {% endif %}
-            {% if request.user.is_authenticated %}
             <li>
                 <a href="{% url 'logout' %}" class="nav-link" style="color: #fca5a5;">
                     <span>🚪</span> Salir
@@ -168,6 +124,17 @@
         .btn-campanita:hover {
             background: rgba(255, 255, 255, 0.22);
             transform: translateY(-1px);
+        }
+        @keyframes bellRing {
+            0%   { transform: rotate(0deg) scale(1.15); }
+            20%  { transform: rotate(15deg) scale(1.2); }
+            40%  { transform: rotate(-12deg) scale(1.15); }
+            60%  { transform: rotate(8deg) scale(1.1); }
+            80%  { transform: rotate(-5deg) scale(1.05); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+        .btn-campanita.ringing {
+            animation: bellRing 0.6s ease forwards;
         }
         .badge-notif-bubble {
             position: absolute;
@@ -314,6 +281,8 @@
                 return cookieValue;
             }
 
+            // Cargar notificaciones al iniciar
+            let _prevUnreadCount = 0;
             window.cargarNotificacionesNavbar = async function() {
                 try {
                     const res = await fetch('/cotizaciones/api/notificaciones/');
@@ -329,12 +298,27 @@
                         }
                     }
 
-                    if (listContainer) {
+                    // Mostrar un toast global si llegaron nuevas notificaciones
+                    if (data.no_leidas_count > _prevUnreadCount && _prevUnreadCount >= 0) {
+                        const diff = data.no_leidas_count - _prevUnreadCount;
+                        if (diff > 0 && _prevUnreadCount !== -1) {
+                            _mostrarToastNavbar(`🔔 ${diff} nueva${diff > 1 ? 's' : ''} notificación${diff > 1 ? 'es' : ''} de tasas`);
+                        }
+                        // Animar la campanita
+                        if (btnCampanita) {
+                            btnCampanita.classList.remove('ringing');
+                            void btnCampanita.offsetWidth; // force reflow to restart animation
+                            btnCampanita.classList.add('ringing');
+                            setTimeout(() => btnCampanita.classList.remove('ringing'), 700);
+                        }
+                    }
+                    _prevUnreadCount = data.no_leidas_count;
+
+                    if (listContainer && panel && panel.style.display === 'block') {
                         if (!data.notificaciones || data.notificaciones.length === 0) {
-                            listContainer.innerHTML = '<div class="dnp-empty">No hay notificaciones recientes.<br><small style="color:#64748b;">Puedes suscribirte a divisas en Alertas.</small></div>';
+                            listContainer.innerHTML = '<div class="dnp-empty">No hay notificaciones recientes.<br><small style="color:#64748b;">Suscribíte a divisas en Alertas.</small></div>';
                             return;
                         }
-
                         let html = '';
                         data.notificaciones.forEach(n => {
                             html += `
@@ -355,13 +339,31 @@
                 }
             };
 
+            // Toast global para nuevas notificaciones
+            function _mostrarToastNavbar(msg) {
+                let toast = document.getElementById('_navbarNotifToast');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.id = '_navbarNotifToast';
+                    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 22px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.25);z-index:99999;border-left:4px solid #f59e0b;display:none;align-items:center;gap:10px;';
+                    document.body.appendChild(toast);
+                }
+                toast.textContent = msg;
+                toast.style.display = 'flex';
+                clearTimeout(toast._hideTimer);
+                toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, 5000);
+            }
+
             if (btnCampanita && panel) {
                 btnCampanita.addEventListener('click', function(e) {
                     e.stopPropagation();
                     const isVisible = panel.style.display === 'block';
                     panel.style.display = isVisible ? 'none' : 'block';
                     if (!isVisible) {
+                        // Cargar lista al abrir
+                        _prevUnreadCount = -1; // forzar carga sin toast
                         window.cargarNotificacionesNavbar();
+                        _prevUnreadCount = 0;
                     }
                 });
 
@@ -386,6 +388,7 @@
                         const data = await res.json();
                         if (data.exito) {
                             if (badge) badge.style.display = 'none';
+                            _prevUnreadCount = 0;
                             window.cargarNotificacionesNavbar();
                         }
                     } catch (err) {
@@ -394,9 +397,10 @@
                 });
             }
 
-            // Cargar notificaciones al iniciar
-            window.cargarNotificacionesNavbar();
-            setInterval(window.cargarNotificacionesNavbar, 30000);
+            // Carga inicial y polling cada 15s
+            _prevUnreadCount = -1; // primer carga sin toast
+            window.cargarNotificacionesNavbar().then(() => { _prevUnreadCount = badge && badge.style.display !== 'none' ? parseInt(badge.textContent) || 0 : 0; });
+            setInterval(window.cargarNotificacionesNavbar, 15000);
             {% endif %}
         })();
     </script>

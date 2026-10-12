@@ -228,9 +228,15 @@
                     </td>
                     <td style="text-align: right; white-space: nowrap;">
                         {% if op.estado == 'PENDIENTE' %}
-                        <a href="{% url 'confirmar_operacion_pago' op.id %}" style="display: inline-block; padding: 5px 12px; background: #059669; color: white; border: 1px solid #047857; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 700; margin-right: 5px;">
-                            💳 Pagar / Confirmar
-                        </a>
+                            {% if es_personal %}
+                            <a href="{% url 'confirmar_operacion_pago' op.id %}" style="display: inline-block; padding: 5px 12px; background: #059669; color: white; border: 1px solid #047857; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 700; margin-right: 5px;">
+                                💵 Liquidar en Caja
+                            </a>
+                            {% elif op.tipo == 'COMPRA' %}
+                            <a href="{% url 'operacion_detalle' op.id %}" style="display: inline-block; padding: 5px 12px; background: #4f46e5; color: white; border: 1px solid #4338ca; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 700; margin-right: 5px;">
+                                💳 Pagar Compra
+                            </a>
+                            {% endif %}
                         {% endif %}
                         <a href="{% url 'operacion_detalle' op.id %}" style="display: inline-block; padding: 5px 12px; background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 600;">
                             👁️ Ver Ficha

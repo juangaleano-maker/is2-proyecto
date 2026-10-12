@@ -598,7 +598,6 @@ def api_simular_conversion(request):
 # ==============================================================================
 
 @login_required
-@login_required
 def comprar_moneda(request):
     """
     Vista para que un usuario registre la compra de una moneda
@@ -664,12 +663,26 @@ def comprar_moneda(request):
                     tasa_aplicada=tasa_aplicada,
                     usuario=request.user
                 )
-                messages.info(
-                    request,
-                    f'Operación de compra #{operacion.id} iniciada. '
-                    f'Por favor revise la cotización vigente antes de confirmar el pago.'
-                )
-                return redirect('confirmar_operacion_pago', operacion_id=operacion.id)
+                roles = set(getattr(request, 'roles', [])) | set(getattr(request.user, 'roles', []))
+                if hasattr(request.user, 'groups'):
+                    roles.update(request.user.groups.values_list('name', flat=True))
+                roles_gestion = {'admin', 'supervisor', 'operador', 'empleado', 'cajero'}
+                es_personal = bool(roles.intersection(roles_gestion)) or getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
+
+                if es_personal:
+                    messages.info(
+                        request,
+                        f'Operación de compra #{operacion.id} iniciada. '
+                        f'Por favor revise la cotización vigente antes de confirmar el pago.'
+                    )
+                    return redirect('confirmar_operacion_pago', operacion_id=operacion.id)
+                else:
+                    messages.success(
+                        request,
+                        f'¡Operación de compra #{operacion.id} iniciada con éxito! '
+                        f'Seleccioná tu método de pago (Stripe o SIPAP) para abonar tu pedido.'
+                    )
+                    return redirect('operacion_detalle', operacion_id=operacion.id)
             except Exception as e:
                 messages.error(request, f"Error al procesar la operación de compra: {str(e)}")
         else:
@@ -823,14 +836,20 @@ def listar_operaciones_view(request):
     roles = set(getattr(request, 'roles', [])) | set(getattr(request.user, 'roles', []))
     if hasattr(request.user, 'groups'):
         roles.update(request.user.groups.values_list('name', flat=True))
-    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado', 'cajero'}
     es_personal = bool(roles.intersection(roles_gestion)) or getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
 
     if es_personal:
         operaciones = Operacion.objects.all()
     else:
-        clientes_ids = obtener_clientes_asignados_usuario(request.user).values_list('id', flat=True)
-        operaciones = Operacion.objects.filter(cliente_id__in=clientes_ids)
+        cliente_activo_id = request.session.get('cliente_activo_id')
+        clientes_asignados = list(obtener_clientes_asignados_usuario(request.user).values_list('id', flat=True))
+        if cliente_activo_id and cliente_activo_id in clientes_asignados:
+            operaciones = Operacion.objects.filter(cliente_id=cliente_activo_id)
+        elif clientes_asignados:
+            operaciones = Operacion.objects.filter(cliente_id__in=clientes_asignados)
+        else:
+            operaciones = Operacion.objects.filter(registrado_por=request.user)
 
 
     # Filtros opcionales
@@ -977,6 +996,12 @@ def confirmar_operacion_pago(request, operacion_id):
     # Validación de cambio de cotización (Criterio 1)
     validacion = verificar_cambio_cotizacion(operacion)
 
+    roles = set(getattr(request, 'roles', [])) | set(getattr(request.user, 'roles', []))
+    if hasattr(request.user, 'groups'):
+        roles.update(request.user.groups.values_list('name', flat=True))
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado', 'cajero'}
+    es_personal = bool(roles.intersection(roles_gestion)) or getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
+
     # Procesar acción vía POST
     if request.method == 'POST':
         accion = request.POST.get('accion', 'pagar')
@@ -995,41 +1020,56 @@ def confirmar_operacion_pago(request, operacion_id):
             return redirect('listar_operaciones')
 
         elif accion == 'pagar':
-            # IS2-61: Verificar que el cajero tenga una sesión de caja abierta antes de confirmar
-            from .models import SesionCaja
-            caja_abierta = SesionCaja.objects.filter(
-                cajero=request.user,
-                estado=SesionCaja.EstadoSesion.ABIERTA,
-            ).exists()
-            if not caja_abierta:
-                messages.error(
-                    request,
-                    "⚠️ No tenés ninguna sesión de caja abierta. "
-                    "Debés aperturar una caja antes de poder confirmar y registrar pagos."
-                )
-                return redirect('apertura_caja')
-
             aceptar_cambio = request.POST.get('aceptar_cambio') == '1'
 
-            if validacion['cambio'] and not aceptar_cambio:
-                messages.error(
-                    request,
-                    "La cotización cambió. Por favor revise el nuevo valor y confirme si desea "
-                    "aceptar la nueva cotización o cancelar la transacción."
-                )
-            else:
-                try:
-                    if not operacion.registrado_por:
-                        operacion.registrado_por = request.user
-                        operacion.save(update_fields=['registrado_por'])
-                    confirmar_y_pagar_operacion(operacion, aceptar_cambio_tasa=aceptar_cambio)
+            if not es_personal:
+                # Clientes regulares: confirman la cotización y son derivados al pago digital (Stripe/SIPAP)
+                if validacion['cambio'] and not aceptar_cambio:
+                    messages.error(
+                        request,
+                        "La cotización cambió. Por favor revise el nuevo valor y confirme si desea "
+                        "aceptar la nueva cotización o cancelar la transacción."
+                    )
+                else:
                     messages.success(
                         request,
-                        f"¡Pago confirmado exitosamente! Transacción #{operacion.id} pagada."
+                        "Cotización confirmada. Seleccioná tu método de pago digital (Stripe o SIPAP)."
                     )
-                    return redirect('listar_operaciones')
-                except ValueError as ve:
-                    messages.error(request, str(ve))
+                    return redirect('operacion_detalle', operacion_id=operacion.id)
+            else:
+                # IS2-61: Verificar que el cajero tenga una sesión de caja abierta antes de confirmar
+                from .models import SesionCaja
+                caja_abierta = SesionCaja.objects.filter(
+                    cajero=request.user,
+                    estado=SesionCaja.EstadoSesion.ABIERTA,
+                ).exists()
+                if not caja_abierta:
+                    messages.error(
+                        request,
+                        "⚠️ No tenés ninguna sesión de caja abierta. "
+                        "Debés aperturar una caja antes de poder confirmar y registrar pagos."
+                    )
+                    return redirect('apertura_caja')
+
+                if validacion['cambio'] and not aceptar_cambio:
+                    messages.error(
+                        request,
+                        "La cotización cambió. Por favor revise el nuevo valor y confirme si desea "
+                        "aceptar la nueva cotización o cancelar la transacción."
+                    )
+                else:
+                    try:
+                        if not operacion.registrado_por:
+                            operacion.registrado_por = request.user
+                            operacion.save(update_fields=['registrado_por'])
+                        confirmar_y_pagar_operacion(operacion, aceptar_cambio_tasa=aceptar_cambio)
+                        messages.success(
+                            request,
+                            f"¡Pago confirmado exitosamente! Transacción #{operacion.id} pagada."
+                        )
+                        return redirect('listar_operaciones')
+                    except ValueError as ve:
+                        messages.error(request, str(ve))
 
     # Notificación al usuario si la cotización cambió (Criterio 2)
     if validacion['cambio']:
@@ -1046,6 +1086,7 @@ def confirmar_operacion_pago(request, operacion_id):
         'total_inicial': total_inicial,
         'total_actual': total_actual,
         'diferencia_total': (total_actual - total_inicial).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+        'es_personal': es_personal,
     })
 
 
@@ -1148,14 +1189,36 @@ def api_cancelar_operacion(request, operacion_id):
 @login_required
 def historial_operaciones(request):
     from .models import Operacion
+    from .services import obtener_clientes_asignados_usuario
+
+    roles = set(getattr(request, 'roles', [])) | set(getattr(request.user, 'roles', []))
+    if hasattr(request.user, 'groups'):
+        roles.update(request.user.groups.values_list('name', flat=True))
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado', 'cajero'}
+    es_personal = bool(roles.intersection(roles_gestion)) or getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
+
     estado_filtro = request.GET.get('estado', '')
-    operaciones_qs = Operacion.objects.select_related('cliente', 'moneda').order_by('-fecha')
+
+    if es_personal:
+        operaciones_qs = Operacion.objects.all()
+    else:
+        cliente_activo_id = request.session.get('cliente_activo_id')
+        clientes_asignados = list(obtener_clientes_asignados_usuario(request.user).values_list('id', flat=True))
+        if cliente_activo_id and cliente_activo_id in clientes_asignados:
+            operaciones_qs = Operacion.objects.filter(cliente_id=cliente_activo_id)
+        elif clientes_asignados:
+            operaciones_qs = Operacion.objects.filter(cliente_id__in=clientes_asignados)
+        else:
+            operaciones_qs = Operacion.objects.filter(registrado_por=request.user)
+
+    operaciones_qs = operaciones_qs.select_related('cliente', 'moneda').order_by('-fecha')
     if estado_filtro:
         operaciones_qs = operaciones_qs.filter(estado=estado_filtro)
     return render(request, 'cotizaciones/historial_operaciones.html', {
         'operaciones': operaciones_qs,
         'estado_filtro': estado_filtro,
         'estados': Operacion.EstadoOperacion.choices,
+        'es_personal': es_personal,
     })
 
 @login_required
@@ -1244,22 +1307,23 @@ def api_toggle_moneda_seguimiento(request, moneda_id):
     from monedas.models import Moneda
     moneda = get_object_or_404(Moneda, id=moneda_id, activa=True)
 
-    alerta_existente = AlertaTasa.objects.filter(
+    alertas_existentes = AlertaTasa.objects.filter(
         usuario=request.user,
         moneda=moneda,
         tipo=AlertaTasa.TipoAlerta.VARIACION
-    ).first()
+    )
 
-    if alerta_existente:
-        alerta_existente.delete()
+    if alertas_existentes.exists():
+        # Eliminar todas (incluyendo duplicados) → queda desuscripto
+        alertas_existentes.delete()
         siguiendo = False
         mensaje = f"Ya no estás siguiendo las variaciones de {moneda.siglas}."
     else:
-        AlertaTasa.objects.create(
+        AlertaTasa.objects.get_or_create(
             usuario=request.user,
             moneda=moneda,
             tipo=AlertaTasa.TipoAlerta.VARIACION,
-            activa=True
+            defaults={'activa': True}
         )
         siguiendo = True
         mensaje = f"Ahora estás al pendiente de las variaciones de {moneda.siglas}."
@@ -1269,6 +1333,30 @@ def api_toggle_moneda_seguimiento(request, moneda_id):
         'siguiendo': siguiendo,
         'mensaje': mensaje,
         'moneda_siglas': moneda.siglas,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_seguir_todas_las_monedas(request):
+    """Permite al usuario activar el seguimiento de variación para todas las monedas activas con un clic."""
+    from monedas.models import Moneda
+    monedas_activas = Moneda.objects.filter(activa=True)
+    creadas = 0
+    for moneda in monedas_activas:
+        _, created = AlertaTasa.objects.get_or_create(
+            usuario=request.user,
+            moneda=moneda,
+            tipo=AlertaTasa.TipoAlerta.VARIACION,
+            defaults={'activa': True}
+        )
+        if created:
+            creadas += 1
+
+    return JsonResponse({
+        'exito': True,
+        'creadas': creadas,
+        'mensaje': f'Ahora sigues todas las divisas activas ({monedas_activas.count()} monedas).'
     })
 
 

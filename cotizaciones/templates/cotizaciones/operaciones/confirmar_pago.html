@@ -161,21 +161,33 @@
             </button>
         </form>
 
-        <!-- Formulario de Confirmación y Pago -->
-        <form method="post" action="{% url 'confirmar_operacion_pago' operacion.id %}">
-            {% csrf_token %}
-            <input type="hidden" name="accion" value="pagar">
-            {% if validacion.cambio %}
-                <input type="hidden" name="aceptar_cambio" value="1">
-                <button type="submit" class="btn" style="background-color: #16a34a; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); font-weight: 600; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); transition: background-color 0.2s;">
-                    <span>✅</span> Aceptar Nueva Cotización y Pagar
-                </button>
-            {% else %}
-                <button type="submit" class="btn" style="background-color: var(--primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius-md); font-weight: 600; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); transition: background-color 0.2s;">
-                    <span>💳</span> Confirmar y Proceder al Pago
-                </button>
+        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            {% if operacion.tipo == 'COMPRA' %}
+                <!-- Opciones de pago digital para el cliente en COMPRA -->
+                <a href="{% url 'pagos:iniciar_pago_stripe' operacion.id %}" class="btn" style="background-color: #4f46e5; color: white; padding: 0.75rem 1.4rem; border-radius: var(--radius-md); text-decoration: none; font-weight: 600; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm);">
+                    <span>💳</span> Pagar con Stripe
+                </a>
+                <a href="{% url 'pagos:subir_comprobante_sipap' operacion.id %}" class="btn" style="background-color: #0284c7; color: white; padding: 0.75rem 1.4rem; border-radius: var(--radius-md); text-decoration: none; font-weight: 600; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm);">
+                    <span>🏦</span> Adjuntar SIPAP
+                </a>
             {% endif %}
-        </form>
+
+            <!-- Formulario de Confirmación y Pago en Caja (Ventanilla) -->
+            <form method="post" action="{% url 'confirmar_operacion_pago' operacion.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="pagar">
+                {% if validacion.cambio %}
+                    <input type="hidden" name="aceptar_cambio" value="1">
+                    <button type="submit" class="btn" style="background-color: #16a34a; color: white; border: none; padding: 0.75rem 1.4rem; border-radius: var(--radius-md); font-weight: 600; font-size: 0.95rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); transition: background-color 0.2s;">
+                        <span>✅</span> Aceptar Nueva Cotización y Pagar
+                    </button>
+                {% else %}
+                    <button type="submit" class="btn" style="background-color: var(--primary); color: white; border: none; padding: 0.75rem 1.4rem; border-radius: var(--radius-md); font-weight: 600; font-size: 0.95rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; box-shadow: var(--shadow-sm); transition: background-color 0.2s;">
+                        <span>💵</span> Confirmar y Proceder al Pago
+                    </button>
+                {% endif %}
+            </form>
+        </div>
     </div>
 
 </div>

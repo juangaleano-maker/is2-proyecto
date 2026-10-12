@@ -242,6 +242,14 @@ def subir_comprobante_sipap(request, operacion_id):
         )
         return redirect("operacion_detalle", operacion_id=operacion.id)
 
+    # Solo operaciones de tipo COMPRA pueden pagar/subir comprobante
+    if operacion.tipo != Operacion.TipoOperacion.COMPRA:
+        messages.error(
+            request,
+            f"El pago bancario SIPAP solo está disponible para operaciones de COMPRA de divisas (la operación #{operacion.id} es una {operacion.get_tipo_display()}).",
+        )
+        return redirect("operacion_detalle", operacion_id=operacion.id)
+
     # Solo operaciones PENDIENTE pueden subir comprobante
     if operacion.estado != Operacion.EstadoOperacion.PENDIENTE:
         messages.error(
@@ -444,6 +452,14 @@ def iniciar_pago_stripe(request, operacion_id):
     operacion = get_object_or_404(
         Operacion.objects.select_related("cliente", "moneda"), id=operacion_id
     )
+
+    # Solo operaciones de tipo COMPRA pueden pagarse mediante pasarela Stripe
+    if operacion.tipo != Operacion.TipoOperacion.COMPRA:
+        messages.error(
+            request,
+            f"La pasarela de pagos Stripe solo está disponible para operaciones de COMPRA de divisas (la operación #{operacion.id} es una {operacion.get_tipo_display()}).",
+        )
+        return redirect("operacion_detalle", operacion_id=operacion.id)
 
     estados_permitidos = (
         Operacion.EstadoOperacion.PENDIENTE,

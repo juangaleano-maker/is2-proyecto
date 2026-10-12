@@ -222,6 +222,7 @@
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <span class="rates-badge-live">
                 <span class="pulse-dot"></span> Precios en Vivo
+                <span id="live-update-ts"></span>
             </span>
             <span style="background: rgba(255,255,255,0.12); color: #ffffff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
                 {{ tasas_count }} par{{ tasas_count|pluralize:"es" }} disponible{{ tasas_count|pluralize:"s" }}
@@ -333,7 +334,7 @@
     </h3>
     <div class="rates-grid">
         {% for t in tasas %}
-        <div class="rate-card" id="rate-card-{{ t.id }}">
+        <div class="rate-card" id="rate-card-{{ t.id }}" data-pair="{{ t.moneda_origen.siglas }}_{{ t.moneda_destino.siglas }}">
             <div>
                 <div class="rate-card-header">
                     <div>
@@ -359,12 +360,12 @@
                 <div class="rate-box">
                     <div class="rate-item rate-buy">
                         <div class="rate-label">Compra (Recibís)</div>
-                        <div class="rate-val">{{ t.compra }}</div>
+                        <div class="rate-val rate-val-compra">{{ t.compra }}</div>
                         <div style="font-size: 11px; color: #047857; margin-top: 2px;">{{ t.moneda_destino.siglas }}</div>
                     </div>
                     <div class="rate-item rate-sell">
                         <div class="rate-label">Venta (Entregás)</div>
-                        <div class="rate-val">{{ t.venta }}</div>
+                        <div class="rate-val rate-val-venta">{{ t.venta }}</div>
                         <div style="font-size: 11px; color: #1d4ed8; margin-top: 2px;">{{ t.moneda_destino.siglas }}</div>
                     </div>
                 </div>
@@ -379,7 +380,7 @@
                 {% endif %}
 
                 <div class="rate-footer">
-                    <span>🕒 Actualizado: {{ t.fecha|date:"d/m/Y H:i" }}</span>
+                    <span class="rate-fecha">🕒 Actualizado: {{ t.fecha|date:"d/m/Y H:i" }}</span>
                     <span style="background: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">VIGENTE</span>
                 </div>
             </div>
@@ -409,7 +410,51 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+    @keyframes rateFlash {
+        0% { background-color: inherit; }
+        20% { background-color: #fef3c7; }
+        100% { background-color: inherit; }
+    }
+    .rate-changed {
+        animation: rateFlash 1.5s ease-out;
+    }
+    #live-toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: #1e293b;
+        color: #ffffff;
+        padding: 14px 20px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        display: none;
+        align-items: center;
+        gap: 10px;
+        z-index: 9999;
+        max-width: 360px;
+        border-left: 4px solid #10b981;
+        transition: opacity 0.3s ease;
+    }
+    #live-toast.show {
+        display: flex;
+    }
+    #live-update-ts {
+        font-size: 11px;
+        color: #94a3b8;
+        margin-left: 6px;
+    }
+</style>
+
+<div id="live-toast">
+    <span style="font-size: 18px;">🔔</span>
+    <span id="live-toast-msg">Tasas actualizadas.</span>
+</div>
+
 <script>
+    /* ===== Calculadora rápida ===== */
     const pairSelect = document.getElementById('calc-pair-select');
     const opSelect = document.getElementById('calc-operation');
     const amountInput = document.getElementById('calc-amount');
@@ -418,21 +463,16 @@
 
     function calculate() {
         if (!pairSelect || !amountInput || !resultText) return;
-
         const selectedOption = pairSelect.options[pairSelect.selectedIndex];
         if (!selectedOption) return;
-
         const compra = parseFloat(selectedOption.getAttribute('data-compra')) || 0;
         const venta = parseFloat(selectedOption.getAttribute('data-venta')) || 0;
         const origen = selectedOption.getAttribute('data-origen');
         const destino = selectedOption.getAttribute('data-destino');
         const amount = parseFloat(amountInput.value) || 0;
         const operation = opSelect.value;
-
         let appliedRate = (operation === 'compra') ? venta : compra;
         let total = amount * appliedRate;
-
-        // Formatear resultado
         resultText.innerText = total.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + destino;
         rateAppliedText.innerText = `1 ${origen} = ${appliedRate.toLocaleString('es-PY', { minimumFractionDigits: 2 })} ${destino}`;
     }
@@ -448,7 +488,6 @@
         if (!pairSelect) return;
         pairSelect.value = cotizacionId;
         calculate();
-        // Scroll suave al simulador
         const calcCard = document.querySelector('.calculator-card');
         if (calcCard) {
             calcCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -456,5 +495,118 @@
             setTimeout(() => { calcCard.style.outline = 'none'; }, 1500);
         }
     }
+
+    /* ===== Live rate polling ===== */
+    // Map: "ORIGEN_DESTINO" -> { compra, venta } - usar siglas NO el ID de cotización
+    const knownRates = {};
+    {% for t in tasas %}
+    knownRates["{{ t.moneda_origen.siglas }}_{{ t.moneda_destino.siglas }}"] = {
+        compra: {{ t.compra }},
+        venta: {{ t.venta }}
+    };
+    {% endfor %}
+
+    function showToast(msg) {
+        const toast = document.getElementById('live-toast');
+        const toastMsg = document.getElementById('live-toast-msg');
+        if (!toast) return;
+        toastMsg.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 6000);
+    }
+
+    /* Encuentra el card por data-pair (clave ORIGEN_DESTINO) en lugar del ID de cotización.
+       Esto es crítico porque cuando una cotización cambia, se crea un nuevo registro con
+       nuevo ID, pero el data-pair del card en DOM se mantiene igual. */
+    function findCardByPair(key) {
+        return document.querySelector('[data-pair="' + key + '"]');
+    }
+
+    function flashCard(card) {
+        if (!card) return;
+        card.classList.remove('rate-changed');
+        void card.offsetWidth; // force reflow
+        card.classList.add('rate-changed');
+    }
+
+    function updateRateCard(pairKey, compra, venta, fecha) {
+        const card = findCardByPair(pairKey);
+        if (!card) return;
+        const compraEl = card.querySelector('.rate-val-compra');
+        const ventaEl = card.querySelector('.rate-val-venta');
+        const fechaEl = card.querySelector('.rate-fecha');
+        if (compraEl) compraEl.textContent = parseFloat(compra).toLocaleString('es-PY', { minimumFractionDigits: 2 });
+        if (ventaEl) ventaEl.textContent = parseFloat(venta).toLocaleString('es-PY', { minimumFractionDigits: 2 });
+        if (fechaEl && fecha) {
+            const d = new Date(fecha);
+            fechaEl.textContent = '🕒 Actualizado: ' + d.toLocaleDateString('es-PY') + ' ' + d.toLocaleTimeString('es-PY', {hour:'2-digit', minute:'2-digit'});
+        }
+        // Actualizar la opción del simulador
+        if (pairSelect) {
+            const [origen, destino] = pairKey.split('_');
+            for (let opt of pairSelect.options) {
+                if (opt.getAttribute('data-origen') === origen && opt.getAttribute('data-destino') === destino) {
+                    opt.setAttribute('data-compra', compra);
+                    opt.setAttribute('data-venta', venta);
+                    const label = opt.getAttribute('data-origen') + ' ➔ ' + opt.getAttribute('data-destino') +
+                        ' (Compra: ' + compra + ' | Venta: ' + venta + ')';
+                    opt.textContent = label;
+                    break;
+                }
+            }
+            calculate();
+        }
+    }
+
+    async function pollRates() {
+        try {
+            const res = await fetch('/cotizaciones/api/tasas/');
+            if (!res.ok) { console.warn('pollRates: respuesta no OK', res.status); return; }
+            const data = await res.json();
+            let changed = [];
+            for (const t of data.tasas) {
+                const key = t.moneda_origen + '_' + t.moneda_destino;
+                const newCompra = parseFloat(t.compra);
+                const newVenta = parseFloat(t.venta);
+                if (knownRates[key]) {
+                    const prevCompra = parseFloat(knownRates[key].compra);
+                    const prevVenta = parseFloat(knownRates[key].venta);
+                    if (prevCompra !== newCompra || prevVenta !== newVenta) {
+                        changed.push({ key, t, prevCompra, prevVenta });
+                        knownRates[key].compra = newCompra;
+                        knownRates[key].venta = newVenta;
+                        updateRateCard(key, newCompra, newVenta, t.fecha);
+                        const card = findCardByPair(key);
+                        flashCard(card);
+                    }
+                } else {
+                    // Nueva divisa que no estaba al cargar la página — registrar
+                    knownRates[key] = { compra: newCompra, venta: newVenta };
+                }
+            }
+            if (changed.length > 0) {
+                const names = changed.map(c => c.t.moneda_origen + '→' + c.t.moneda_destino).join(', ');
+                showToast('⚡ Tasas actualizadas: ' + names);
+                // Refrescar badge de notificaciones en la campanita
+                if (typeof window.cargarNotificacionesNavbar === 'function') {
+                    window.cargarNotificacionesNavbar();
+                }
+            }
+            // Actualizar timestamp de última verificación
+            const tsEl = document.getElementById('live-update-ts');
+            if (tsEl) {
+                const now = new Date();
+                tsEl.textContent = '· Última verificación: ' + now.toLocaleTimeString('es-PY', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+            }
+        } catch(err) {
+            console.warn('Live rate poll error:', err);
+        }
+    }
+
+    // Poll cada 15 segundos para actualizaciones más rápidas
+    setInterval(pollRates, 15000);
+    // Primera verificación inmediata al cargar la página
+    pollRates();
 </script>
 {% endblock %}
+

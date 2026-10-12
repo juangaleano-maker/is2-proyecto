@@ -13,6 +13,7 @@ urlpatterns = [
     # Consulta de tasas de cambio vigentes para usuarios registrados (IS2-6 / IS2-7)
     path('tasas-vigentes/', views.consultar_tasas_vigentes, name='tasas_vigentes'),
     path('api/tasas-vigentes/', views.listar_tasas_vigentes_api, name='api_tasas_vigentes'),
+    path('api/tasas/', views.listar_tasas_vigentes_api, name='api_tasas'),
 
     # Historial y evolución de tasas con descarga de reportes para usuarios registrados (IS2-8)
     path('historial/', views.historial_tasas, name='historial_tasas'),
@@ -57,6 +58,7 @@ urlpatterns = [
     path('alertas/', views.configurar_alertas_view, name='alertas_tasas'),
     path('alertas/eliminar/<int:alerta_id>/', views.eliminar_alerta_view, name='eliminar_alerta'),
     path('api/alertas/toggle/<int:moneda_id>/', views.api_toggle_moneda_seguimiento, name='api_toggle_moneda_seguimiento'),
+    path('api/alertas/seguir-todas/', views.api_seguir_todas_las_monedas, name='api_seguir_todas_las_monedas'),
     path('api/notificaciones/', views.api_notificaciones, name='api_notificaciones'),
     path('api/notificaciones/marcar-leidas/', views.api_marcar_notificaciones_leidas, name='api_marcar_notificaciones_leidas'),
 ]
