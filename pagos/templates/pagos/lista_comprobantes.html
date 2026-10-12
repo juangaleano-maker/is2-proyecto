@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Comprobantes Pendientes | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .page-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border-radius: 12px;
+        padding: 22px 28px;
+        margin-bottom: 24px;
+        color: #fff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .page-header h1 { font-size: 1.3rem; font-weight: 700; margin: 0; }
+    .badge-count {
+        background: #f59e0b;
+        color: #fff;
+        border-radius: 20px;
+        padding: 4px 14px;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+    .card-list { display: flex; flex-direction: column; gap: 14px; }
+    .comprobante-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 18px 22px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: center;
+        transition: box-shadow 0.2s;
+    }
+    .comprobante-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .comp-meta { display: flex; flex-wrap: wrap; gap: 16px; }
+    .meta-item dt { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .meta-item dd { font-size: 0.95rem; font-weight: 600; color: #0f172a; margin: 0; }
+    .btn-revisar {
+        background: linear-gradient(135deg, #1d4ed8, #2563eb);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 18px;
+        font-weight: 600;
+        text-decoration: none;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        transition: opacity 0.2s;
+    }
+    .btn-revisar:hover { opacity: 0.9; }
+    .empty-state {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 48px;
+        text-align: center;
+        color: #64748b;
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🗂️ Comprobantes SIPAP Pendientes</h1>
+    <span class="badge-count">{{ comprobantes.count }} pendiente{{ comprobantes.count|pluralize }}</span>
+</div>
+
+{% if comprobantes %}
+<div class="card-list">
+    {% for comp in comprobantes %}
+    <div class="comprobante-card">
+        <dl class="comp-meta">
+            <div class="meta-item">
+                <dt>Operación</dt>
+                <dd>#{{ comp.operacion.id }}</dd>
+            </div>
+            <div class="meta-item">
+                <dt>Cliente</dt>
+                <dd>{{ comp.operacion.cliente }}</dd>
+            </div>
+            <div class="meta-item">
+                <dt>Tipo</dt>
+                <dd>{{ comp.operacion.get_tipo_display }}</dd>
+            </div>
+            <div class="meta-item">
+                <dt>Monto</dt>
+                <dd>{{ comp.operacion.monto }} {{ comp.operacion.moneda.siglas }}</dd>
+            </div>
+            <div class="meta-item">
+                <dt>Subido por</dt>
+                <dd>{{ comp.subido_por.username|default:"–" }}</dd>
+            </div>
+            <div class="meta-item">
+                <dt>Fecha subida</dt>
+                <dd>{{ comp.fecha_subida|date:"d/m/Y H:i" }}</dd>
+            </div>
+        </dl>
+        <a
+            href="{% url 'pagos:revisar_comprobante_sipap' comprobante_id=comp.id %}"
+            class="btn-revisar"
+            id="btn-revisar-{{ comp.id }}"
+        >
+            🔍 Revisar
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="icon">✅</div>
+    <p><strong>Sin comprobantes pendientes</strong></p>
+    <p style="font-size:0.85rem; margin-top: 6px;">Todos los comprobantes han sido revisados.</p>
+</div>
+{% endif %}
+{% endblock %}

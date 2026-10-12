@@ -5,10 +5,45 @@
 
 {% block extra_head %}
 <style>
+    .tabs-nav-container {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 24px;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 14.5px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    .tab-btn-active-venta {
+        background: #059669;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+    }
+    .tab-btn-inactive {
+        background: #f1f5f9;
+        color: #475569 !important;
+        border: 1px solid #cbd5e1;
+    }
+    .tab-btn-inactive:hover {
+        background: #e2e8f0;
+        color: #1e293b !important;
+    }
+
     .op-header {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #047857 100%);
         border-radius: 14px;
-        padding: 28px 32px;
+        padding: 26px 30px;
         margin-bottom: 25px;
         color: #ffffff;
         box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
@@ -43,6 +78,18 @@
         font-size: 12px;
         font-weight: 600;
         border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .badge-status-pending {
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
     .op-layout {
         display: grid;
@@ -98,54 +145,73 @@
         border-color: #059669;
         box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
     }
+    .form-control[readonly] {
+        background-color: #f8fafc;
+        cursor: not-allowed;
+        color: #334155;
+    }
     .input-hint {
-        font-size: 12px;
+        font-size: 12.5px;
         color: #64748b;
         margin-top: 5px;
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 5px;
     }
-    .badge-status-pending {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background-color: #fef3c7;
-        color: #92400e;
-        border: 1px solid #fde68a;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        font-size: 12px;
+
+    /* TARJETA DE COTIZACIÓN VIGENTE */
+    .rate-display-card {
+        background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+        border: 1.5px solid #86efac;
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin-top: 10px;
+        margin-bottom: 5px;
+        transition: all 0.3s ease;
+    }
+    .rate-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 10px;
+        margin-bottom: 8px;
+    }
+    .rate-box {
+        background: white;
+        border-radius: 8px;
+        padding: 10px 14px;
+        border: 1px solid #bbf7d0;
+    }
+    .rate-box .rate-title {
+        font-size: 11px;
         font-weight: 700;
-        letter-spacing: 0.5px;
         text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
     }
-    .pulse-amber {
-        width: 8px;
-        height: 8px;
-        background-color: #f59e0b;
-        border-radius: 50%;
-        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
-        animation: pulseAmber 2s infinite;
+    .rate-box .rate-value {
+        font-size: 18px;
+        font-weight: 800;
+        color: #065f46;
     }
-    @keyframes pulseAmber {
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    .rate-highlight-active {
+        border: 2px solid #059669 !important;
+        background: #f0fdf4 !important;
     }
+
     .calc-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 10px 0;
-        border-bottom: 1px dashed #e2e8f0;
+        border-bottom: 1px solid #f1f5f9;
         font-size: 14px;
     }
     .calc-row.total-row {
         border-top: 2px solid #0f172a;
         border-bottom: none;
-        margin-top: 10px;
         padding-top: 14px;
+        margin-top: 8px;
         font-size: 16px;
         font-weight: 800;
         color: #0f172a;
@@ -163,12 +229,12 @@
         color: #059669;
     }
     .info-box {
-        background-color: #eff6ff;
-        border-left: 4px solid #3b82f6;
+        background-color: #f0fdf4;
+        border-left: 4px solid #10b981;
         padding: 12px 16px;
         border-radius: 0 8px 8px 0;
         font-size: 13px;
-        color: #1e40af;
+        color: #065f46;
         margin-bottom: 20px;
         line-height: 1.45;
     }
@@ -232,6 +298,19 @@
 {% block content %}
 <div class="container" style="max-width: 1150px; margin: 0 auto; padding: 10px 15px 40px 15px;">
 
+    <!-- PESTAÑAS DEDICADAS (COMPRA / VENTA) -->
+    <div class="tabs-nav-container">
+        <a href="{% url 'comprar_moneda' %}" class="tab-btn tab-btn-inactive">
+            <span>🛒</span> Pestaña: Compra de Moneda
+        </a>
+        <a href="{% url 'operacion_venta' %}" class="tab-btn tab-btn-active-venta">
+            <span>💵</span> Pestaña: Venta de Moneda
+        </a>
+        <a href="{% url 'operaciones_lista' %}" class="tab-btn tab-btn-inactive" style="margin-left: auto;">
+            <span>📋</span> Ver Historial de Operaciones
+        </a>
+    </div>
+
     <!-- HEADER DE LA PANTALLA -->
     <div class="op-header">
         <div>
@@ -239,8 +318,8 @@
                 <span>💵</span> Venta de Moneda
             </h1>
             <p>
-                Registre una operación de venta de divisas en nombre de un cliente asignado. 
-                Las comisiones se liquidan automáticamente y la operación ingresa en estado <strong>Pendiente</strong> para su control y verificación.
+                Registre una operación de venta de divisas a nombre de su cliente asignado. 
+                El sistema carga la <strong>cotización oficial vigente</strong> automáticamente y calcula la comisión correspondiente.
             </p>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
@@ -248,7 +327,7 @@
                 <span>🔄</span> Operación Cambiaria (IS2-16)
             </span>
             <span class="badge-status-pending">
-                <span class="pulse-amber"></span> Estado Inicial: Pendiente
+                <span>●</span> Estado Inicial: Pendiente
             </span>
         </div>
     </div>
@@ -272,10 +351,10 @@
         <!-- COLUMNA IZQUIERDA: FORMULARIO DE CAPTURA -->
         <div class="form-card">
             <h2 style="font-size: 18px; color: #0f172a; margin: 0 0 16px 0; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 8px;">
-                <span>📝</span> Datos de la Transacción
+                <span>📝</span> Datos de la Transacción de Venta
             </h2>
 
-            <form method="post" id="ventaForm" novalidate>
+            <form method="post" id="ventaForm" action="{% url 'operacion_venta' %}" novalidate>
                 {% csrf_token %}
 
                 {% if form.non_field_errors %}
@@ -302,7 +381,7 @@
                     </div>
                 </div>
 
-                <!-- 2. MONEDA (DIVISA) -->
+                <!-- 2. MONEDA (DIVISA A VENDER) -->
                 <div class="form-group">
                     <label for="id_moneda">
                         <span>💱</span> Moneda (Divisa a Vender) <span style="color: #ef4444;">*</span>
@@ -313,8 +392,40 @@
                         {% for err in form.moneda.errors %}{{ err }}{% endfor %}
                     </div>
                     {% endif %}
+                    
+                    <!-- TARJETA DESTACADA: COTIZACIÓN ACTUAL DE LA MONEDA -->
+                    <div id="cotizacionCard" class="rate-display-card" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 13px; font-weight: 700; color: #065f46; display: flex; align-items: center; gap: 6px;">
+                                <span>📊</span> <span id="cotizacionParTexto">USD a PYG</span>
+                            </span>
+                            <span id="cotizacionFechaTexto" style="font-size: 11.5px; color: #047857; background: #dcfce7; padding: 2px 8px; border-radius: 9999px;">
+                                Cotización Vigente
+                            </span>
+                        </div>
+                        <div class="rate-grid">
+                            <div class="rate-box rate-highlight-active">
+                                <div class="rate-title" style="color: #059669;">Precio Compra Casa (Aplicada) ★</div>
+                                <div class="rate-value" id="cotizacionCompraValor" style="color: #059669;">0 PYG</div>
+                            </div>
+                            <div class="rate-box">
+                                <div class="rate-title">Precio Venta Casa</div>
+                                <div class="rate-value" id="cotizacionVentaValor">0 PYG</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: #047857; display: flex; align-items: center; gap: 6px;">
+                            <span>🔒</span> <strong>Tasa oficial asignada:</strong> 
+                            <span id="cotizacionTasaAplicadaTexto" style="font-weight: 700; color: #065f46;">—</span>
+                        </div>
+                    </div>
+
+                    <!-- ALERTA SI NO HAY COTIZACIÓN -->
+                    <div id="sinCotizacionAlert" style="display: none; background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 10px; padding: 12px 16px; margin-top: 10px; color: #991b1b; font-size: 13px;">
+                        <span>⚠️</span> <strong>Moneda sin cotización activa:</strong> No existe una cotización vigente registrada para esta divisa. Contacte al analista para registrar la cotización correspondiente.
+                    </div>
+
                     <div class="input-hint" id="monedaTasaHint">
-                        <span>📊</span> Al seleccionar una divisa, se cargará automáticamente la tasa de referencia vigente.
+                        <span>📊</span> Al seleccionar una divisa, se cargará automáticamente la cotización vigente del sistema.
                     </div>
                 </div>
 
@@ -335,10 +446,10 @@
                         <div class="input-hint">Cantidad de divisa que entrega el cliente.</div>
                     </div>
 
-                    <!-- 4. TASA APLICADA -->
+                    <!-- 4. TASA APLICADA (BLOQUEADA AUTOMÁTICAMENTE) -->
                     <div class="form-group">
                         <label for="id_tasa_aplicada">
-                            <span>📈</span> Tasa Aplicada <span style="color: #ef4444;">*</span>
+                            <span>📈</span> Tasa Aplicada (PYG) <span style="color: #ef4444;">*</span>
                         </label>
                         {{ form.tasa_aplicada }}
                         {% if form.tasa_aplicada.errors %}
@@ -346,7 +457,9 @@
                             {% for err in form.tasa_aplicada.errors %}{{ err }}{% endfor %}
                         </div>
                         {% endif %}
-                        <div class="input-hint">Precio unitario de cambio aplicado (en PYG).</div>
+                        <div class="input-hint">
+                            <span>🔒</span> Cotización oficial fijada automáticamente.
+                        </div>
                     </div>
                 </div>
 
@@ -383,18 +496,18 @@
             </h3>
 
             <div class="info-box">
-                <strong>Flujo de Venta:</strong> El cliente entrega divisas a la entidad y recibe su contravalor en moneda local (PYG), deduciendo la comisión aplicable.
+                <strong>Flujo de Venta:</strong> El cliente entrega divisas a la entidad y recibe su contravalor en moneda local (PYG), descontando la comisión aplicable.
             </div>
 
             <div class="calc-row">
                 <span class="label">Tipo de Transacción:</span>
-                <span class="value" style="color: #047857;">VENTA DE DIVISAS</span>
+                <span class="value" style="color: #059669;">VENTA DE DIVISAS</span>
             </div>
 
             <div class="calc-row">
                 <span class="label">Estado Inicial:</span>
                 <span class="badge-status-pending">
-                    <span class="pulse-amber"></span> PENDIENTE
+                    <span>●</span> PENDIENTE
                 </span>
             </div>
 
@@ -414,7 +527,7 @@
             </div>
 
             <div class="calc-row">
-                <span class="label">Tasa Aplicada:</span>
+                <span class="label">Cotización Aplicada:</span>
                 <span class="value" id="resumenTasa">—</span>
             </div>
 
@@ -429,7 +542,7 @@
             </div>
 
             <div class="calc-row total-row">
-                <span>Neto a Liquidar (PYG):</span>
+                <span>Total a Recibir (PYG):</span>
                 <span class="value highlight-net" id="resumenTotalNeto">0 ₲</span>
             </div>
 
@@ -455,6 +568,16 @@
     const tasaInput = document.getElementById('id_tasa_aplicada');
     const comisionInput = document.getElementById('id_comision');
     const ventaForm = document.getElementById('ventaForm');
+    const btnSubmit = document.getElementById('btnSubmit');
+
+    // Elementos de Cotización Actual
+    const cotizacionCard = document.getElementById('cotizacionCard');
+    const sinCotizacionAlert = document.getElementById('sinCotizacionAlert');
+    const cotizacionParTexto = document.getElementById('cotizacionParTexto');
+    const cotizacionFechaTexto = document.getElementById('cotizacionFechaTexto');
+    const cotizacionCompraValor = document.getElementById('cotizacionCompraValor');
+    const cotizacionVentaValor = document.getElementById('cotizacionVentaValor');
+    const cotizacionTasaAplicadaTexto = document.getElementById('cotizacionTasaAplicadaTexto');
 
     // Elementos de resumen
     const resumenCliente = document.getElementById('resumenCliente');
@@ -476,23 +599,72 @@
         });
     }
 
+    // Renderiza la tarjeta de cotización obtenida
+    function renderCotizacion(info) {
+        if (info && (info.tasa || info.compra || info.venta)) {
+            const tasaAplicada = info.tasa || info.compra;
+            tasaInput.value = Number(tasaAplicada).toFixed(2);
+            cotizacionParTexto.textContent = info.par || 'Divisa a PYG';
+            cotizacionFechaTexto.textContent = info.fecha ? `Vigente al: ${info.fecha}` : 'Cotización Vigente';
+            cotizacionCompraValor.textContent = `${formatearNumero(info.compra, 2)} PYG`;
+            cotizacionVentaValor.textContent = `${formatearNumero(info.venta, 2)} PYG`;
+            cotizacionTasaAplicadaTexto.textContent = `${formatearNumero(tasaAplicada, 2)} PYG (Precio Compra Entidad)`;
+            
+            cotizacionCard.style.display = 'block';
+            sinCotizacionAlert.style.display = 'none';
+            btnSubmit.disabled = false;
+            monedaTasaHint.innerHTML = `<span>⚡</span> Cotización vigente cargada: <strong>${formatearNumero(tasaAplicada, 2)} PYG</strong>`;
+        } else {
+            mostrarSinCotizacion();
+        }
+        recalcularOperacion();
+    }
+
+    function mostrarSinCotizacion() {
+        tasaInput.value = '';
+        cotizacionCard.style.display = 'none';
+        sinCotizacionAlert.style.display = 'block';
+        btnSubmit.disabled = true;
+        monedaTasaHint.innerHTML = '<span>⚠️</span> Sin cotización activa registrada para esta divisa.';
+        recalcularOperacion();
+    }
+
     // Actualiza la tasa de referencia sugerida cuando cambia la moneda
     function onMonedaChange() {
         const monedaId = monedaSelect.value;
         if (!monedaId) {
-            monedaTasaHint.innerHTML = '<span>📊</span> Selecciona una divisa para ver la tasa vigente.';
+            cotizacionCard.style.display = 'none';
+            sinCotizacionAlert.style.display = 'none';
+            tasaInput.value = '';
+            monedaTasaHint.innerHTML = '<span>📊</span> Seleccione una divisa para ver la cotización vigente.';
+            recalcularOperacion();
             return;
         }
 
         const info = TASAS_DATA[monedaId];
         if (info && info.tasa) {
-            // Sugerir la tasa vigente automáticamente si el campo está vacío o es cambio de divisa
-            tasaInput.value = Number(info.tasa).toFixed(2);
-            monedaTasaHint.innerHTML = `<span>⚡</span> <strong>Tasa vigente:</strong> ${formatearNumero(info.tasa, 2)} PYG (${info.par}) ${info.fecha ? `— [${info.fecha}]` : ''}`;
+            renderCotizacion(info);
         } else {
-            monedaTasaHint.innerHTML = '<span>⚠️</span> Sin cotización activa predefinida. Ingrese la tasa acordada manualmente.';
+            // Intento de fallback via API
+            fetch(`/cotizaciones/operaciones/api/tasa/${monedaId}/?tipo=VENTA`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.exito && (data.tasa_sugerida || data.compra)) {
+                        const nuevaInfo = {
+                            tasa: data.tasa_sugerida || data.compra,
+                            compra: data.compra,
+                            venta: data.venta,
+                            par: data.par,
+                            fecha: data.fecha
+                        };
+                        TASAS_DATA[monedaId] = nuevaInfo;
+                        renderCotizacion(nuevaInfo);
+                    } else {
+                        mostrarSinCotizacion();
+                    }
+                })
+                .catch(() => mostrarSinCotizacion());
         }
-        recalcularOperacion();
     }
 
     // Actualiza información de segmento del cliente
@@ -533,6 +705,7 @@
 
         const subtotal = monto * tasa;
         const comision = subtotal * (pctComision / 100);
+        // En VENTA: el cliente recibe el subtotal menos la comisión
         const totalNeto = subtotal - comision;
 
         // Actualizar campo de comisión en el formulario
@@ -555,7 +728,6 @@
     clienteSelect.addEventListener('change', onClienteChange);
     monedaSelect.addEventListener('change', onMonedaChange);
     montoInput.addEventListener('input', recalcularOperacion);
-    tasaInput.addEventListener('input', recalcularOperacion);
 
     // Confirmación amigable antes de enviar
     ventaForm.addEventListener('submit', function(e) {
@@ -580,10 +752,10 @@
             `• Cliente: ${clienteTexto}\n` +
             `• Moneda: ${monedaTexto}\n` +
             `• Monto a vender: ${formatearNumero(monto, 2)}\n` +
-            `• Tasa aplicada: ${formatearNumero(tasa, 2)} PYG\n` +
+            `• Cotización oficial: ${formatearNumero(tasa, 2)} PYG\n` +
             `• Subtotal: ${formatearNumero(subtotal, 0)} PYG\n` +
             `• Comisión (${pct}%): ${formatearNumero(comision, 0)} PYG\n` +
-            `• Neto a liquidar: ${formatearNumero(neto, 0)} PYG\n\n` +
+            `• Neto a recibir: ${formatearNumero(neto, 0)} PYG\n\n` +
             `La operación quedará guardada con estado inicial "PENDIENTE".`;
 
         if (!confirm(confirmMsg)) {
@@ -594,12 +766,7 @@
     // Inicializar estado al cargar
     document.addEventListener('DOMContentLoaded', function() {
         if (clienteSelect.value) onClienteChange();
-        if (monedaSelect.value) {
-            const info = TASAS_DATA[monedaSelect.value];
-            if (info && !tasaInput.value) {
-                tasaInput.value = Number(info.tasa).toFixed(2);
-            }
-        }
+        if (monedaSelect.value) onMonedaChange();
         recalcularOperacion();
     });
 </script>

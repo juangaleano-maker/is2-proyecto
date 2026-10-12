@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Revisar Comprobante #{{ comprobante.id }} | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .review-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+    @media (max-width: 768px) { .review-layout { grid-template-columns: 1fr; } }
+    .panel {
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+        overflow: hidden;
+    }
+    .panel-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        padding: 16px 20px;
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+    .panel-body { padding: 20px; }
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+    }
+    .detail-item dt { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+    .detail-item dd { font-weight: 600; color: #0f172a; margin: 0; font-size: 0.95rem; }
+    .comprobante-preview {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 16px;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8fafc;
+    }
+    .comprobante-preview img { max-width: 100%; max-height: 400px; object-fit: contain; }
+    .pdf-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 14px 18px;
+        text-decoration: none;
+        color: #dc2626;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+    }
+    .pdf-link:hover { background: #fee2e2; }
+    .action-section { display: flex; flex-direction: column; gap: 12px; }
+    .btn-confirm {
+        background: linear-gradient(135deg, #16a34a, #15803d);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 14px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        width: 100%;
+        transition: opacity 0.2s;
+    }
+    .btn-confirm:hover { opacity: 0.9; }
+    .reject-panel {
+        background: #fff7f7;
+        border: 1px solid #fecaca;
+        border-radius: 10px;
+        padding: 16px;
+    }
+    .reject-panel h3 { font-size: 0.9rem; color: #dc2626; margin: 0 0 12px; font-weight: 700; }
+    .reject-panel textarea {
+        width: 100%;
+        border: 1px solid #fca5a5;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.9rem;
+        resize: vertical;
+        box-sizing: border-box;
+    }
+    .btn-reject {
+        background: #dc2626;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 18px;
+        font-weight: 700;
+        cursor: pointer;
+        margin-top: 10px;
+        width: 100%;
+        transition: opacity 0.2s;
+    }
+    .btn-reject:hover { opacity: 0.9; }
+    .error-msg { color: #dc2626; font-size: 0.82rem; margin-top: 4px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px; display:flex; align-items:center; gap:12px;">
+    <a href="{% url 'pagos:lista_comprobantes_pendientes' %}" style="color:#64748b; font-size:0.85rem;">
+        ← Volver a la lista
+    </a>
+    <span style="color:#cbd5e1;">|</span>
+    <span style="font-size:1.1rem; font-weight:700; color:#0f172a;">
+        Revisión de Comprobante #{{ comprobante.id }}
+    </span>
+</div>
+
+<div class="review-layout">
+    <!-- Panel izquierdo: datos de la operación -->
+    <div class="panel">
+        <div class="panel-header">📋 Detalles de la Operación #{{ operacion.id }}</div>
+        <div class="panel-body">
+            <dl class="detail-grid">
+                <div class="detail-item">
+                    <dt>Cliente</dt>
+                    <dd>{{ operacion.cliente }}</dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Documento</dt>
+                    <dd>{{ operacion.cliente.documento }}</dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Tipo de operación</dt>
+                    <dd>{{ operacion.get_tipo_display }}</dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Moneda</dt>
+                    <dd>{{ operacion.moneda.siglas }}</dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Monto</dt>
+                    <dd>{{ operacion.monto }}</dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Tasa aplicada</dt>
+                    <dd>{{ operacion.tasa_aplicada }}</dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Comisión</dt>
+                    <dd>{{ operacion.comision }}</dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Total neto</dt>
+                    <dd><strong>{{ operacion.total_neto }}</strong></dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Estado</dt>
+                    <dd>{{ operacion.get_estado_display }}</dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Registrado por</dt>
+                    <dd>{{ operacion.registrado_por.username|default:"–" }}</dd>
+                </div>
+            </dl>
+
+            <hr style="border:none; border-top:1px solid #e2e8f0; margin:20px 0;">
+
+            <dl class="detail-grid">
+                <div class="detail-item">
+                    <dt>Comprobante subido por</dt>
+                    <dd>{{ comprobante.subido_por.username|default:"–" }}</dd>
+                </div>
+                <div class="detail-item">
+                    <dt>Fecha de subida</dt>
+                    <dd>{{ comprobante.fecha_subida|date:"d/m/Y H:i" }}</dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Panel derecho: comprobante + acciones -->
+    <div class="panel">
+        <div class="panel-header">🖼️ Comprobante adjunto</div>
+        <div class="panel-body">
+            <div class="comprobante-preview">
+                {% if comprobante.archivo.name|lower|slice:"-4:" == ".pdf" %}
+                    <span style="color:#64748b;">Archivo PDF</span>
+                {% else %}
+                    <img src="{{ comprobante.archivo.url }}" alt="Comprobante de pago">
+                {% endif %}
+            </div>
+
+            <a
+                href="{{ comprobante.archivo.url }}"
+                target="_blank"
+                class="pdf-link"
+                id="btn-ver-comprobante"
+            >
+                📄 Ver / descargar archivo original
+            </a>
+
+            <div class="action-section">
+                <!-- Confirmar pago -->
+                <form method="post" id="form-confirmar">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="confirmar">
+                    <button type="submit" class="btn-confirm" id="btn-confirmar-pago">
+                        ✅ Confirmar pago — Generar ticket
+                    </button>
+                </form>
+
+                <!-- Rechazar -->
+                <div class="reject-panel">
+                    <h3>❌ Rechazar comprobante</h3>
+                    <form method="post" id="form-rechazar">
+                        {% csrf_token %}
+                        <input type="hidden" name="accion" value="rechazar">
+                        {{ rechazo_form.motivo }}
+                        {% if rechazo_form.motivo.errors %}
+                            {% for error in rechazo_form.motivo.errors %}
+                                <p class="error-msg">{{ error }}</p>
+                            {% endfor %}
+                        {% endif %}
+                        <button type="submit" class="btn-reject" id="btn-rechazar-comprobante">
+                            Rechazar y notificar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

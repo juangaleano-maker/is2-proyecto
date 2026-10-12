@@ -57,10 +57,50 @@ def ensure_db_exists():
         pass
 
 
+def ejecutar_tests_previos():
+    """
+    Ejecuta las pruebas unitarias de todas las aplicaciones antes de iniciar runserver (estilo Maven).
+    Solo se ejecuta una vez al inicio del comando y no en cada recarga automática de archivos.
+    """
+    import subprocess
+    print("\n" + "=" * 72)
+    print(">>> [BUILD] Ejecutando suite de pruebas unitarias antes de levantar el servidor...")
+    print("=" * 72)
+
+    apps_to_test = ['authentication', 'clientes', 'cotizaciones', 'monedas', 'pagos', 'usuarios', 'agregar_usuario']
+    cmd = [sys.executable, 'manage.py', 'test'] + apps_to_test
+    resultado = subprocess.run(cmd)
+
+    if resultado.returncode != 0:
+        print("\n" + "=" * 72)
+        print(">>> [BUILD FAILURE] Las pruebas unitarias no pasaron. El servidor no se iniciara.")
+        print("=" * 72 + "\n")
+        sys.exit(resultado.returncode)
+
+    print("\n" + "=" * 72)
+    print(">>> [BUILD SUCCESS] Todos los tests pasaron exitosamente. Iniciando servidor...")
+    print("=" * 72 + "\n")
+
+
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'global_exchange.settings')
     ensure_db_exists()
+
+    # Opciones para omitir pruebas si se requiere inicio inmediato (--no-test o SKIP_TESTS=1 o --help)
+    skip_tests = any(h in sys.argv for h in ['-h', '--help'])
+    for flag in ['--no-test', '--no-tests', '--skip-test', '--skip-tests']:
+        if flag in sys.argv:
+            sys.argv.remove(flag)
+            skip_tests = True
+
+    if os.environ.get('SKIP_TESTS') == '1':
+        skip_tests = True
+
+    # Estilo Maven: ejecutar tests antes de runserver (únicamente en el arranque inicial, no en cada recarga de archivos)
+    if 'runserver' in sys.argv and not skip_tests and os.environ.get('RUN_MAIN') != 'true':
+        ejecutar_tests_previos()
+
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

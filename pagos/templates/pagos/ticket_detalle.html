@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Ticket de Transacción {{ ticket.numero_ticket }} | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .ticket-container {
+        max-width: 740px;
+        margin: 30px auto 50px auto;
+        padding: 0 16px;
+    }
+    .ticket-card {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    .ticket-header {
+        background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #047857 100%);
+        color: white;
+        padding: 26px 32px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        border-bottom: 3px solid #10b981;
+    }
+    .ticket-watermark {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        backdrop-filter: blur(4px);
+    }
+    .ticket-body {
+        padding: 32px;
+    }
+    .ticket-seal {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin-bottom: 24px;
+        color: #065f46;
+    }
+    .section-title {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 12px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .ticket-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+    .ticket-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 14px;
+    }
+    .ticket-label {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+    .ticket-val {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    .financial-summary {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 24px;
+    }
+    .financial-summary th {
+        text-align: left;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 10px 14px;
+        border-top: 1px solid #cbd5e1;
+        border-bottom: 1px solid #cbd5e1;
+    }
+    .financial-summary td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 14px;
+        color: #1e293b;
+    }
+    .financial-summary tr.total-highlight td {
+        border-top: 2px solid #065f46;
+        border-bottom: 2px solid #065f46;
+        font-size: 18px;
+        font-weight: 800;
+        background: #ecfdf5;
+        color: #065f46;
+    }
+    .ticket-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding-top: 22px;
+        border-top: 1px solid #e2e8f0;
+    }
+    .btn-action {
+        padding: 9px 18px;
+        border-radius: 8px;
+        font-size: 13.5px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+    }
+    .btn-print {
+        background: #0284c7;
+        color: #ffffff;
+    }
+    .btn-print:hover {
+        background: #0369a1;
+    }
+    .btn-secondary {
+        background: #f1f5f9;
+        color: #1e293b;
+        border: 1px solid #cbd5e1;
+    }
+    .btn-secondary:hover {
+        background: #e2e8f0;
+    }
+    @media print {
+        .navbar, .footer, .ticket-actions, .no-print {
+            display: none !important;
+        }
+        body {
+            background: white !important;
+        }
+        .ticket-container {
+            margin: 0 !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+        }
+        .ticket-card {
+            box-shadow: none !important;
+            border: 1px solid #94a3b8 !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ticket-container">
+    <div class="ticket-card">
+
+        <!-- HEADER -->
+        <div class="ticket-header">
+            <div>
+                <div style="font-size: 12.5px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                    Comprobante Oficial de Pago
+                </div>
+                <h1 style="font-size: 22px; font-weight: 800; margin: 0; color: #ffffff;">
+                    Ticket {{ ticket.numero_ticket }}
+                </h1>
+                <div style="font-size: 13px; opacity: 0.95; margin-top: 4px;">
+                    Operación #{{ operacion.id }} &bull; Emisión: <strong>{{ ticket.generado_en|date:"d/m/Y H:i:s" }}</strong>
+                </div>
+            </div>
+            <div>
+                <span class="ticket-watermark">
+                    <span>✓</span> PAGO CONFIRMADO
+                </span>
+            </div>
+        </div>
+
+        <div class="ticket-body">
+
+            <!-- SELLO AUDITABLE -->
+            <div class="ticket-seal">
+                <span style="font-size: 24px;">🧾</span>
+                <div style="font-size: 13.5px; line-height: 1.5;">
+                    <strong>Transacción Verificada y Liquidada:</strong> Este ticket es un comprobante inmutable generado automáticamente tras la confirmación satisfactoria del desembolso cambiario.
+                </div>
+            </div>
+
+            <!-- DATOS GENERALES DEL TICKET -->
+            <div class="section-title">
+                <span>🔐</span> Metadatos de la Transacción
+            </div>
+            <div class="ticket-grid">
+                <div class="ticket-item">
+                    <div class="ticket-label">Número de Ticket</div>
+                    <div class="ticket-val" style="font-family: monospace; color: #047857;">
+                        {{ ticket.numero_ticket }}
+                    </div>
+                </div>
+                <div class="ticket-item">
+                    <div class="ticket-label">Método de Pago</div>
+                    <div class="ticket-val">
+                        {% if ticket.metodo_pago == 'STRIPE' %}
+                            💳 Stripe (Pasarela Digital)
+                        {% elif ticket.metodo_pago == 'SIPAP' %}
+                            🏦 SIPAP (Transferencia Bancaria)
+                        {% else %}
+                            {{ ticket.get_metodo_pago_display }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="ticket-item">
+                    <div class="ticket-label">Referencia Externa</div>
+                    <div class="ticket-val" style="font-family: monospace; font-size: 13px; word-break: break-all;">
+                        {{ ticket.referencia_externa|default:"N/A" }}
+                    </div>
+                </div>
+                {% if ticket.cajero %}
+                <div class="ticket-item">
+                    <div class="ticket-label">Cajero / Operador que Confirmó</div>
+                    <div class="ticket-val">
+                        {{ ticket.cajero.get_full_name|default:ticket.cajero.username }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- DATOS DEL CLIENTE -->
+            <div class="section-title">
+                <span>👤</span> Snapshot del Cliente
+            </div>
+            <div class="ticket-grid">
+                <div class="ticket-item">
+                    <div class="ticket-label">Titular / Cliente</div>
+                    <div class="ticket-val">{{ ticket.cliente_nombre }}</div>
+                </div>
+                <div class="ticket-item">
+                    <div class="ticket-label">Documento / RUC</div>
+                    <div class="ticket-val">{{ ticket.cliente_documento }}</div>
+                </div>
+                <div class="ticket-item">
+                    <div class="ticket-label">Segmento Comercial</div>
+                    <div class="ticket-val">{{ operacion.cliente.get_segmento_display }}</div>
+                </div>
+            </div>
+
+            <!-- DESGLOSE FINANCIERO -->
+            <div class="section-title">
+                <span>💰</span> Detalle Financiero del Desembolso
+            </div>
+            <table class="financial-summary">
+                <thead>
+                    <tr>
+                        <th>Concepto</th>
+                        <th>Detalle</th>
+                        <th style="text-align: right;">Importe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Monto Transaccionado</strong></td>
+                        <td>{{ ticket.monto|floatformat:2 }} {{ ticket.moneda_siglas }}</td>
+                        <td style="text-align: right; font-weight: 600;">{{ ticket.monto|floatformat:2 }} {{ ticket.moneda_siglas }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Tasa Aplicada</strong></td>
+                        <td>1 {{ ticket.moneda_siglas }} = {{ ticket.tasa_aplicada|floatformat:2 }} PYG</td>
+                        <td style="text-align: right; font-weight: 600;">{{ ticket.tasa_aplicada|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Comisión del Servicio</strong></td>
+                        <td>Cargo administrativo por cambio de divisa</td>
+                        <td style="text-align: right; font-weight: 600; color: #b45309;">- {{ ticket.comision|floatformat:2 }} ₲</td>
+                    </tr>
+                    <tr class="total-highlight">
+                        <td><strong>TOTAL LIQUIDADO</strong></td>
+                        <td style="font-size: 13px; font-weight: normal; color: #065f46;">Monto final acreditado/cobrado</td>
+                        <td style="text-align: right; font-weight: 800;">{{ ticket.total_neto|floatformat:2 }} ₲</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- BOTONES DE ACCIÓN -->
+            <div class="ticket-actions no-print">
+                <div style="display: flex; gap: 8px;">
+                    <a href="{% url 'operacion_detalle' operacion.id %}" class="btn-action btn-secondary">
+                        ← Ver Operación #{{ operacion.id }}
+                    </a>
+                    <a href="{% url 'operaciones_lista' %}" class="btn-action btn-secondary">
+                        📋 Operaciones
+                    </a>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="window.print()" class="btn-action btn-print">
+                        🖨️ Imprimir Ticket
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

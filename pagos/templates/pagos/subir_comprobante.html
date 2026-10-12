@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Adjuntar Comprobante SIPAP | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .upload-container {
+        max-width: 640px;
+        margin: 40px auto;
+    }
+    .upload-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        padding: 36px;
+    }
+    .upload-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 28px;
+        color: #fff;
+    }
+    .upload-header h1 {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin: 0 0 4px;
+    }
+    .upload-header p {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        margin: 0;
+    }
+    .op-summary {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    .op-summary dt {
+        font-size: 0.75rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 2px;
+    }
+    .op-summary dd {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0f172a;
+        margin: 0 0 10px;
+    }
+    .drop-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 36px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+        margin-bottom: 20px;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+        border-color: #3b82f6;
+        background: #eff6ff;
+    }
+    .drop-zone .drop-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .drop-zone p { color: #64748b; font-size: 0.9rem; margin: 0; }
+    .drop-zone small { color: #94a3b8; font-size: 0.78rem; }
+    .file-preview {
+        display: none;
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        font-size: 0.9rem;
+        color: #166534;
+    }
+    .btn-upload {
+        width: 100%;
+        background: linear-gradient(135deg, #1d4ed8, #2563eb);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 14px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+    .btn-upload:hover { opacity: 0.9; }
+    .error-msg { color: #dc2626; font-size: 0.85rem; margin-top: 6px; }
+    .info-note {
+        background: #fef9c3;
+        border-left: 4px solid #eab308;
+        border-radius: 6px;
+        padding: 12px 16px;
+        font-size: 0.85rem;
+        color: #713f12;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <div class="upload-card">
+        <div class="upload-header">
+            <h1>📎 Adjuntar Comprobante de Pago</h1>
+            <p>Flujo SIPAP — Operación #{{ operacion.id }}</p>
+        </div>
+
+        <dl class="op-summary">
+            <div>
+                <dt>Cliente</dt>
+                <dd>{{ operacion.cliente }}</dd>
+            </div>
+            <div>
+                <dt>Tipo</dt>
+                <dd>{{ operacion.get_tipo_display }}</dd>
+            </div>
+            <div>
+                <dt>Moneda</dt>
+                <dd>{{ operacion.moneda.siglas }}</dd>
+            </div>
+            <div>
+                <dt>Monto</dt>
+                <dd>{{ operacion.monto }}</dd>
+            </div>
+            <div>
+                <dt>Tasa aplicada</dt>
+                <dd>{{ operacion.tasa_aplicada }}</dd>
+            </div>
+            <div>
+                <dt>Total neto</dt>
+                <dd><strong>{{ operacion.total_neto }}</strong></dd>
+            </div>
+        </dl>
+
+        <div class="info-note">
+            ⚠️ Solo se aceptan archivos <strong>JPG, PNG o PDF</strong> de hasta <strong>5 MB</strong>.
+            La operación quedará en estado <em>Pendiente de confirmación</em> hasta que un cajero revise el comprobante.
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="form-sipap">
+            {% csrf_token %}
+
+            <label
+                class="drop-zone"
+                for="id_archivo_comprobante"
+                id="drop-zone"
+                ondragover="event.preventDefault(); this.classList.add('dragover')"
+                ondragleave="this.classList.remove('dragover')"
+                ondrop="handleDrop(event)"
+            >
+                <div class="drop-icon">📄</div>
+                <p>Arrastrá tu archivo aquí o hacé clic para seleccionar</p>
+                <small>JPG · PNG · PDF — máx. 5 MB</small>
+                {{ form.archivo }}
+            </label>
+
+            <div class="file-preview" id="file-preview"></div>
+
+            {% if form.archivo.errors %}
+                {% for error in form.archivo.errors %}
+                    <p class="error-msg">{{ error }}</p>
+                {% endfor %}
+            {% endif %}
+
+            {% for error in form.non_field_errors %}
+                <p class="error-msg">{{ error }}</p>
+            {% endfor %}
+
+            <button type="submit" class="btn-upload" id="btn-upload">
+                📤 Enviar comprobante
+            </button>
+        </form>
+
+        <div style="text-align:center; margin-top: 18px;">
+            <a href="{% url 'operacion_detalle' operacion_id=operacion.id %}" style="color:#64748b; font-size:0.85rem;">
+                ← Volver al detalle de la operación
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('id_archivo_comprobante').addEventListener('change', function() {
+    mostrarPreview(this.files[0]);
+});
+
+function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        document.getElementById('id_archivo_comprobante').files = e.dataTransfer.files;
+        mostrarPreview(file);
+    }
+}
+
+function mostrarPreview(file) {
+    if (!file) return;
+    const preview = document.getElementById('file-preview');
+    const kb = (file.size / 1024).toFixed(1);
+    preview.style.display = 'block';
+    preview.textContent = `✅ ${file.name} (${kb} KB)`;
+}
+</script>
+{% endblock %}

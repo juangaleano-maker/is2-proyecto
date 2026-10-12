@@ -1,0 +1,314 @@
+{% extends 'base.html' %}
+
+{% block title %}Historial de Movimientos de Caja | Global Exchange{% endblock %}
+
+{% block content %}
+<style>
+  .caja-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    color: #f8fafc;
+    font-family: inherit;
+  }
+  .caja-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .caja-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .caja-header p {
+    color: #94a3b8;
+    margin: 0.3rem 0 0;
+    font-size: 0.95rem;
+  }
+
+  .filter-panel {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(10px);
+  }
+  .filter-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    align-items: flex-end;
+  }
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .filter-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+  .filter-group input, .filter-group select {
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    color: #f8fafc;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .filter-group input:focus, .filter-group select:focus {
+    border-color: #38bdf8;
+  }
+  .filter-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .btn-filter {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.65rem 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: opacity 0.2s;
+  }
+  .btn-filter:hover { opacity: 0.9; }
+  .btn-reset {
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 0.65rem 1rem;
+    font-size: 0.9rem;
+    text-decoration: none;
+    text-align: center;
+    transition: background 0.2s;
+  }
+  .btn-reset:hover { background: rgba(255, 255, 255, 0.15); }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.2rem 1.5rem;
+  }
+  .stat-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-bottom: 0.4rem;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+  .stat-value.green { color: #34d399; }
+  .stat-value.red { color: #f87171; }
+  .stat-value.blue { color: #38bdf8; }
+
+  .caja-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .caja-table th, .caja-table td {
+    padding: 0.9rem 1.1rem;
+    text-align: left;
+    font-size: 0.9rem;
+  }
+  .caja-table th {
+    background: rgba(15, 23, 42, 0.8);
+    color: #94a3b8;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .caja-table tr:not(:last-child) td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .caja-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .badge-ingreso {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    display: inline-block;
+  }
+  .badge-egreso {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    display: inline-block;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: rgba(30, 41, 59, 0.4);
+    border-radius: 12px;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+  }
+</style>
+
+<div class="caja-container">
+  <div class="caja-header">
+    <div>
+      <h1>Historial de Movimientos de Caja</h1>
+      <p>Registro cronológico y detallado de ingresos y egresos de caja (IS2-61).</p>
+    </div>
+    <div>
+      <a href="{% url 'caja_dashboard' %}" class="btn-reset" style="display: inline-block;">⬅️ Volver al Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Panel de Filtros -->
+  <div class="filter-panel">
+    <form method="GET" class="filter-form">
+      {% if is_admin %}
+      <div class="filter-group">
+        <label for="cajero">👤 Cajero</label>
+        <select name="cajero" id="cajero">
+          <option value="">-- Todos los cajeros --</option>
+          {% for c in cajeros_list %}
+            <option value="{{ c.id }}" {% if cajero_filtro == c.id|stringformat:"i" %}selected{% endif %}>
+              {{ c.get_full_name|default:c.username }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="filter-group">
+        <label for="tipo">🔁 Tipo de Movimiento</label>
+        <select name="tipo" id="tipo">
+          <option value="">-- Todos --</option>
+          <option value="INGRESO" {% if tipo_filtro == "INGRESO" %}selected{% endif %}>🟢 Ingreso</option>
+          <option value="EGRESO" {% if tipo_filtro == "EGRESO" %}selected{% endif %}>🔴 Egreso</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="fecha_desde">📅 Desde</label>
+        <input type="date" name="fecha_desde" id="fecha_desde" value="{{ fecha_desde }}">
+      </div>
+
+      <div class="filter-group">
+        <label for="fecha_hasta">📅 Hasta</label>
+        <input type="date" name="fecha_hasta" id="fecha_hasta" value="{{ fecha_hasta }}">
+      </div>
+
+      <div class="filter-actions">
+        <button type="submit" class="btn-filter">🔍 Filtrar</button>
+        <a href="{% url 'historial_movimientos' %}" class="btn-reset">Limpiar</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Resumen de Totales -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">🟢 Total Ingresos</div>
+      <div class="stat-value green">+ Gs. {{ total_ingresos|floatformat:2 }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🔴 Total Egresos</div>
+      <div class="stat-value red">- Gs. {{ total_egresos|floatformat:2 }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">⚖️ Balance Neto Filtrado</div>
+      <div class="stat-value {% if balance_neto >= 0 %}green{% else %}red{% endif %}">
+        Gs. {{ balance_neto|floatformat:2 }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de Movimientos -->
+  {% if movimientos %}
+    <table class="caja-table">
+      <thead>
+        <tr>
+          <th>Fecha / Hora</th>
+          <th>Caja / Sesión</th>
+          <th>Cajero</th>
+          <th>Tipo</th>
+          <th>Concepto</th>
+          <th>Monto</th>
+          <th>Operación</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for mov in movimientos %}
+        <tr>
+          <td>{{ mov.fecha|date:"d/m/Y H:i:s" }}</td>
+          <td>
+            <strong>{{ mov.sesion.nombre_caja }}</strong>
+            <br>
+            <small style="color: #64748b;">(Sesión #{{ mov.sesion.id }})</small>
+          </td>
+          <td>{{ mov.sesion.cajero.get_full_name|default:mov.sesion.cajero.username }}</td>
+          <td>
+            {% if mov.tipo == "INGRESO" %}
+              <span class="badge-ingreso">🟢 Ingreso</span>
+            {% else %}
+              <span class="badge-egreso">🔴 Egreso</span>
+            {% endif %}
+          </td>
+          <td>{{ mov.concepto }}</td>
+          <td>
+            {% if mov.tipo == "INGRESO" %}
+              <strong style="color: #34d399;">+ Gs. {{ mov.monto|floatformat:2 }}</strong>
+            {% else %}
+              <strong style="color: #f87171;">- Gs. {{ mov.monto|floatformat:2 }}</strong>
+            {% endif %}
+          </td>
+          <td>
+            {% if mov.operacion %}
+              <span style="color: #94a3b8;">#{{ mov.operacion.id }}</span>
+            {% else %}
+              <span style="color: #64748b;">-</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty-state">
+      <div style="font-size: 3rem; margin-bottom: 0.8rem;">📭</div>
+      <p>No se encontraron movimientos de caja que coincidan con los criterios seleccionados.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

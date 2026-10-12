@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Alertas y Notificaciones de Tasas | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .alertas-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 24px 28px;
+        margin-bottom: 25px;
+        color: #f8fafc;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    .alertas-header h1 {
+        font-size: 24px;
+        font-weight: 700;
+        margin: 0 0 6px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #ffffff;
+    }
+    .alertas-header p {
+        margin: 0;
+        color: #94a3b8;
+        font-size: 14px;
+    }
+
+    .grid-dashboard {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 30px;
+    }
+    @media (max-width: 992px) {
+        .grid-dashboard {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .card-panel {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+    .card-panel h2 {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-top: 0;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .card-panel-desc {
+        color: #64748b;
+        font-size: 13.5px;
+        margin-bottom: 18px;
+    }
+
+    /* Cards de seguimiento rápido */
+    .currencies-watch-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 16px;
+    }
+    .currency-watch-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px;
+        background: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 0.2s ease;
+    }
+    .currency-watch-card.active {
+        border-color: #3b82f6;
+        background: #eff6ff;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+    }
+    .cwc-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .cwc-siglas {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .cwc-name {
+        font-size: 12px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 110px;
+    }
+    .cwc-rates {
+        font-size: 12.5px;
+        color: #334155;
+        margin-bottom: 14px;
+        line-height: 1.4;
+    }
+    .cwc-rates strong {
+        color: #0f172a;
+    }
+    .btn-toggle-watch {
+        width: 100%;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 1px solid;
+        transition: all 0.15s ease;
+    }
+    .btn-toggle-watch.watching {
+        background: #10b981;
+        color: #ffffff;
+        border-color: #059669;
+    }
+    .btn-toggle-watch.watching:hover {
+        background: #059669;
+    }
+    .btn-toggle-watch.not-watching {
+        background: #ffffff;
+        color: #475569;
+        border-color: #cbd5e1;
+    }
+    .btn-toggle-watch.not-watching:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+        border-color: #94a3b8;
+    }
+
+    /* Tabla de alertas */
+    .table-modern {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+    }
+    .table-modern th {
+        background: #f1f5f9;
+        color: #475569;
+        font-weight: 600;
+        padding: 10px 14px;
+        text-align: left;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .table-modern td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #1e293b;
+    }
+    .table-modern tr:hover td {
+        background: #f8fafc;
+    }
+
+    /* Lista de notificaciones */
+    .notif-feed {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 480px;
+        overflow-y: auto;
+    }
+    .notif-item {
+        padding: 14px 16px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        transition: background 0.15s;
+    }
+    .notif-item.unread {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+    }
+    .notif-icon-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+    .notif-item.unread .notif-icon-circle {
+        background: #dcfce7;
+        color: #15803d;
+    }
+    .notif-body {
+        flex: 1;
+    }
+    .notif-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .notif-time {
+        font-size: 11.5px;
+        color: #94a3b8;
+        font-weight: normal;
+    }
+    .notif-text {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.45;
+        margin: 0;
+    }
+    .notif-rates-chip {
+        display: inline-flex;
+        gap: 8px;
+        background: #f1f5f9;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 11.5px;
+        margin-top: 6px;
+        color: #334155;
+    }
+    .empty-placeholder {
+        text-align: center;
+        padding: 30px;
+        color: #94a3b8;
+        font-size: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1200px; margin: 0 auto; padding: 20px 15px;">
+
+    <!-- Encabezado Principal -->
+    <div class="alertas-header">
+        <div>
+            <h1><span>🔔</span> Alertas y Notificaciones de Tasas</h1>
+            <p>Monitorea tasas en tiempo real y recibe notificaciones automáticas ante variaciones del mercado.</p>
+        </div>
+        <div>
+            <button id="btnMarcarLeidasPage" class="btn" style="background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.3); padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer;">
+                ✓ Marcar notificaciones como leídas
+            </button>
+        </div>
+    </div>
+
+    <!-- SECCIÓN 1: Seguimiento Rápido de Monedas (Estar al pendiente) -->
+    <div class="card-panel">
+        <h2><span>⚡</span> Monedas a Seguir (Estar al pendiente)</h2>
+        <p class="card-panel-desc">
+            Activa las divisas que te interesen. Cada vez que el analista o el sistema actualice su cotización, recibirás una notificación instantánea en tu campanita.
+        </p>
+
+        <div class="currencies-watch-grid">
+            {% for item in monedas_info %}
+            <div class="currency-watch-card {% if item.siguiendo %}active{% endif %}" id="card-moneda-{{ item.moneda.id }}">
+                <div>
+                    <div class="cwc-header">
+                        <span class="cwc-siglas">{{ item.moneda.siglas }}</span>
+                        <span class="cwc-name" title="{{ item.moneda.nombre }}">{{ item.moneda.nombre }}</span>
+                    </div>
+                    <div class="cwc-rates">
+                        {% if item.compra and item.venta %}
+                        <div>Compra: <strong>{{ item.compra }}</strong></div>
+                        <div>Venta: <strong>{{ item.venta }}</strong></div>
+                        {% else %}
+                        <div style="color: #94a3b8; font-style: italic;">Sin cotización activa</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <button
+                    class="btn-toggle-watch {% if item.siguiendo %}watching{% else %}not-watching{% endif %}"
+                    data-moneda-id="{{ item.moneda.id }}"
+                    onclick="toggleSeguimientoMoneda(this, {{ item.moneda.id }})">
+                    {% if item.siguiendo %}
+                    <span>🔔</span> Al pendiente
+                    {% else %}
+                    <span>🔕</span> Seguir moneda
+                    {% endif %}
+                </button>
+            </div>
+            {% empty %}
+            <div class="empty-placeholder">No hay monedas activas registradas en el sistema.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- GRID: Alertas por Umbral + Historial de Notificaciones -->
+    <div class="grid-dashboard">
+
+        <!-- Columna Izquierda: Configuración de Alertas por Umbral (IS2-57) -->
+        <div>
+            <div class="card-panel">
+                <h2><span>🎯</span> Configurar Alerta por Valor Objetivo (IS2-57)</h2>
+                <p class="card-panel-desc">
+                    Establece un precio específico de compra o venta para una moneda y te avisaremos tan pronto alcance tu valor objetivo.
+                </p>
+
+                <form method="post" action="{% url 'alertas_tasas' %}">
+                    {% csrf_token %}
+                    <div class="mb-3" style="margin-bottom: 14px;">
+                        <label for="{{ form.moneda.id_for_label }}" style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                            Moneda a Monitorear
+                        </label>
+                        {{ form.moneda }}
+                    </div>
+
+                    <div class="mb-3" style="margin-bottom: 14px;">
+                        <label for="{{ form.tipo.id_for_label }}" style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                            Condición de la Alerta
+                        </label>
+                        {{ form.tipo }}
+                    </div>
+
+                    <div class="mb-3" style="margin-bottom: 18px;" id="div-valor-objetivo">
+                        <label for="{{ form.valor_objetivo.id_for_label }}" style="display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 5px;">
+                            Valor Objetivo (Gs.)
+                        </label>
+                        {{ form.valor_objetivo }}
+                        <small style="color: #64748b; font-size: 12px; display: block; margin-top: 4px;">
+                            Ej: 7850.00. Requerido para alertas por precio de compra o venta.
+                        </small>
+                    </div>
+
+                    <button type="submit" class="btn" style="background: #2563eb; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%;">
+                        ➕ Guardar Alerta
+                    </button>
+                </form>
+            </div>
+
+            <!-- Lista de Alertas Configuradas -->
+            <div class="card-panel">
+                <h2><span>📋</span> Mis Alertas Configuradas</h2>
+                {% if alertas %}
+                <div style="overflow-x: auto;">
+                    <table class="table-modern">
+                        <thead>
+                            <tr>
+                                <th>Moneda</th>
+                                <th>Condición</th>
+                                <th>Valor</th>
+                                <th style="text-align: right;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in alertas %}
+                            <tr>
+                                <td>
+                                    <strong>{{ a.moneda.siglas }}</strong>
+                                </td>
+                                <td>{{ a.get_tipo_display }}</td>
+                                <td>
+                                    {% if a.valor_objetivo %}
+                                        <strong>{{ a.valor_objetivo }}</strong>
+                                    {% else %}
+                                        <span style="color: #64748b;">Cualquier cambio</span>
+                                    {% endif %}
+                                </td>
+                                <td style="text-align: right;">
+                                    <form method="post" action="{% url 'eliminar_alerta' a.id %}" style="display: inline;" onsubmit="return confirm('¿Deseas eliminar esta alerta?');">
+                                        {% csrf_token %}
+                                        <button type="submit" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px;" title="Eliminar">
+                                            🗑️
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-placeholder">No tienes alertas configuradas aún. Puedes activar divisas arriba o registrar un umbral.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Notificaciones Recibidas (IS2-58) -->
+        <div>
+            <div class="card-panel" style="height: calc(100% - 24px);">
+                <h2>
+                    <span>📬</span> Notificaciones Recibidas (IS2-58)
+                    {% if no_leidas_count > 0 %}
+                    <span style="background: #ef4444; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 12px; font-weight: 600;">
+                        {{ no_leidas_count }} nuevas
+                    </span>
+                    {% endif %}
+                </h2>
+                <p class="card-panel-desc">
+                    Historial de notificaciones emitidas por variaciones de tasa en las monedas que sigues.
+                </p>
+
+                <div class="notif-feed">
+                    {% for n in notificaciones %}
+                    <div class="notif-item {% if not n.leida %}unread{% endif %}">
+                        <div class="notif-icon-circle">
+                            {% if not n.leida %}🔔{% else %}✓{% endif %}
+                        </div>
+                        <div class="notif-body">
+                            <div class="notif-title">
+                                <span>{{ n.titulo }}</span>
+                                <span class="notif-time">{{ n.fecha_actualizacion|date:"d/m/Y H:i" }}</span>
+                            </div>
+                            <p class="notif-text">{{ n.mensaje }}</p>
+                            <div class="notif-rates-chip">
+                                <span>Compra: <strong>{{ n.tasa_compra }}</strong></span>
+                                <span>•</span>
+                                <span>Venta: <strong>{{ n.tasa_venta }}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="empty-placeholder">
+                        <div style="font-size: 32px; margin-bottom: 8px;">📭</div>
+                        Aún no tienes notificaciones.<br>
+                        Cuando se actualicen las tasas de las monedas que sigues, aparecerán aquí.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Obtener CSRF Token de cookies de Django
+    function getCsrfToken() {
+        const name = 'csrftoken';
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Toggle rápido de seguimiento de moneda
+    async function toggleSeguimientoMoneda(btn, monedaId) {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        try {
+            const res = await fetch(`/cotizaciones/api/alertas/toggle/${monedaId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await res.json();
+            if (data.exito) {
+                const card = document.getElementById(`card-moneda-${monedaId}`);
+                if (data.siguiendo) {
+                    btn.className = 'btn-toggle-watch watching';
+                    btn.innerHTML = '<span>🔔</span> Al pendiente';
+                    if (card) card.classList.add('active');
+                } else {
+                    btn.className = 'btn-toggle-watch not-watching';
+                    btn.innerHTML = '<span>🔕</span> Seguir moneda';
+                    if (card) card.classList.remove('active');
+                }
+                // Si la función global de recargar campanita existe, refrescar
+                if (typeof window.cargarNotificacionesNavbar === 'function') {
+                    window.cargarNotificacionesNavbar();
+                }
+            } else {
+                alert(data.error || 'Ocurrió un error al actualizar el seguimiento.');
+            }
+        } catch (err) {
+            console.error('Error toggling moneda:', err);
+        } finally {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    }
+
+    // Marcar todas como leídas en la página
+    document.getElementById('btnMarcarLeidasPage')?.addEventListener('click', async function() {
+        try {
+            const res = await fetch('/cotizaciones/api/notificaciones/marcar-leidas/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await res.json();
+            if (data.exito) {
+                document.querySelectorAll('.notif-item.unread').forEach(el => {
+                    el.classList.remove('unread');
+                });
+                if (typeof window.cargarNotificacionesNavbar === 'function') {
+                    window.cargarNotificacionesNavbar();
+                }
+                window.location.reload();
+            }
+        } catch (err) {
+            console.error('Error marcando leídas:', err);
+        }
+    });
+</script>
+{% endblock %}
