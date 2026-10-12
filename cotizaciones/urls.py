@@ -52,5 +52,12 @@ urlpatterns = [
     path('operaciones/<int:operacion_id>/cancelar/', views.cancelar_operacion_view, name='cancelar_operacion'),
     path('api/operaciones/<int:operacion_id>/validar-tasa/', views.api_validar_tasa_operacion, name='api_validar_tasa_operacion'),
     path('api/operaciones/<int:operacion_id>/cancelar/', views.api_cancelar_operacion, name='api_cancelar_operacion'),
+
+    # Configuración de alertas de tasas (IS2-57) y notificaciones de variación (IS2-58)
+    path('alertas/', views.configurar_alertas_view, name='alertas_tasas'),
+    path('alertas/eliminar/<int:alerta_id>/', views.eliminar_alerta_view, name='eliminar_alerta'),
+    path('api/alertas/toggle/<int:moneda_id>/', views.api_toggle_moneda_seguimiento, name='api_toggle_moneda_seguimiento'),
+    path('api/notificaciones/', views.api_notificaciones, name='api_notificaciones'),
+    path('api/notificaciones/marcar-leidas/', views.api_marcar_notificaciones_leidas, name='api_marcar_notificaciones_leidas'),
 ]
 

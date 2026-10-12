@@ -4,9 +4,11 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from decimal import Decimal
 import time
+from django.utils import timezone
 
 from monedas.models import Moneda
-from cotizaciones.models import Cotizacion, Operacion
+from cotizaciones.models import Cotizacion, Operacion, AlertaTasa, NotificacionTasa
+from cotizaciones.forms import AlertaTasaForm
 from clientes.models import Cliente
 
 
@@ -1149,4 +1151,222 @@ class CancelacionTransaccionCambioCotizacionTests(TestCase):
         self.assertTrue(data_canc['exito'])
         self.assertEqual(data_canc['estado'], 'CANCELADA')
         self.assertEqual(data_canc['comision'], 0.0)
+
+
+class AlertasYNotificacionesTasasTestCase(TestCase):
+    """
+    Pruebas para las historias de usuario IS2-57 (Configuración de alertas de tasas)
+    e IS2-58 (Envío de notificaciones por variación de tasa).
+    """
+
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            username='cliente_notif',
+            email='notif@test.com',
+            password='password123'
+        )
+        self.usd = Moneda.objects.create(nombre='Dólar Estadounidense', siglas='USD', activa=True)
+        self.pyg = Moneda.objects.create(nombre='Guaraní Paraguayo', siglas='PYG', activa=True)
+        self.eur = Moneda.objects.create(nombre='Euro', siglas='EUR', activa=True)
+
+    def test_creacion_alerta_variacion_y_umbral(self):
+        """Verifica la persistencia de AlertaTasa asociada al usuario (IS2-57 Criterio 2)."""
+        alerta_var = AlertaTasa.objects.create(
+            usuario=self.usuario,
+            moneda=self.usd,
+            tipo=AlertaTasa.TipoAlerta.VARIACION,
+            activa=True
+        )
+        self.assertTrue(alerta_var.activa)
+        self.assertIn("USD", str(alerta_var))
+
+        alerta_umbral = AlertaTasa.objects.create(
+            usuario=self.usuario,
+            moneda=self.usd,
+            tipo=AlertaTasa.TipoAlerta.COMPRA_MAYOR,
+            valor_objetivo=Decimal('7800.00'),
+            activa=True
+        )
+        self.assertEqual(alerta_umbral.valor_objetivo, Decimal('7800.00'))
+
+    def test_alerta_tasa_form_validacion(self):
+        """El formulario valida que se requiera valor objetivo si no es tipo VARIACION."""
+        # Inválido: COMPRA_MAYOR sin valor objetivo
+        form_invalido = AlertaTasaForm(data={
+            'moneda': self.usd.id,
+            'tipo': AlertaTasa.TipoAlerta.COMPRA_MAYOR,
+            'valor_objetivo': ''
+        })
+        self.assertFalse(form_invalido.is_valid())
+
+        # Válido: VARIACION sin valor objetivo
+        form_valido_var = AlertaTasaForm(data={
+            'moneda': self.usd.id,
+            'tipo': AlertaTasa.TipoAlerta.VARIACION,
+            'valor_objetivo': ''
+        })
+        self.assertTrue(form_valido_var.is_valid())
+
+        # Válido: COMPRA_MAYOR con valor objetivo
+        form_valido_umbral = AlertaTasaForm(data={
+            'moneda': self.usd.id,
+            'tipo': AlertaTasa.TipoAlerta.COMPRA_MAYOR,
+            'valor_objetivo': '7800.00'
+        })
+        self.assertTrue(form_valido_umbral.is_valid())
+
+    def test_signal_notificacion_por_variacion_tasa(self):
+        """Al crear/actualizar cotización, se verifica alerta y se notifica al usuario (IS2-58)."""
+        # Usuario sigue variaciones de USD
+        AlertaTasa.objects.create(
+            usuario=self.usuario,
+            moneda=self.usd,
+            tipo=AlertaTasa.TipoAlerta.VARIACION,
+            activa=True
+        )
+
+        # Se registra una nueva cotización de USD
+        cot = Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7800.00'),
+            venta=Decimal('7850.00'),
+            activo=True
+        )
+
+        notificaciones = NotificacionTasa.objects.filter(usuario=self.usuario)
+        self.assertEqual(notificaciones.count(), 1)
+        notif = notificaciones.first()
+        self.assertEqual(notif.moneda, self.usd)
+        self.assertEqual(notif.tasa_compra, Decimal('7800.00'))
+        self.assertEqual(notif.tasa_venta, Decimal('7850.00'))
+        self.assertIn("USD", notif.mensaje)
+        self.assertFalse(notif.leida)
+
+    def test_signal_evaluacion_umbral_compra(self):
+        """La notificación se dispara solo si cumple la condición del umbral configurado (IS2-58 Criterio 1)."""
+        # Alerta: compra >= 7900
+        AlertaTasa.objects.create(
+            usuario=self.usuario,
+            moneda=self.usd,
+            tipo=AlertaTasa.TipoAlerta.COMPRA_MAYOR,
+            valor_objetivo=Decimal('7900.00'),
+            activa=True
+        )
+
+        # 1. Cotización por debajo: compra = 7800 (NO cumple)
+        Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7800.00'),
+            venta=Decimal('7850.00'),
+            activo=True
+        )
+        self.assertEqual(NotificacionTasa.objects.filter(usuario=self.usuario).count(), 0)
+
+        # 2. Cotización que alcanza la meta: compra = 7920 (CUMPLE)
+        Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7920.00'),
+            venta=Decimal('7980.00'),
+            activo=True
+        )
+        self.assertEqual(NotificacionTasa.objects.filter(usuario=self.usuario).count(), 1)
+
+    def test_api_toggle_moneda_seguimiento(self):
+        """Prueba del botón de seguimiento rápido en 1 clic para estar al pendiente."""
+        self.client.force_login(self.usuario)
+        url = reverse('api_toggle_moneda_seguimiento', kwargs={'moneda_id': self.usd.id})
+
+        # 1. Activar seguimiento
+        resp1 = self.client.post(url)
+        self.assertEqual(resp1.status_code, 200)
+        data1 = resp1.json()
+        self.assertTrue(data1['exito'])
+        self.assertTrue(data1['siguiendo'])
+        self.assertTrue(AlertaTasa.objects.filter(usuario=self.usuario, moneda=self.usd, activa=True).exists())
+
+        # 2. Desactivar seguimiento con segundo clic
+        resp2 = self.client.post(url)
+        self.assertEqual(resp2.status_code, 200)
+        data2 = resp2.json()
+        self.assertTrue(data2['exito'])
+        self.assertFalse(data2['siguiendo'])
+        self.assertFalse(AlertaTasa.objects.filter(usuario=self.usuario, moneda=self.usd).exists())
+
+    def test_api_notificaciones_y_marcar_leidas(self):
+        """Prueba de los endpoints consumidos por la campanita del navbar."""
+        self.client.force_login(self.usuario)
+
+        # Crear notificación de prueba
+        NotificacionTasa.objects.create(
+            usuario=self.usuario,
+            moneda=self.usd,
+            titulo="Variación USD",
+            mensaje="Tasa actualizada",
+            tasa_compra=Decimal('7800.00'),
+            tasa_venta=Decimal('7850.00'),
+            fecha_actualizacion=timezone.now(),
+            leida=False
+        )
+
+        # GET API Notificaciones
+        url_notifs = reverse('api_notificaciones')
+        resp = self.client.get(url_notifs)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data['no_leidas_count'], 1)
+        self.assertEqual(len(data['notificaciones']), 1)
+        self.assertEqual(data['notificaciones'][0]['moneda'], 'USD')
+
+        # POST Marcar leídas
+        url_marcar = reverse('api_marcar_notificaciones_leidas')
+        resp_post = self.client.post(url_marcar)
+        self.assertEqual(resp_post.status_code, 200)
+        data_post = resp_post.json()
+        self.assertTrue(data_post['exito'])
+        self.assertEqual(data_post['actualizadas'], 1)
+
+        # Verificar que el contador quedó en 0
+        resp_after = self.client.get(url_notifs)
+        self.assertEqual(resp_after.json()['no_leidas_count'], 0)
+
+    def test_vista_configurar_alertas_get_y_post(self):
+        """Prueba de la vista completa de alertas /cotizaciones/alertas/."""
+        self.client.force_login(self.usuario)
+        url = reverse('alertas_tasas')
+
+        # GET
+        resp_get = self.client.get(url)
+        self.assertEqual(resp_get.status_code, 200)
+        self.assertContains(resp_get, "Alertas y Notificaciones de Tasas")
+
+        # POST Crear alerta
+        resp_post = self.client.post(url, {
+            'moneda': self.usd.id,
+            'tipo': AlertaTasa.TipoAlerta.VENTA_MENOR,
+            'valor_objetivo': '7700.00'
+        })
+        self.assertRedirects(resp_post, url)
+        self.assertTrue(AlertaTasa.objects.filter(
+            usuario=self.usuario,
+            tipo=AlertaTasa.TipoAlerta.VENTA_MENOR,
+            valor_objetivo=Decimal('7700.00')
+        ).exists())
+
+    def test_eliminar_alerta(self):
+        """El usuario puede eliminar una alerta que haya configurado."""
+        alerta = AlertaTasa.objects.create(
+            usuario=self.usuario,
+            moneda=self.usd,
+            tipo=AlertaTasa.TipoAlerta.VARIACION
+        )
+        self.client.force_login(self.usuario)
+        url = reverse('eliminar_alerta', kwargs={'alerta_id': alerta.id})
+
+        resp = self.client.post(url)
+        self.assertRedirects(resp, reverse('alertas_tasas'))
+        self.assertFalse(AlertaTasa.objects.filter(id=alerta.id).exists())
+
 

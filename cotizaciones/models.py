@@ -143,3 +143,154 @@ class Operacion(models.Model):
             return (sub - com).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         return (sub + com).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
+
+class AlertaTasa(models.Model):
+    """
+    Configuración de alertas de tasas (IS2-57).
+    Permite a los usuarios suscribirse a variaciones de monedas o definir
+    umbrales de compra/venta para recibir notificaciones.
+    """
+    class TipoAlerta(models.TextChoices):
+        VARIACION = "VARIACION", "Cualquier variación de tasa"
+        COMPRA_MAYOR = "COMPRA_MAYOR", "Precio de compra mayor o igual a"
+        COMPRA_MENOR = "COMPRA_MENOR", "Precio de compra menor o igual a"
+        VENTA_MAYOR = "VENTA_MAYOR", "Precio de venta mayor o igual a"
+        VENTA_MENOR = "VENTA_MENOR", "Precio de venta menor o igual a"
+
+    usuario = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='alertas_tasa',
+        verbose_name="Usuario"
+    )
+    moneda = models.ForeignKey(
+        'monedas.Moneda',
+        on_delete=models.CASCADE,
+        related_name='alertas',
+        limit_choices_to={'activa': True},
+        verbose_name="Moneda"
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=TipoAlerta.choices,
+        default=TipoAlerta.VARIACION,
+        verbose_name="Tipo de Alerta"
+    )
+    valor_objetivo = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Valor Objetivo (Compra/Venta)"
+    )
+    activa = models.BooleanField(
+        default=True,
+        verbose_name="Alerta Activa"
+    )
+    fecha_creacion = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de Creación"
+    )
+
+    class Meta:
+        verbose_name = "Alerta de Tasa"
+        verbose_name_plural = "Alertas de Tasas"
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        if self.tipo == self.TipoAlerta.VARIACION:
+            return f"{self.usuario.username} - Monitoreo {self.moneda.siglas} (Cualquier variación)"
+        return f"{self.usuario.username} - {self.moneda.siglas} ({self.get_tipo_display()} {self.valor_objetivo})"
+
+    def se_cumple(self, cotizacion) -> bool:
+        """Verifica si la cotización cumple la condición de esta alerta."""
+        if not self.activa:
+            return False
+        if cotizacion.moneda_origen_id != self.moneda_id:
+            return False
+        if self.tipo == self.TipoAlerta.VARIACION:
+            return True
+        if self.valor_objetivo is None:
+            return False
+        if self.tipo == self.TipoAlerta.COMPRA_MAYOR:
+            return cotizacion.compra >= self.valor_objetivo
+        if self.tipo == self.TipoAlerta.COMPRA_MENOR:
+            return cotizacion.compra <= self.valor_objetivo
+        if self.tipo == self.TipoAlerta.VENTA_MAYOR:
+            return cotizacion.venta >= self.valor_objetivo
+        if self.tipo == self.TipoAlerta.VENTA_MENOR:
+            return cotizacion.venta <= self.valor_objetivo
+        return False
+
+
+class NotificacionTasa(models.Model):
+    """
+    Notificaciones por variación de tasa (IS2-58).
+    Generadas cuando una cotización se actualiza o alcanza las condiciones de una alerta.
+    """
+    usuario = models.ForeignKey(
+        'auth.User',
+        on_delete=models.CASCADE,
+        related_name='notificaciones_tasa',
+        verbose_name="Usuario"
+    )
+    moneda = models.ForeignKey(
+        'monedas.Moneda',
+        on_delete=models.CASCADE,
+        related_name='notificaciones_tasas',
+        verbose_name="Moneda"
+    )
+    cotizacion = models.ForeignKey(
+        Cotizacion,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notificaciones',
+        verbose_name="Cotización de Origen"
+    )
+    alerta = models.ForeignKey(
+        AlertaTasa,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notificaciones',
+        verbose_name="Alerta que detonó"
+    )
+    titulo = models.CharField(
+        max_length=200,
+        verbose_name="Título"
+    )
+    mensaje = models.TextField(
+        verbose_name="Mensaje descriptivo"
+    )
+    tasa_compra = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Tasa de Compra"
+    )
+    tasa_venta = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Tasa de Venta"
+    )
+    fecha_actualizacion = models.DateTimeField(
+        verbose_name="Fecha de Actualización"
+    )
+    leida = models.BooleanField(
+        default=False,
+        verbose_name="¿Leída?"
+    )
+    fecha_creacion = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de Notificación"
+    )
+
+    class Meta:
+        verbose_name = "Notificación de Tasa"
+        verbose_name_plural = "Notificaciones de Tasas"
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"[{self.moneda.siglas}] {self.titulo} - Para: {self.usuario.username} ({'Leída' if self.leida else 'Nueva'})"
+
+

@@ -161,3 +161,67 @@ El servidor responderá con HTTP 200 de forma inmediata y verificará la firma c
   - Inmutabilidad y snapshot completo de cliente y liquidación financiera.
   - Idempotencia de `TicketService.generar_ticket()`.
   - Restricción de acceso para usuarios no propietarios ni administrativos.
+
+---
+
+## 6. Registro CHIA: Decisiones Técnicas y Prompts Usados
+
+### 6.1. Correcciones de QA en Compra y Venta (IS2-15 / IS2-16)
+
+- **Prompt utilizado:**
+  > *"Teníamos un problema tanto con la compra y con la venta, que es que no se traían los valores de las monedas o mejor dicho las cotizaciones de cada moneda tanto para la compra y para venta, la forma que está hecha actualmente sería que el usuario agrega su propia cotización y su propio interés creo que es, pero bueno la forma que debería de ser es que elijas una moneda que quieras comprar o vender cada uno en su pestaña dedicada y que cuando tengas la moneda elegida se muestre la cotización actual de la moneda, entonces me ayudarías a corregir dicho problema de QA en base a la rama mencionada"*
+
+- **Diagnóstico del problema:**
+  1. Los formularios permitían edición manual de la `tasa_aplicada`, lo cual generaba inconsistencias y vulnerabilidades en la liquidación.
+  2. No existía enlace dinámico entre la selección de divisa y la cotización vigente activa en base de datos.
+  3. El cálculo de comisiones y totales no reaccionaba en tiempo real en la interfaz.
+
+- **Decisiones técnicas tomadas:**
+  - **Bloqueo del campo:** Se configuró `tasa_aplicada` como `readonly="readonly"` en los formularios base para impedir la manipulación arbitraria del tipo de cambio.
+  - **Endpoint API reactivo:** Se creó `api_tasa_vigente_operacion(request, moneda_id)` para consultar vía AJAX la cotización vigente más reciente (`activo=True`) de la moneda seleccionada.
+  - **Automatización en el cliente:** Se implementó lógica en JavaScript que, al detectar el evento `change` en el selector de divisa, consulta la tasa y recalcula automáticamente el subtotal, comisión y total neto según el tipo de operación (Compra/Venta).
+
+---
+
+### 6.2. Ejecución Previa de Tests Automatizados estilo Maven / Spring Boot
+
+- **Prompt utilizado:**
+  > *"Viste como cuando tenés un proyecto en Java Spring Boot que cuenta con Maven, siempre al levantar el proyecto se corren todos los test antes de cualquier otra cosa, ¿crees que podamos lograr eso con todos los test del proyecto, no solo los de un componente?"*  
+  > *(Seguimiento: "¿Solo sirve para python manage.py runserver o también para docker compose up?")*
+
+- **Análisis de alternativas:**
+  - *Opción 1: Intercepción en `manage.py`*: Hook nativo al comando `runserver` que ejecuta `call_command('test')` antes de levantar el servidor. Si algún test falla, aborta la ejecución con código de error.
+  - *Opción 2: Scripts externos*: `run.bat` o `entrypoint.sh`. No garantiza ejecución si el desarrollador usa la consola directamente.
+
+- **Decisiones técnicas tomadas:**
+  - Se eligió la **Opción 1** modificando `manage.py`.
+  - Al interceptar `runserver`, se logra paridad tanto en desarrollo local (`python manage.py runserver`) como en contenedores (`docker compose up`), asegurando que ningún entorno levante si existen pruebas unitarias fallidas.
+
+---
+
+### 6.3. Configuración de Alertas (IS2-57) y Notificaciones por Variación con Campanita (IS2-58)
+
+- **Prompts utilizados:**
+  > *"¿Cuál sería la forma más fácil de implementar eso?"* [Referente a IS2-57 e IS2-58]  
+  > *"Legalmente creo lo mejor sería nomás una campanita donde salgan los últimos cambios de las tasas y que en todo caso cada usuario podría elegir cuál tasa quiere estar al pendiente y ya, esto lo necesito que lo haga en una rama feature/IS2-58"*
+
+- **Análisis arquitectónico:**
+  - Se evaluaron alternativas complejas (Celery + Redis, WebSockets / Django Channels).
+  - Se descartaron por sobrecarga de infraestructura y se optó por la solución más eficiente y limpia: **Signal `post_save` de Django** junto con polling ligero en el frontend.
+
+- **Decisiones técnicas tomadas:**
+  - **Modelos de datos:**
+    - `AlertaTasa`: Almacena suscripciones a divisas (`VARIACION` para estar al pendiente con 1 clic) o por umbral numérico específico (`COMPRA_MAYOR`, `COMPRA_MENOR`, `VENTA_MAYOR`, `VENTA_MENOR`).
+    - `NotificacionTasa`: Guarda el historial de avisos generados con snapshot de moneda, tasas aplicadas, fecha de actualización y estado de lectura.
+  - **Disparador automático:**
+    - Signal en `cotizaciones/signals.py` conectado al `post_save` de `Cotizacion`. Al registrarse o actualizarse una cotización activa, evalúa las alertas de los usuarios suscritos y crea las notificaciones de inmediato.
+  - **Campanita interactiva en el Navbar (`base.html`):**
+    - Ícono 🔔 con bubble badge numérico que refleja las notificaciones pendientes.
+    - Menú desplegable flotante con detalle de variaciones y botón para marcar como leídas vía API.
+  - **Panel de control de alertas (`/cotizaciones/alertas/`):**
+    - Botones toggle de seguimiento rápido para suscribirse a divisas con un clic.
+    - Formulario para configuración de umbrales específicos de precio.
+    - Gestión y eliminación de alertas activas.
+  - **Cobertura de pruebas:**
+    - Se incorporaron 8 pruebas unitarias en `cotizaciones/tests.py` alcanzando 62 tests en la aplicación y 155 tests globales aprobados al 100%.
+

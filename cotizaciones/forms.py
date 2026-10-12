@@ -1,6 +1,6 @@
 from django import forms
 from decimal import Decimal
-from .models import Cotizacion, Operacion
+from .models import Cotizacion, Operacion, AlertaTasa
 from monedas.models import Moneda
 from clientes.models import Cliente
 from .services import obtener_clientes_asignados_usuario
@@ -136,4 +136,49 @@ class CompraMonedaForm(BaseOperacionForm):
             'placeholder': 'Monto a comprar (ej. 100.00)',
             'aria-label': 'Monto de divisa a comprar'
         })
+
+
+class AlertaTasaForm(forms.ModelForm):
+    """
+    Formulario para configurar alertas de tasas (IS2-57).
+    Permite al usuario elegir moneda y establecer condición/valor objetivo.
+    """
+    class Meta:
+        model = AlertaTasa
+        fields = ['moneda', 'tipo', 'valor_objetivo']
+        widgets = {
+            'moneda': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_moneda_alerta',
+                'required': 'required',
+            }),
+            'tipo': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_tipo_alerta',
+                'required': 'required',
+            }),
+            'valor_objetivo': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'id': 'id_valor_objetivo',
+                'step': '0.01',
+                'min': '0.01',
+                'placeholder': 'Ej. 7850.00 (Opcional si es cualquier variación)',
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['moneda'].queryset = Moneda.objects.filter(activa=True)
+        self.fields['valor_objetivo'].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        tipo = cleaned_data.get('tipo')
+        valor = cleaned_data.get('valor_objetivo')
+        if tipo != AlertaTasa.TipoAlerta.VARIACION and (valor is None or valor <= Decimal('0')):
+            raise forms.ValidationError(
+                "Para alertas por valor de compra o venta, debe especificar un monto objetivo positivo."
+            )
+        return cleaned_data
+
 

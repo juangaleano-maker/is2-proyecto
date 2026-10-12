@@ -2,8 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from authentication.decorators import rol_requerido
-from .models import Cotizacion, Operacion
-from .forms import CotizacionForm
+from .models import Cotizacion, Operacion, AlertaTasa, NotificacionTasa
+from .forms import CotizacionForm, AlertaTasaForm
 
 import json
 import csv
@@ -1149,3 +1149,167 @@ def descargar_comprobante_operacion(request, operacion_id):
     return render(request, 'cotizaciones/comprobante_operacion.html', {
         'operacion': operacion
     })
+
+
+# ==============================================================================
+# Vistas de Alertas y Notificaciones de Tasas (IS2-57 e IS2-58)
+# ==============================================================================
+
+@login_required
+def configurar_alertas_view(request):
+    """
+    Vista principal para gestión de alertas de tasas y notificaciones (IS2-57 / IS2-58).
+    Permite al usuario:
+    1. Activar/desactivar seguimiento rápido de monedas ("Estar al pendiente").
+    2. Configurar alertas por umbral específico de compra/venta.
+    3. Ver sus alertas configuradas y el historial de notificaciones.
+    """
+    from monedas.models import Moneda
+
+    monedas_activas = Moneda.objects.filter(activa=True)
+    alertas_usuario = AlertaTasa.objects.filter(usuario=request.user).select_related('moneda')
+
+    if request.method == 'POST':
+        form = AlertaTasaForm(request.POST)
+        if form.is_valid():
+            alerta = form.save(commit=False)
+            alerta.usuario = request.user
+            alerta.save()
+            messages.success(request, f"Alerta para {alerta.moneda.siglas} configurada con éxito.")
+            return redirect('alertas_tasas')
+        else:
+            messages.error(request, "Por favor revise los datos del formulario de alerta.")
+    else:
+        form = AlertaTasaForm()
+
+    # Monedas que el usuario está siguiendo con alerta tipo VARIACION
+    monedas_seguidas_ids = set(
+        alertas_usuario.filter(tipo=AlertaTasa.TipoAlerta.VARIACION, activa=True)
+        .values_list('moneda_id', flat=True)
+    )
+
+    # Últimas cotizaciones vigentes para dar contexto
+    cotizaciones_vigentes = {
+        c.moneda_origen_id: c
+        for c in Cotizacion.objects.filter(activo=True).select_related('moneda_origen')
+    }
+
+    monedas_info = []
+    for m in monedas_activas:
+        cot = cotizaciones_vigentes.get(m.id)
+        monedas_info.append({
+            'moneda': m,
+            'siguiendo': m.id in monedas_seguidas_ids,
+            'compra': cot.compra if cot else None,
+            'venta': cot.venta if cot else None,
+        })
+
+    notificaciones_qs = NotificacionTasa.objects.filter(usuario=request.user)
+    no_leidas_count = notificaciones_qs.filter(leida=False).count()
+    notificaciones_recientes = notificaciones_qs.select_related('moneda').order_by('-fecha_creacion')[:30]
+
+    return render(request, 'cotizaciones/alertas.html', {
+        'form': form,
+        'monedas_info': monedas_info,
+        'alertas': alertas_usuario,
+        'notificaciones': notificaciones_recientes,
+        'no_leidas_count': no_leidas_count,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_toggle_moneda_seguimiento(request, moneda_id):
+    """
+    Endpoint rápido para suscribirse / desuscribirse de una moneda con un solo clic.
+    Crea o elimina la alerta de tipo VARIACION (estar al pendiente de la tasa).
+    """
+    from monedas.models import Moneda
+    moneda = get_object_or_404(Moneda, id=moneda_id, activa=True)
+
+    alerta_existente = AlertaTasa.objects.filter(
+        usuario=request.user,
+        moneda=moneda,
+        tipo=AlertaTasa.TipoAlerta.VARIACION
+    ).first()
+
+    if alerta_existente:
+        alerta_existente.delete()
+        siguiendo = False
+        mensaje = f"Ya no estás siguiendo las variaciones de {moneda.siglas}."
+    else:
+        AlertaTasa.objects.create(
+            usuario=request.user,
+            moneda=moneda,
+            tipo=AlertaTasa.TipoAlerta.VARIACION,
+            activa=True
+        )
+        siguiendo = True
+        mensaje = f"Ahora estás al pendiente de las variaciones de {moneda.siglas}."
+
+    return JsonResponse({
+        'exito': True,
+        'siguiendo': siguiendo,
+        'mensaje': mensaje,
+        'moneda_siglas': moneda.siglas,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def eliminar_alerta_view(request, alerta_id):
+    """Elimina una alerta configurada por el usuario."""
+    alerta = get_object_or_404(AlertaTasa, id=alerta_id, usuario=request.user)
+    siglas = alerta.moneda.siglas
+    alerta.delete()
+    messages.success(request, f"Alerta para {siglas} eliminada correctamente.")
+    return redirect('alertas_tasas')
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_notificaciones(request):
+    """
+    Endpoint JSON consumido por el widget de la campanita (navbar) en tiempo real.
+    Retorna el contador de no leídas y la lista de las últimas notificaciones.
+    """
+    qs = NotificacionTasa.objects.filter(usuario=request.user).select_related('moneda')
+    no_leidas_count = qs.filter(leida=False).count()
+    ultimas = qs.order_by('-fecha_creacion')[:10]
+
+    notificaciones_data = []
+    for n in ultimas:
+        fecha_str = n.fecha_actualizacion.strftime('%d/%m/%Y %H:%M') if n.fecha_actualizacion else ''
+        notificaciones_data.append({
+            'id': n.id,
+            'moneda': n.moneda.siglas,
+            'moneda_nombre': n.moneda.nombre,
+            'titulo': n.titulo,
+            'mensaje': n.mensaje,
+            'tasa_compra': str(n.tasa_compra),
+            'tasa_venta': str(n.tasa_venta),
+            'fecha': fecha_str,
+            'leida': n.leida,
+        })
+
+    return JsonResponse({
+        'no_leidas_count': no_leidas_count,
+        'notificaciones': notificaciones_data,
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_marcar_notificaciones_leidas(request):
+    """Marca todas las notificaciones del usuario actual como leídas."""
+    actualizadas = NotificacionTasa.objects.filter(
+        usuario=request.user,
+        leida=False
+    ).update(leida=True)
+
+    return JsonResponse({
+        'exito': True,
+        'actualizadas': actualizadas,
+        'mensaje': 'Todas las notificaciones fueron marcadas como leídas.'
+    })
+
