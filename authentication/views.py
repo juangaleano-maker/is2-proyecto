@@ -94,10 +94,12 @@ def menu(request):
     roles_admin = {'admin', 'supervisor', 'operador'}
     roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
     roles_finanzas = {'admin', 'analista_cambiario', 'analista'}
+    roles_caja = {'cajero', 'admin', 'operador', 'supervisor'}
     
     es_admin = bool(roles.intersection(roles_admin))
     es_personal = bool(roles.intersection(roles_gestion))
     es_finanzas = bool(roles.intersection(roles_finanzas))
+    es_cajero = bool(roles.intersection(roles_caja))
     tiene_cliente = cliente_activo is not None
     
     # Si no tiene cliente activo y no es del personal administrativo ni de finanzas, solo puede hacer consultas
@@ -110,6 +112,7 @@ def menu(request):
         'es_admin': es_admin,
         'es_personal': es_personal,
         'es_finanzas': es_finanzas,
+        'es_cajero': es_cajero,
         'solo_consulta': solo_consulta,
     })
 

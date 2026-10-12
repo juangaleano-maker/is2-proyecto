@@ -995,6 +995,20 @@ def confirmar_operacion_pago(request, operacion_id):
             return redirect('listar_operaciones')
 
         elif accion == 'pagar':
+            # IS2-61: Verificar que el cajero tenga una sesión de caja abierta antes de confirmar
+            from .models import SesionCaja
+            caja_abierta = SesionCaja.objects.filter(
+                cajero=request.user,
+                estado=SesionCaja.EstadoSesion.ABIERTA,
+            ).exists()
+            if not caja_abierta:
+                messages.error(
+                    request,
+                    "⚠️ No tenés ninguna sesión de caja abierta. "
+                    "Debés aperturar una caja antes de poder confirmar y registrar pagos."
+                )
+                return redirect('apertura_caja')
+
             aceptar_cambio = request.POST.get('aceptar_cambio') == '1'
 
             if validacion['cambio'] and not aceptar_cambio:
@@ -1005,6 +1019,9 @@ def confirmar_operacion_pago(request, operacion_id):
                 )
             else:
                 try:
+                    if not operacion.registrado_por:
+                        operacion.registrado_por = request.user
+                        operacion.save(update_fields=['registrado_por'])
                     confirmar_y_pagar_operacion(operacion, aceptar_cambio_tasa=aceptar_cambio)
                     messages.success(
                         request,
@@ -1311,5 +1328,231 @@ def api_marcar_notificaciones_leidas(request):
         'exito': True,
         'actualizadas': actualizadas,
         'mensaje': 'Todas las notificaciones fueron marcadas como leídas.'
+    })
+
+
+# ===========================================================================
+# Apertura y Cierre de Caja (IS2-60)
+# ===========================================================================
+
+@rol_requerido('cajero', 'admin', 'operador', 'supervisor')
+def apertura_caja_view(request):
+    """
+    Vista para aperturar una sesión de caja al inicio del turno.
+    Valida que el cajero no tenga ya una sesión abierta.
+    """
+    from .models import SesionCaja
+    from .forms import AperturaCajaForm
+
+    # Verificar si el cajero ya tiene una sesión abierta
+    sesion_activa = SesionCaja.objects.filter(
+        cajero=request.user,
+        estado=SesionCaja.EstadoSesion.ABIERTA,
+    ).first()
+
+    if sesion_activa:
+        messages.warning(
+            request,
+            f'Ya tenés una sesión de caja abierta desde '
+            f'{sesion_activa.fecha_apertura.strftime("%d/%m/%Y %H:%M")}. '
+            f'Debés cerrarla antes de abrir una nueva.',
+        )
+        return redirect('caja_dashboard')
+
+    if request.method == 'POST':
+        form = AperturaCajaForm(request.POST)
+        if form.is_valid():
+            sesion = SesionCaja.objects.create(
+                cajero=request.user,
+                nombre_caja=form.cleaned_data['nombre_caja'],
+                monto_inicial=form.cleaned_data['monto_inicial'],
+            )
+            messages.success(
+                request,
+                f'✅ Caja "{sesion.nombre_caja}" aperturada correctamente con un fondo inicial de '
+                f'Gs. {sesion.monto_inicial:,.2f}.',
+            )
+            return redirect('caja_dashboard')
+    else:
+        form = AperturaCajaForm()
+
+    return render(request, 'cotizaciones/caja/apertura.html', {'form': form})
+
+
+@rol_requerido('cajero', 'admin', 'operador', 'supervisor')
+def caja_dashboard_view(request):
+    """
+    Dashboard del cajero: muestra el estado de la sesión actual,
+    el saldo calculado hasta ahora y los movimientos registrados (IS2-61).
+    """
+    from .models import SesionCaja, MovimientoCaja
+    from decimal import Decimal
+
+
+    sesion_activa = SesionCaja.objects.filter(
+        cajero=request.user,
+        estado=SesionCaja.EstadoSesion.ABIERTA,
+    ).first()
+
+    # Historial de sesiones cerradas del usuario
+    sesiones_cerradas = SesionCaja.objects.filter(
+        cajero=request.user,
+        estado=SesionCaja.EstadoSesion.CERRADA,
+    ).order_by('-fecha_cierre')[:10]
+
+    # Movimientos del turno actual
+    movimientos_turno = []
+    saldo_estimado = None
+    total_ingresos = Decimal('0.00')
+    total_egresos = Decimal('0.00')
+
+    if sesion_activa:
+        movimientos_turno = sesion_activa.movimientos.select_related('operacion', 'registrado_por').all()
+        total_ingresos, total_egresos = sesion_activa.calcular_ingresos_turno()
+        saldo_estimado = sesion_activa.calcular_saldo_esperado()
+
+    return render(request, 'cotizaciones/caja/dashboard.html', {
+        'sesion_activa': sesion_activa,
+        'sesiones_cerradas': sesiones_cerradas,
+        'movimientos_turno': movimientos_turno,
+        'total_ingresos': total_ingresos,
+        'total_egresos': total_egresos,
+        'saldo_estimado': saldo_estimado,
+    })
+
+
+@rol_requerido('cajero', 'admin', 'operador', 'supervisor')
+def historial_movimientos_view(request):
+    """
+    Historial de movimientos de caja (IS2-61).
+    - Para Cajero: ve los movimientos de su sesión de caja actual y pasadas.
+    - Para Admin / Supervisor: puede filtrar por cajero, tipo de movimiento y fechas.
+    """
+    from .models import MovimientoCaja, SesionCaja
+    from django.contrib.auth.models import User
+    from django.utils.dateparse import parse_date
+    from decimal import Decimal
+
+
+    user_roles = getattr(request, 'roles', set())
+    is_admin = bool({'admin', 'supervisor'} & user_roles)
+
+    movimientos = MovimientoCaja.objects.select_related('sesion', 'sesion__cajero', 'operacion', 'registrado_por')
+
+    cajero_filtro = request.GET.get('cajero', '').strip()
+    tipo_filtro = request.GET.get('tipo', '').strip()
+    fecha_desde = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta = request.GET.get('fecha_hasta', '').strip()
+
+    if not is_admin:
+        # El cajero regular solo ve movimientos de sus sesiones
+        movimientos = movimientos.filter(sesion__cajero=request.user)
+    else:
+        # Administrador/supervisor puede filtrar por cualquier cajero
+        if cajero_filtro:
+            movimientos = movimientos.filter(sesion__cajero__id=cajero_filtro)
+
+    if tipo_filtro in ['INGRESO', 'EGRESO']:
+        movimientos = movimientos.filter(tipo=tipo_filtro)
+
+    if fecha_desde:
+        f_d = parse_date(fecha_desde)
+        if f_d:
+            movimientos = movimientos.filter(fecha__date__gte=f_d)
+
+    if fecha_hasta:
+        f_h = parse_date(fecha_hasta)
+        if f_h:
+            movimientos = movimientos.filter(fecha__date__lte=f_h)
+
+    # Lista de cajeros disponibles para el dropdown del admin
+    cajeros_list = []
+    if is_admin:
+        cajeros_ids = SesionCaja.objects.values_list('cajero_id', flat=True).distinct()
+        cajeros_list = User.objects.filter(id__in=cajeros_ids).order_by('first_name', 'username')
+
+    # Totales acumulados del conjunto filtrado
+    from django.db.models import Sum
+    total_ingresos = movimientos.filter(tipo='INGRESO').aggregate(s=Sum('monto'))['s'] or Decimal('0.00')
+    total_egresos = movimientos.filter(tipo='EGRESO').aggregate(s=Sum('monto'))['s'] or Decimal('0.00')
+
+    return render(request, 'cotizaciones/caja/movimientos.html', {
+        'movimientos': movimientos[:100],  # límite de 100 más recientes
+        'is_admin': is_admin,
+        'cajeros_list': cajeros_list,
+        'cajero_filtro': cajero_filtro,
+        'tipo_filtro': tipo_filtro,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'total_ingresos': total_ingresos,
+        'total_egresos': total_egresos,
+        'balance_neto': total_ingresos - total_egresos,
+    })
+
+
+
+@rol_requerido('cajero', 'admin', 'operador', 'supervisor')
+def cierre_caja_view(request):
+    """
+    Vista para cerrar la sesión de caja activa.
+    El cajero declara el monto físico final; el sistema calcula el arqueo.
+    """
+    from .models import SesionCaja
+    from .forms import CierreCajaForm
+
+    sesion_activa = SesionCaja.objects.filter(
+        cajero=request.user,
+        estado=SesionCaja.EstadoSesion.ABIERTA,
+    ).first()
+
+    if not sesion_activa:
+        messages.error(
+            request,
+            'No tenés ninguna sesión de caja abierta. Debés aperturar la caja primero.',
+        )
+        return redirect('apertura_caja')
+
+    saldo_esperado_preview = sesion_activa.calcular_saldo_esperado()
+
+    if request.method == 'POST':
+        form = CierreCajaForm(request.POST)
+        if form.is_valid():
+            monto_final = form.cleaned_data['monto_final_declarado']
+            observaciones = form.cleaned_data.get('observaciones', '')
+            sesion_activa.cerrar(
+                monto_final_declarado=monto_final,
+                observaciones=observaciones,
+            )
+
+            tipo = sesion_activa.tipo_diferencia
+            diferencia_abs = abs(sesion_activa.diferencia)
+
+            if tipo == 'EXACTO':
+                messages.success(
+                    request,
+                    f'✅ Caja "{sesion_activa.nombre_caja}" cerrada. Saldo EXACTO — '
+                    f'no hay diferencias.',
+                )
+            elif tipo == 'SOBRANTE':
+                messages.warning(
+                    request,
+                    f'⚠️ Caja "{sesion_activa.nombre_caja}" cerrada. '
+                    f'SOBRANTE de Gs. {diferencia_abs:,.2f}.',
+                )
+            else:
+                messages.error(
+                    request,
+                    f'🚨 Caja "{sesion_activa.nombre_caja}" cerrada. '
+                    f'FALTANTE de Gs. {diferencia_abs:,.2f}.',
+                )
+
+            return redirect('caja_dashboard')
+    else:
+        form = CierreCajaForm()
+
+    return render(request, 'cotizaciones/caja/cierre.html', {
+        'form': form,
+        'sesion': sesion_activa,
+        'saldo_esperado_preview': saldo_esperado_preview,
     })
 

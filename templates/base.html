@@ -56,6 +56,13 @@
                     <span>🔔</span> Alertas
                 </a>
             </li>
+            {% if 'cajero' in request.roles or 'operador' in request.roles or 'admin' in request.roles or 'supervisor' in request.roles %}
+            <li>
+                <a href="{% url 'caja_dashboard' %}" class="nav-link" style="color: #a78bfa; font-weight: 600;">
+                    <span>🏦</span> Caja
+                </a>
+            </li>
+            {% endif %}
             <!-- Campanita interactiva (IS2-58) -->
             <li class="nav-item-notif" style="position: relative; list-style: none;">
                 <button id="btnCampanitaNotif" type="button" class="btn-campanita" aria-label="Notificaciones de variación de tasas" title="Ver notificaciones de tasas">

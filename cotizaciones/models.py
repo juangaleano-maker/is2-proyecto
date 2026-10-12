@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 
 class Cotizacion(models.Model):
     moneda_origen = models.ForeignKey(
@@ -292,5 +293,218 @@ class NotificacionTasa(models.Model):
 
     def __str__(self):
         return f"[{self.moneda.siglas}] {self.titulo} - Para: {self.usuario.username} ({'Leída' if self.leida else 'Nueva'})"
+
+
+class SesionCaja(models.Model):
+    """
+    Modelo para el control de apertura y cierre de caja por turno (IS2-60).
+    Registra el fondo inicial, movimientos del turno y el arqueo al cierre.
+    """
+
+    class EstadoSesion(models.TextChoices):
+        ABIERTA = 'ABIERTA', 'Abierta'
+        CERRADA = 'CERRADA', 'Cerrada'
+
+    cajero = models.ForeignKey(
+        'auth.User',
+        on_delete=models.RESTRICT,
+        related_name='sesiones_caja',
+        verbose_name='Cajero',
+    )
+    nombre_caja = models.CharField(
+        max_length=100,
+        default='Caja Principal',
+        verbose_name='Nombre / Identificador de Caja',
+    )
+    fecha_apertura = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha y Hora de Apertura',
+    )
+    monto_inicial = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name='Monto Inicial (Fondo de Caja)',
+    )
+    fecha_cierre = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha y Hora de Cierre',
+    )
+    monto_final_declarado = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Monto Final Declarado',
+    )
+    saldo_esperado = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Saldo Esperado',
+    )
+    diferencia = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Diferencia (+ Sobrante / - Faltante)',
+    )
+    estado = models.CharField(
+        max_length=10,
+        choices=EstadoSesion.choices,
+        default=EstadoSesion.ABIERTA,
+        verbose_name='Estado de Sesión',
+    )
+    observaciones = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Observaciones de Cierre',
+    )
+
+    class Meta:
+        verbose_name = 'Sesión de Caja'
+        verbose_name_plural = 'Sesiones de Caja'
+        ordering = ['-fecha_apertura']
+
+    def __str__(self):
+        return (
+            f"{self.nombre_caja} — {self.cajero.get_full_name() or self.cajero.username} "
+            f"({self.get_estado_display()}) [{self.fecha_apertura.strftime('%d/%m/%Y %H:%M')}]"
+        )
+
+    # ------------------------------------------------------------------
+    # Lógica de negocio
+    # ------------------------------------------------------------------
+
+    def calcular_ingresos_turno(self):
+        """
+        Retorna la suma de ingresos y egresos registrados en la sesión
+        a través de los MovimientoCaja asociados. Si no hay movimientos
+        (ej. sesión previa a IS2-61), utiliza fallback sobre Operacion.
+        """
+        movs = self.movimientos.all()
+        if movs.exists():
+            from django.db.models import Sum
+            ingresos = movs.filter(tipo='INGRESO').aggregate(s=Sum('monto'))['s'] or Decimal('0.00')
+            egresos = movs.filter(tipo='EGRESO').aggregate(s=Sum('monto'))['s'] or Decimal('0.00')
+            return ingresos, egresos
+
+        # Fallback de compatibilidad
+        from django.utils import timezone
+        fin = self.fecha_cierre or timezone.now()
+        ops = Operacion.objects.filter(
+            registrado_por=self.cajero,
+            estado=Operacion.EstadoOperacion.PAGADA,
+            fecha__gte=self.fecha_apertura,
+            fecha__lte=fin,
+        )
+        ingresos = Decimal('0.00')
+        egresos = Decimal('0.00')
+        for op in ops:
+            subtotal = op.subtotal
+            if op.tipo == Operacion.TipoOperacion.COMPRA:
+                ingresos += subtotal
+            else:
+                egresos += subtotal
+        return ingresos, egresos
+
+    def calcular_saldo_esperado(self):
+        """Retorna el saldo esperado = monto_inicial + ingresos - egresos."""
+        ingresos, egresos = self.calcular_ingresos_turno()
+        return self.monto_inicial + ingresos - egresos
+
+    def cerrar(self, monto_final_declarado, observaciones=''):
+        """
+        Cierra la sesión de caja calculando el saldo esperado y la diferencia.
+        Persiste los cambios en la base de datos.
+        """
+        from django.utils import timezone
+        from decimal import ROUND_HALF_UP
+
+        self.fecha_cierre = timezone.now()
+        self.monto_final_declarado = Decimal(str(monto_final_declarado))
+        self.saldo_esperado = self.calcular_saldo_esperado().quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+        self.diferencia = (
+            self.monto_final_declarado - self.saldo_esperado
+        ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.observaciones = observaciones
+        self.estado = self.EstadoSesion.CERRADA
+        self.save()
+
+    @property
+    def tipo_diferencia(self):
+        """Retorna 'EXACTO', 'SOBRANTE' o 'FALTANTE' según la diferencia."""
+        if self.diferencia is None:
+            return None
+        if self.diferencia > Decimal('0.00'):
+            return 'SOBRANTE'
+        if self.diferencia < Decimal('0.00'):
+            return 'FALTANTE'
+        return 'EXACTO'
+
+
+class MovimientoCaja(models.Model):
+    """
+    Registra cada movimiento de dinero (ingreso/egreso) asociado a una sesión
+    de caja activa (IS2-61). Vincula operaciones de compra/venta y pagos confirmados.
+    """
+    class TipoMovimiento(models.TextChoices):
+        INGRESO = 'INGRESO', 'Ingreso'
+        EGRESO = 'EGRESO', 'Egreso'
+
+    sesion = models.ForeignKey(
+        SesionCaja,
+        on_delete=models.CASCADE,
+        related_name='movimientos',
+        verbose_name='Sesión de Caja',
+    )
+    tipo = models.CharField(
+        max_length=10,
+        choices=TipoMovimiento.choices,
+        verbose_name='Tipo de Movimiento',
+    )
+    monto = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        verbose_name='Monto (Gs.)',
+    )
+    concepto = models.CharField(
+        max_length=255,
+        verbose_name='Concepto / Descripción',
+    )
+    operacion = models.OneToOneField(
+        'Operacion',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='movimiento_caja',
+        verbose_name='Operación Asociada',
+    )
+    fecha = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Fecha y Hora',
+    )
+    registrado_por = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='movimientos_caja_registrados',
+        verbose_name='Registrado Por',
+    )
+
+    class Meta:
+        verbose_name = 'Movimiento de Caja'
+        verbose_name_plural = 'Movimientos de Caja'
+        ordering = ['-fecha']
+
+    def __str__(self):
+        signo = '+' if self.tipo == self.TipoMovimiento.INGRESO else '-'
+        return f"{self.sesion.nombre_caja} | {self.tipo} ({signo}Gs. {self.monto}) - {self.concepto}"
+
 
 

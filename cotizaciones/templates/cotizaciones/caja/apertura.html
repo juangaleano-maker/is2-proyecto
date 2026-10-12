@@ -1,0 +1,122 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Apertura de Caja | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+  .caja-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f3460 100%);
+    border-radius: 16px;
+    padding: 2rem 2.5rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .caja-hero-icon { font-size: 2.8rem; }
+  .caja-hero h1 { margin: 0; font-size: 1.8rem; color: #e2e8f0; font-weight: 700; }
+  .caja-hero p  { margin: 0.25rem 0 0; color: #94a3b8; font-size: 0.95rem; }
+
+  .caja-card {
+    background: linear-gradient(145deg, #1e293b, #162032);
+    border: 1px solid rgba(99,179,237,0.15);
+    border-radius: 16px;
+    padding: 2rem 2.5rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    max-width: 540px;
+    margin: 0 auto;
+  }
+  .form-label { color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem; }
+  .form-control {
+    background: rgba(15,23,42,0.8);
+    border: 1px solid rgba(99,179,237,0.2);
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 0.65rem 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .form-control:focus {
+    border-color: #63b3ed;
+    box-shadow: 0 0 0 3px rgba(99,179,237,0.15);
+    background: rgba(15,23,42,0.95);
+    color: #f1f5f9;
+    outline: none;
+  }
+  .form-control::placeholder { color: #64748b; }
+  .btn-apertura {
+    background: linear-gradient(135deg, #059669, #10b981);
+    border: none;
+    color: #fff;
+    font-weight: 700;
+    padding: 0.75rem 2rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    width: 100%;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 14px rgba(16,185,129,0.4);
+  }
+  .btn-apertura:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16,185,129,0.5); }
+  .error-list { color: #f87171; font-size: 0.85rem; margin-top: 0.3rem; list-style: none; padding: 0; }
+  .info-box {
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    color: #93c5fd;
+    font-size: 0.9rem;
+  }
+  .info-box strong { color: #bfdbfe; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="caja-hero">
+  <span class="caja-hero-icon">🏦</span>
+  <div>
+    <h1>Apertura de Caja</h1>
+    <p>Registrá el fondo inicial para comenzar tu turno de trabajo.</p>
+  </div>
+</div>
+
+<div class="caja-card">
+  <div class="info-box">
+    ℹ️ <strong>Tip:</strong> El monto inicial es el efectivo físico que recibís al comienzo
+    del turno. Este valor se usará como base para calcular el arqueo al cierre.
+  </div>
+
+  <form method="post" id="form-apertura-caja">
+    {% csrf_token %}
+
+    <div class="mb-4">
+      <label for="{{ form.nombre_caja.id_for_label }}" class="form-label">
+        🗂️ {{ form.nombre_caja.label }}
+      </label>
+      {{ form.nombre_caja }}
+      {% if form.nombre_caja.errors %}
+        <ul class="error-list">
+          {% for error in form.nombre_caja.errors %}<li>⚠️ {{ error }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <div class="mb-4">
+      <label for="{{ form.monto_inicial.id_for_label }}" class="form-label">
+        💵 {{ form.monto_inicial.label }}
+      </label>
+      {{ form.monto_inicial }}
+      {% if form.monto_inicial.errors %}
+        <ul class="error-list">
+          {% for error in form.monto_inicial.errors %}<li>⚠️ {{ error }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <button type="submit" class="btn-apertura" id="btn-aperturar-caja">
+      🔓 Aperturar Caja
+    </button>
+  </form>
+</div>
+{% endblock %}
