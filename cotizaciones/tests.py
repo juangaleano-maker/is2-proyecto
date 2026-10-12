@@ -1274,6 +1274,24 @@ class AlertasYNotificacionesTasasTestCase(TestCase):
         )
         self.assertEqual(NotificacionTasa.objects.filter(usuario=self.usuario).count(), 1)
 
+    def test_signal_notifica_a_todos_los_clientes_sin_alerta_configurada(self):
+        """Los clientes sin alertas personalizadas también reciben la notificación de cotización nueva."""
+        cliente_sin_alerta = User.objects.create_user(
+            username='cliente_sin_alerta_test',
+            email='cliente_sin_alerta@test.com',
+            password='password123'
+        )
+        Cotizacion.objects.create(
+            moneda_origen=self.eur,
+            moneda_destino=self.pyg,
+            compra=Decimal('8200.00'),
+            venta=Decimal('8300.00'),
+            activo=True
+        )
+        notifs = NotificacionTasa.objects.filter(usuario=cliente_sin_alerta, moneda=self.eur)
+        self.assertEqual(notifs.count(), 1)
+        self.assertIn("EUR", notifs.first().titulo)
+
     def test_api_toggle_moneda_seguimiento(self):
         """Prueba del botón de seguimiento rápido en 1 clic para estar al pendiente."""
         self.client.force_login(self.usuario)

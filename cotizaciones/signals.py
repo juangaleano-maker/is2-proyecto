@@ -39,29 +39,52 @@ def notificar_variacion_tasa(sender, instance, created, **kwargs):
     if not moneda:
         return
 
-    # Buscar alertas activas asociadas a esta moneda
-    alertas_candidatas = AlertaTasa.objects.filter(
-        moneda=moneda,
-        activa=True
-    ).select_related('usuario', 'moneda')
-
-    if not alertas_candidatas.exists():
-        return
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
 
     fecha_ref = instance.fecha or timezone.now()
     fecha_fmt = fecha_ref.strftime('%d/%m/%Y %H:%M')
     origen_siglas = moneda.siglas
     destino_siglas = instance.moneda_destino.siglas if instance.moneda_destino else "PYG"
 
-    notificaciones_a_crear = []
+    # 1. Buscar alertas activas asociadas a esta moneda
+    alertas_candidatas = AlertaTasa.objects.filter(
+        moneda=moneda,
+        activa=True
+    ).select_related('usuario', 'moneda')
+
+    alertas_por_usuario = {}
     for alerta in alertas_candidatas:
-        if alerta.se_cumple(instance):
-            if alerta.tipo == AlertaTasa.TipoAlerta.VARIACION:
+        alertas_por_usuario.setdefault(alerta.usuario_id, []).append(alerta)
+
+    notificaciones_a_crear = []
+    usuarios_procesados = set()
+
+    for usuario_id, alertas in alertas_por_usuario.items():
+        alerta_cumplida = None
+        alerta_variacion = None
+        tiene_umbral = False
+
+        for alerta in alertas:
+            if alerta.tipo != AlertaTasa.TipoAlerta.VARIACION:
+                tiene_umbral = True
+                if alerta.se_cumple(instance):
+                    alerta_cumplida = alerta
+                    break
+            else:
+                alerta_variacion = alerta
+
+        # Si no cumplió un umbral específico, pero tiene alerta de variación
+        if not alerta_cumplida and alerta_variacion:
+            alerta_cumplida = alerta_variacion
+
+        if alerta_cumplida:
+            if alerta_cumplida.tipo == AlertaTasa.TipoAlerta.VARIACION:
                 titulo = f"Actualización de Tasa: {origen_siglas}"
                 detalle = f"Nueva cotización de {origen_siglas} registrada."
             else:
                 titulo = f"¡Alerta de Tasa Alcanzada! {origen_siglas}"
-                detalle = f"La tasa alcanzó tu condición de {alerta.get_tipo_display()} ({alerta.valor_objetivo})."
+                detalle = f"La tasa alcanzó tu condición de {alerta_cumplida.get_tipo_display()} ({alerta_cumplida.valor_objetivo})."
 
             mensaje = (
                 f"{detalle} Tasa actual a {destino_siglas}: "
@@ -71,10 +94,10 @@ def notificar_variacion_tasa(sender, instance, created, **kwargs):
 
             notificaciones_a_crear.append(
                 NotificacionTasa(
-                    usuario=alerta.usuario,
+                    usuario_id=usuario_id,
                     moneda=moneda,
                     cotizacion=instance,
-                    alerta=alerta,
+                    alerta=alerta_cumplida,
                     titulo=titulo,
                     mensaje=mensaje,
                     tasa_compra=instance.compra,
@@ -83,6 +106,38 @@ def notificar_variacion_tasa(sender, instance, created, **kwargs):
                     leida=False
                 )
             )
+            usuarios_procesados.add(usuario_id)
+        elif tiene_umbral:
+            # El usuario configuró un umbral específico (ej. compra >= X) que aún no se alcanzó.
+            # No enviamos alerta hasta que se cumpla su condición configurada.
+            usuarios_procesados.add(usuario_id)
+
+    # 2. Notificar a todos los demás usuarios activos (incluyendo clientes)
+    # que no fueron procesados ni tienen umbrales bloqueantes
+    usuarios_restantes = User.objects.filter(is_active=True).exclude(id__in=usuarios_procesados)
+
+    titulo_general = f"Actualización de Tasa: {origen_siglas}"
+    mensaje_general = (
+        f"Nueva cotización de {origen_siglas} registrada. "
+        f"Tasa actual a {destino_siglas}: Compra {instance.compra} | Venta {instance.venta}. "
+        f"Fecha de actualización: {fecha_fmt}."
+    )
+
+    for u in usuarios_restantes:
+        notificaciones_a_crear.append(
+            NotificacionTasa(
+                usuario=u,
+                moneda=moneda,
+                cotizacion=instance,
+                alerta=None,
+                titulo=titulo_general,
+                mensaje=mensaje_general,
+                tasa_compra=instance.compra,
+                tasa_venta=instance.venta,
+                fecha_actualizacion=fecha_ref,
+                leida=False
+            )
+        )
 
     if notificaciones_a_crear:
         NotificacionTasa.objects.bulk_create(notificaciones_a_crear)
