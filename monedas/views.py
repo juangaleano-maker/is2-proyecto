@@ -101,3 +101,77 @@ def editar_moneda(request, pk):
         'tiene_cotizaciones': tiene_cotizaciones,
         'requiere_confirmacion': tiene_cotizaciones,
     })
+
+
+@rol_requerido('admin')
+def gestionar_denominaciones_moneda(request, moneda_id):
+    """
+    Permite ver y agregar denominaciones (cortes de billetes) para una moneda.
+    Solo las denominaciones y monedas activas se consideran en apertura y arqueo de caja.
+    """
+    from decimal import Decimal, InvalidOperation
+    from .models import DenominacionMoneda
+
+    moneda = get_object_or_404(Moneda, pk=moneda_id)
+    denominaciones = moneda.denominaciones.all().order_by('-valor')
+
+    if request.method == 'POST':
+        valor_raw = request.POST.get('valor', '').strip()
+        try:
+            valor = Decimal(valor_raw)
+            if valor <= Decimal('0'):
+                messages.error(request, 'El valor del billete debe ser mayor a cero.')
+            else:
+                _, created = DenominacionMoneda.objects.get_or_create(
+                    moneda=moneda,
+                    valor=valor,
+                    defaults={'activo': True}
+                )
+                if created:
+                    messages.success(request, f'Billete de {moneda.siglas} {valor:,.0f} agregado exitosamente.')
+                else:
+                    messages.warning(request, f'El billete de {moneda.siglas} {valor:,.0f} ya existe.')
+                return redirect('monedas:gestionar_billetes', moneda_id=moneda.id)
+        except (InvalidOperation, ValueError):
+            messages.error(request, 'Ingrese un valor numérico válido para el billete.')
+
+    return render(request, 'monedas/billetes.html', {
+        'moneda': moneda,
+        'denominaciones': denominaciones,
+    })
+
+
+@rol_requerido('admin')
+def alternar_estado_denominacion(request, pk):
+    """Alterna el estado activo/inactivo de una denominación de billete."""
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    from .models import DenominacionMoneda
+    denom = get_object_or_404(DenominacionMoneda, pk=pk)
+    denom.activo = not denom.activo
+    denom.save(update_fields=['activo'])
+    estado_str = "activado" if denom.activo else "desactivado"
+    messages.success(request, f'Billete {denom} {estado_str} correctamente.')
+    return redirect('monedas:gestionar_billetes', moneda_id=denom.moneda_id)
+
+
+@rol_requerido('admin')
+def eliminar_denominacion(request, pk):
+    """Elimina una denominación si no tiene registros históricos."""
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+
+    from .models import DenominacionMoneda
+    denom = get_object_or_404(DenominacionMoneda, pk=pk)
+    moneda_id = denom.moneda_id
+    if hasattr(denom, 'conteos_sesion') and denom.conteos_sesion.exists():
+        denom.activo = False
+        denom.save(update_fields=['activo'])
+        messages.warning(request, f'El billete {denom} tiene registros en caja; ha sido desactivado en lugar de eliminado.')
+    else:
+        denom.delete()
+        messages.success(request, 'Denominación eliminada correctamente.')
+    return redirect('monedas:gestionar_billetes', moneda_id=moneda_id)

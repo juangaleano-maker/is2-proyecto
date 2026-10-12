@@ -1,6 +1,6 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
-{% block title %}Cierre de Caja | Global Exchange{% endblock %}
+{% block title %}Cierre y Arqueo Multidivisa | Global Exchange{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -18,36 +18,126 @@
   .caja-hero h1 { margin: 0; font-size: 1.8rem; color: #e2e8f0; font-weight: 700; }
   .caja-hero p  { margin: 0.25rem 0 0; color: #94a3b8; font-size: 0.95rem; }
 
-  .arqueo-panel {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+  .caja-layout {
+    max-width: 950px;
+    margin: 0 auto;
   }
-  @media (max-width: 640px) { .arqueo-panel { grid-template-columns: 1fr; } }
-
-  .arqueo-card {
-    background: linear-gradient(145deg, #1e293b, #162032);
-    border-radius: 14px;
-    padding: 1.5rem;
-    border: 1px solid rgba(99,179,237,0.15);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  .warning-box {
+    background: rgba(251,191,36,0.08);
+    border: 1px solid rgba(251,191,36,0.25);
+    border-radius: 10px;
+    padding: 1.1rem 1.4rem;
+    margin-bottom: 1.8rem;
+    color: #fde68a;
+    font-size: 0.92rem;
+    line-height: 1.5;
   }
-  .arqueo-label { color: #64748b; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
-  .arqueo-value { color: #e2e8f0; font-size: 1.5rem; font-weight: 800; }
-  .arqueo-value.green  { color: #34d399; }
-  .arqueo-value.yellow { color: #fbbf24; }
-
-  .form-card {
+  .moneda-arqueo-card {
     background: linear-gradient(145deg, #1e293b, #162032);
     border: 1px solid rgba(139,92,246,0.2);
-    border-radius: 16px;
-    padding: 2rem 2.5rem;
-    max-width: 560px;
-    margin: 0 auto;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
   }
-  .form-label { color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem; }
+  .mac-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding-bottom: 0.8rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .mac-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mac-badge {
+    background: rgba(139,92,246,0.2);
+    color: #c4b5fd;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+  .esperado-tag {
+    font-size: 0.95rem;
+    color: #94a3b8;
+  }
+  .esperado-tag strong {
+    color: #fbbf24;
+    font-size: 1.1rem;
+  }
+  .billetes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  .billete-item {
+    background: rgba(15,23,42,0.6);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .billete-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    white-space: nowrap;
+  }
+  .input-cant {
+    width: 75px;
+    text-align: right;
+    padding: 0.4rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid rgba(139,92,246,0.3);
+    background: #0f172a;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .input-cant:focus {
+    border-color: #a78bfa;
+    outline: none;
+  }
+  .mac-footer {
+    border-top: 1px dashed rgba(255,255,255,0.1);
+    padding-top: 0.8rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .total-conteo {
+    font-size: 1rem;
+    color: #cbd5e1;
+  }
+  .total-conteo strong {
+    color: #38bdf8;
+    font-size: 1.25rem;
+  }
+  .diferencia-indicator {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+  .dif-exacto   { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); }
+  .dif-sobrante { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+  .dif-faltante { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
+
   .form-control {
     background: rgba(15,23,42,0.8);
     border: 1px solid rgba(139,92,246,0.25);
@@ -55,119 +145,199 @@
     border-radius: 8px;
     padding: 0.65rem 1rem;
     width: 100%;
-    transition: border-color 0.2s, box-shadow 0.2s;
     box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
   .form-control:focus {
     border-color: #a78bfa;
-    box-shadow: 0 0 0 3px rgba(139,92,246,0.15);
-    background: rgba(15,23,42,0.95);
-    color: #f1f5f9;
     outline: none;
+    background: rgba(15,23,42,0.95);
   }
-  .form-control::placeholder { color: #64748b; }
-  textarea.form-control { resize: vertical; min-height: 80px; }
-
   .btn-cierre {
     background: linear-gradient(135deg, #7c3aed, #8b5cf6);
     border: none;
     color: #fff;
     font-weight: 700;
-    padding: 0.75rem 2rem;
+    padding: 0.9rem 2rem;
     border-radius: 10px;
-    font-size: 1rem;
+    font-size: 1.05rem;
     width: 100%;
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s;
     box-shadow: 0 4px 14px rgba(139,92,246,0.4);
-    margin-top: 0.5rem;
+    margin-top: 1rem;
   }
   .btn-cierre:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(139,92,246,0.55); }
   .btn-cancelar {
     display: block;
     text-align: center;
-    margin-top: 0.8rem;
-    color: #64748b;
+    margin-top: 1rem;
+    color: #94a3b8;
     text-decoration: none;
-    font-size: 0.88rem;
-    transition: color 0.15s;
+    font-size: 0.9rem;
   }
-  .btn-cancelar:hover { color: #94a3b8; }
-  .error-list { color: #f87171; font-size: 0.85rem; margin-top: 0.3rem; list-style: none; padding: 0; }
-  .warning-box {
-    background: rgba(251,191,36,0.08);
-    border: 1px solid rgba(251,191,36,0.25);
-    border-radius: 10px;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-    color: #fde68a;
-    font-size: 0.88rem;
-  }
+  .btn-cancelar:hover { color: #cbd5e1; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="caja-hero">
-  <span class="caja-hero-icon">🔒</span>
-  <div>
-    <h1>Cierre de Caja</h1>
-    <p>Declaraciones finales y arqueo del turno.</p>
+<div class="caja-layout">
+  <div class="caja-hero">
+    <span class="caja-hero-icon">🔒</span>
+    <div>
+      <h1>Cierre de Caja y Arqueo Físico</h1>
+      <p>Conteo de billetes y validación de saldos por moneda activa.</p>
+    </div>
   </div>
-</div>
 
-<!-- Resumen de la sesión actual -->
-<div class="arqueo-panel">
-  <div class="arqueo-card">
-    <div class="arqueo-label">📋 Caja</div>
-    <div class="arqueo-value" style="font-size: 1.1rem;">{{ sesion.nombre_caja }}</div>
-  </div>
-  <div class="arqueo-card">
-    <div class="arqueo-label">🕐 Apertura</div>
-    <div class="arqueo-value" style="font-size: 1.05rem;">{{ sesion.fecha_apertura|date:"d/m/Y H:i" }}</div>
-  </div>
-  <div class="arqueo-card">
-    <div class="arqueo-label">💵 Fondo Inicial</div>
-    <div class="arqueo-value green">Gs. {{ sesion.monto_inicial|floatformat:2 }}</div>
-  </div>
-  <div class="arqueo-card">
-    <div class="arqueo-label">📊 Saldo Esperado (calculado)</div>
-    <div class="arqueo-value yellow">Gs. {{ saldo_esperado_preview|floatformat:2 }}</div>
-  </div>
-</div>
-
-<div class="form-card">
   <div class="warning-box">
-    ⚠️ <strong>Atención:</strong> Una vez cerrada la caja, no podés reabrirla.
-    El saldo esperado es <strong>Gs. {{ saldo_esperado_preview|floatformat:2 }}</strong>.
-    Ingresá el efectivo físico que tenés en caja para calcular el arqueo.
+    ⚠️ <strong>Arqueo Físico de Turno:</strong> Ingresá los billetes contados físicamente en tu gaveta para cada moneda activa. El sistema comparará el conteo físico contra el saldo esperado y calculará diferencias automáticamente.
   </div>
 
   <form method="post" id="form-cierre-caja">
     {% csrf_token %}
 
-    <div class="mb-4">
-      <label for="{{ form.monto_final_declarado.id_for_label }}" class="form-label">
-        💰 {{ form.monto_final_declarado.label }}
-      </label>
-      {{ form.monto_final_declarado }}
-      {% if form.monto_final_declarado.errors %}
-        <ul class="error-list">
-          {% for error in form.monto_final_declarado.errors %}<li>⚠️ {{ error }}</li>{% endfor %}
-        </ul>
+    <h2 style="font-size: 1.2rem; color: #f1f5f9; margin-bottom: 1rem; font-weight: 700;">
+      💵 Arqueo por Moneda Activa ({{ monedas_activas.count }})
+    </h2>
+
+    {% for item in saldos_multidivisa %}
+    {% with m=item.moneda %}
+    <div class="moneda-arqueo-card" data-moneda-siglas="{{ m.siglas }}">
+      <div class="mac-header">
+        <div class="mac-title">
+          <span>💰 {{ m.nombre }}</span>
+          <span class="mac-badge">{{ m.siglas }}</span>
+        </div>
+        <div class="esperado-tag">
+          Saldo Esperado: <strong>{{ item.saldo_esperado|floatformat:2 }} {{ m.siglas }}</strong>
+        </div>
+      </div>
+
+      {% if m.denominaciones.all %}
+        <p style="color: #94a3b8; font-size: 0.82rem; margin-top: 0; margin-bottom: 0.8rem;">
+          Conteo físico por billetes:
+        </p>
+        <div class="billetes-grid">
+          {% for d in m.denominaciones.all %}
+          <div class="billete-item">
+            <span class="billete-label">
+              Billete <strong>{{ d.valor|floatformat:0 }}</strong>
+            </span>
+            <input type="number" min="0" step="1" name="cant_cierre_billete_{{ d.id }}"
+                   class="input-cant js-cierre-billete"
+                   data-moneda-id="{{ m.id }}"
+                   data-valor="{{ d.valor }}"
+                   data-esperado="{{ item.saldo_esperado }}"
+                   value="0"
+                   placeholder="0">
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="background: rgba(15,23,42,0.4); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <label style="color: #94a3b8; font-size: 0.85rem; display: block; margin-bottom: 6px;">
+            Total físico contado en {{ m.siglas }}:
+          </label>
+          <input type="number" step="0.01" min="0" name="monto_final_moneda_{{ m.id }}"
+                 class="form-control js-cierre-directo"
+                 data-moneda-id="{{ m.id }}"
+                 data-esperado="{{ item.saldo_esperado }}"
+                 placeholder="0.00">
+        </div>
+      {% endif %}
+
+      <div class="mac-footer">
+        <div class="total-conteo">
+          Total Físico: <strong id="cierre-display-{{ m.id }}">0.00</strong> {{ m.siglas }}
+        </div>
+        <div id="dif-indicator-{{ m.id }}" class="diferencia-indicator dif-exacto" style="display: none;">
+          Diferencia: 0.00
+        </div>
+      </div>
+
+      {% if m.siglas == 'PYG' %}
+        <input type="hidden" name="monto_final_declarado" id="legacy_monto_final" value="0.00">
       {% endif %}
     </div>
+    {% endwith %}
+    {% endfor %}
 
-    <div class="mb-4">
-      <label for="{{ form.observaciones.id_for_label }}" class="form-label">
-        📝 {{ form.observaciones.label }}
+    <!-- Observaciones -->
+    <div class="moneda-arqueo-card">
+      <label for="id_observaciones" style="color: #cbd5e1; font-weight: 600; margin-bottom: 0.5rem; display: block;">
+        📝 Observaciones de Cierre (opcional)
       </label>
-      {{ form.observaciones }}
+      <textarea name="observaciones" id="id_observaciones" class="form-control" rows="3"
+                placeholder="Aclaraciones sobre faltantes, sobrantes o incidencias del turno..."></textarea>
     </div>
 
     <button type="submit" class="btn-cierre" id="btn-confirmar-cierre">
-      🔒 Confirmar Cierre de Caja
+      🔒 Confirmar y Cerrar Caja
     </button>
     <a href="{% url 'caja_dashboard' %}" class="btn-cancelar">← Volver al Dashboard sin cerrar</a>
   </form>
 </div>
+
+<script>
+  function recalcularArqueoMoneda(monedaId) {
+    let total = 0;
+    let esperado = 0;
+
+    const inputs = document.querySelectorAll(`.js-cierre-billete[data-moneda-id="${monedaId}"]`);
+    inputs.forEach(input => {
+      const cant = parseInt(input.value) || 0;
+      const valor = parseFloat(input.dataset.valor) || 0;
+      total += (cant * valor);
+      if (input.dataset.esperado) esperado = parseFloat(input.dataset.esperado) || 0;
+    });
+
+    const directo = document.querySelector(`.js-cierre-directo[data-moneda-id="${monedaId}"]`);
+    if (directo && directo.value) {
+      total += (parseFloat(directo.value) || 0);
+      if (directo.dataset.esperado) esperado = parseFloat(directo.dataset.esperado) || 0;
+    }
+
+    const display = document.getElementById(`cierre-display-${monedaId}`);
+    if (display) {
+      display.textContent = total.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    const difIndicator = document.getElementById(`dif-indicator-${monedaId}`);
+    if (difIndicator) {
+      const dif = total - esperado;
+      difIndicator.style.display = 'inline-block';
+      if (Math.abs(dif) < 0.01) {
+        difIndicator.className = 'diferencia-indicator dif-exacto';
+        difIndicator.textContent = '✅ Saldo EXACTO';
+      } else if (dif > 0) {
+        difIndicator.className = 'diferencia-indicator dif-sobrante';
+        difIndicator.textContent = `⚠️ SOBRANTE: +${dif.toLocaleString('es-PY', { minimumFractionDigits: 2 })}`;
+      } else {
+        difIndicator.className = 'diferencia-indicator dif-faltante';
+        difIndicator.textContent = `🚨 FALTANTE: ${dif.toLocaleString('es-PY', { minimumFractionDigits: 2 })}`;
+      }
+    }
+
+    const legacyPyg = document.getElementById('legacy_monto_final');
+    const pygCard = document.querySelector('.moneda-arqueo-card[data-moneda-siglas="PYG"]');
+    if (legacyPyg && pygCard && pygCard.contains(display)) {
+      legacyPyg.value = total.toFixed(2);
+    }
+  }
+
+  document.querySelectorAll('.js-cierre-billete, .js-cierre-directo').forEach(input => {
+    input.addEventListener('input', function() {
+      recalcularArqueoMoneda(this.dataset.monedaId);
+    });
+  });
+
+  // Inicializar indicadores al cargar
+  document.querySelectorAll('.moneda-arqueo-card').forEach(card => {
+    const firstInput = card.querySelector('.js-cierre-billete, .js-cierre-directo');
+    if (firstInput) {
+      recalcularArqueoMoneda(firstInput.dataset.monedaId);
+    }
+  });
+</script>
 {% endblock %}

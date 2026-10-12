@@ -80,6 +80,11 @@
                                style="padding: 6px 12px; background-color: #0ea5e9; color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
                                 ✏️ Editar
                             </a>
+                            <a href="{% url 'monedas:gestionar_billetes' moneda.pk %}"
+                               style="padding: 6px 12px; background-color: #8b5cf6; color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"
+                               title="Configurar cortes de billetes">
+                                💵 Billetes
+                            </a>
                             <form method="POST" action="{% url 'monedas:alternar_estado' moneda.pk %}" style="display: inline; margin: 0;">
                                 {% csrf_token %}
                                 {% if moneda.activa %}

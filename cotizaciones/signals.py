@@ -193,13 +193,16 @@ def registrar_movimiento_caja_operacion(sender, instance, created, **kwargs):
         )
         return
 
-    # Determinar tipo de movimiento y monto
-    tipo = (
-        MovimientoCaja.TipoMovimiento.INGRESO
-        if instance.tipo == Operacion.TipoOperacion.COMPRA
-        else MovimientoCaja.TipoMovimiento.EGRESO
-    )
-    monto = instance.subtotal
+    # Determinar tipo de movimiento local (PYG) y tipo en divisa
+    if instance.tipo == Operacion.TipoOperacion.COMPRA:
+        tipo_local = MovimientoCaja.TipoMovimiento.INGRESO
+        tipo_divisa = MovimientoCaja.TipoMovimiento.EGRESO
+    else:
+        tipo_local = MovimientoCaja.TipoMovimiento.EGRESO
+        tipo_divisa = MovimientoCaja.TipoMovimiento.INGRESO
+
+    monto_local = instance.subtotal
+    monto_divisa = instance.monto
 
     moneda_str = instance.moneda.siglas if instance.moneda else ''
     concepto = (
@@ -209,13 +212,16 @@ def registrar_movimiento_caja_operacion(sender, instance, created, **kwargs):
 
     MovimientoCaja.objects.create(
         sesion=sesion_activa,
-        tipo=tipo,
-        monto=monto,
+        tipo=tipo_local,
+        monto=monto_local,
+        moneda=instance.moneda,
+        monto_divisa=monto_divisa,
+        tipo_divisa=tipo_divisa,
         concepto=concepto,
         operacion=instance,
         registrado_por=cajero,
     )
     logger.info(
-        f"[IS2-61] Movimiento de caja registrado: {tipo} Gs. {monto} en '{sesion_activa.nombre_caja}' "
-        f"para Operación #{instance.id}"
+        f"[IS2-61] Movimiento de caja registrado: {tipo_local} Gs. {monto_local} | {tipo_divisa} {monto_divisa} {moneda_str} "
+        f"en '{sesion_activa.nombre_caja}' para Operación #{instance.id}"
     )

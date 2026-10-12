@@ -278,3 +278,50 @@ class MonedaTestCase(TestCase):
         url = reverse('monedas:editar', kwargs={'pk': 88888})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
+
+    def test_denominacion_creacion_y_str(self):
+        """Prueba creación y representación en string de cortes de billete."""
+        from decimal import Decimal
+        from .models import DenominacionMoneda
+        denom = DenominacionMoneda.objects.create(
+            moneda=self.moneda1,
+            valor=Decimal('100.00'),
+            activo=True
+        )
+        self.assertEqual(str(denom), "USD 100")
+        self.assertTrue(denom.activo)
+
+    def test_gestionar_billetes_view_get_y_post(self):
+        """Prueba interfaz para listar y registrar nuevos billetes en una moneda."""
+        self.client.force_login(self.admin_user)
+        url = reverse('monedas:gestionar_billetes', kwargs={'moneda_id': self.moneda1.id})
+        
+        # GET
+        resp_get = self.client.get(url)
+        self.assertEqual(resp_get.status_code, 200)
+        self.assertContains(resp_get, "USD")
+
+        # POST válido
+        resp_post = self.client.post(url, {'valor': '50.00'})
+        self.assertRedirects(resp_post, url)
+        from .models import DenominacionMoneda
+        self.assertTrue(DenominacionMoneda.objects.filter(moneda=self.moneda1, valor=50).exists())
+
+    def test_alternar_y_eliminar_billete(self):
+        """Prueba pausar/activar y eliminar billete."""
+        from decimal import Decimal
+        from .models import DenominacionMoneda
+        self.client.force_login(self.admin_user)
+        denom = DenominacionMoneda.objects.create(
+            moneda=self.moneda1,
+            valor=Decimal('20.00'),
+            activo=True
+        )
+        url_toggle = reverse('monedas:alternar_billete', kwargs={'pk': denom.pk})
+        self.client.post(url_toggle)
+        denom.refresh_from_db()
+        self.assertFalse(denom.activo)
+
+        url_eliminar = reverse('monedas:eliminar_billete', kwargs={'pk': denom.pk})
+        self.client.post(url_eliminar)
+        self.assertFalse(DenominacionMoneda.objects.filter(pk=denom.pk).exists())

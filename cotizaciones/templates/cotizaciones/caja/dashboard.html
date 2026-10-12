@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard de Caja | Global Exchange{% endblock %}
+{% block title %}Dashboard de Caja Multidivisa | Global Exchange{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -18,19 +18,64 @@
   .caja-hero h1 { margin: 0; font-size: 1.8rem; color: #e2e8f0; font-weight: 700; }
   .caja-hero p  { margin: 0.25rem 0 0; color: #94a3b8; font-size: 0.95rem; }
 
-  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-  .stat-card {
+  .monedas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.2rem;
+    margin-bottom: 2rem;
+  }
+  .moneda-stat-card {
     background: linear-gradient(145deg, #1e293b, #162032);
     border-radius: 14px;
-    padding: 1.4rem 1.6rem;
-    border: 1px solid rgba(99,179,237,0.15);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    padding: 1.5rem;
+    border: 1px solid rgba(99,179,237,0.18);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
   }
-  .stat-label { color: #64748b; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-  .stat-value { color: #e2e8f0; font-size: 1.6rem; font-weight: 800; margin-top: 0.3rem; }
-  .stat-value.green  { color: #34d399; }
-  .stat-value.yellow { color: #fbbf24; }
-  .stat-value.red    { color: #f87171; }
+  .msc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding-bottom: 0.7rem;
+    margin-bottom: 1rem;
+  }
+  .msc-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .msc-badge {
+    background: rgba(99,179,237,0.15);
+    color: #63b3ed;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .msc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.88rem;
+  }
+  .msc-label { color: #94a3b8; }
+  .msc-val   { font-weight: 600; color: #e2e8f0; }
+  .msc-val.green { color: #34d399; }
+  .msc-val.red   { color: #f87171; }
+  .msc-saldo-box {
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px dashed rgba(255,255,255,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .msc-saldo-label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em; }
+  .msc-saldo-val   { font-size: 1.35rem; font-weight: 800; color: #38bdf8; }
 
   .section-title { color: #94a3b8; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem; }
   .caja-table {
@@ -48,17 +93,14 @@
   .caja-table tr:hover td { background: rgba(99,179,237,0.05); }
 
   .badge-abierta { background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1px solid rgba(16,185,129,0.3); }
-  .badge-cerrada { background: rgba(100,116,139,0.15); color: #94a3b8; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1px solid rgba(100,116,139,0.3); }
   .badge-sobrante { background: rgba(251,191,36,0.15); color: #fbbf24; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
-  .badge-faltante  { background: rgba(248,113,113,0.15); color: #f87171; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
-  .badge-exacto    { background: rgba(52,211,153,0.15); color: #34d399; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
 
   .action-btn {
     display: inline-block;
-    padding: 0.55rem 1.2rem;
+    padding: 0.65rem 1.4rem;
     border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.88rem;
+    font-weight: 700;
+    font-size: 0.92rem;
     text-decoration: none;
     border: none;
     cursor: pointer;
@@ -88,55 +130,68 @@
 <div class="caja-hero">
   <span class="caja-hero-icon">🏦</span>
   <div>
-    <h1>Dashboard de Caja</h1>
-    <p>Estado de tu turno y movimientos registrados.</p>
+    <h1>Dashboard de Caja Multidivisa</h1>
+    <p>Control en vivo de saldos, movimientos y arqueo por cada moneda activa.</p>
   </div>
 </div>
 
 {% if sesion_activa %}
-  <!-- Sesión Activa -->
-  <div class="stat-grid">
-    <div class="stat-card">
-      <div class="stat-label">📋 Caja</div>
-      <div class="stat-value" style="font-size: 1.2rem;">{{ sesion_activa.nombre_caja }}</div>
+  <!-- Info general de sesion -->
+  <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <span style="color: #94a3b8; font-size: 0.85rem;">Caja:</span>
+      <strong style="color: #f1f5f9; font-size: 1.1rem; margin-left: 6px;">{{ sesion_activa.nombre_caja }}</strong>
+      <span style="color: #64748b; margin: 0 10px;">•</span>
+      <span style="color: #94a3b8; font-size: 0.85rem;">Apertura:</span>
+      <span style="color: #cbd5e1; font-size: 0.9rem; margin-left: 6px;">{{ sesion_activa.fecha_apertura|date:"d/m/Y H:i" }}</span>
     </div>
-    <div class="stat-card">
-      <div class="stat-label">🕐 Apertura</div>
-      <div class="stat-value" style="font-size: 1.1rem;">{{ sesion_activa.fecha_apertura|date:"d/m/Y H:i" }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">💵 Fondo Inicial</div>
-      <div class="stat-value green">Gs. {{ sesion_activa.monto_inicial|floatformat:2 }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">🟢 Ingresos del Turno</div>
-      <div class="stat-value green">+ Gs. {{ total_ingresos|floatformat:2 }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">🔴 Egresos del Turno</div>
-      <div class="stat-value red">- Gs. {{ total_egresos|floatformat:2 }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">📊 Saldo Estimado Actual</div>
-      <div class="stat-value green">Gs. {{ saldo_estimado|floatformat:2 }}</div>
+    <div style="display: flex; gap: 10px;">
+      <a href="{% url 'cierre_caja' %}" class="action-btn btn-cerrar">🔒 Cerrar y Arquear Caja</a>
+      <a href="{% url 'historial_movimientos' %}" class="action-btn" style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd;">📜 Historial</a>
     </div>
   </div>
 
-  <div style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
-    <a href="{% url 'cierre_caja' %}" class="action-btn btn-cerrar">🔒 Cerrar Caja</a>
-    <a href="{% url 'historial_movimientos' %}" class="action-btn btn-abrir" style="background: rgba(59, 130, 246, 0.2); border-color: #3b82f6; color: #93c5fd;">📜 Ver Historial Completo</a>
+  <!-- Tarjetas por cada moneda activa monitoreada -->
+  <p class="section-title">📊 Saldos Físicos Estimados por Moneda Activa</p>
+  <div class="monedas-grid">
+    {% for s in saldos_multidivisa %}
+    <div class="moneda-stat-card">
+      <div class="msc-header">
+        <div class="msc-title">
+          <span>💰 {{ s.moneda.nombre }}</span>
+          <span class="msc-badge">{{ s.moneda.siglas }}</span>
+        </div>
+      </div>
+      <div class="msc-row">
+        <span class="msc-label">Fondo Inicial:</span>
+        <span class="msc-val">{{ s.monto_inicial|floatformat:2 }}</span>
+      </div>
+      <div class="msc-row">
+        <span class="msc-label">Ingresos del Turno:</span>
+        <span class="msc-val green">+ {{ s.ingresos|floatformat:2 }}</span>
+      </div>
+      <div class="msc-row">
+        <span class="msc-label">Egresos del Turno:</span>
+        <span class="msc-val red">- {{ s.egresos|floatformat:2 }}</span>
+      </div>
+      <div class="msc-saldo-box">
+        <span class="msc-saldo-label">Saldo Estimado</span>
+        <span class="msc-saldo-val">{{ s.saldo_esperado|floatformat:2 }} <span style="font-size: 0.8rem; font-weight: 600;">{{ s.moneda.siglas }}</span></span>
+      </div>
+    </div>
+    {% endfor %}
   </div>
 
   <!-- Movimientos del turno -->
-  <p class="section-title">📑 Movimientos de Caja del Turno Actual</p>
+  <p class="section-title">📑 Movimientos de Caja del Turno Actual ({{ movimientos_turno|length }})</p>
   {% if movimientos_turno %}
     <table class="caja-table" style="margin-bottom: 2rem;">
       <thead>
         <tr>
           <th>Fecha / Hora</th>
-          <th>Tipo</th>
+          <th>Flujo Moneda Local</th>
+          <th>Flujo Divisa</th>
           <th>Concepto</th>
-          <th>Monto</th>
           <th>Operación</th>
         </tr>
       </thead>
@@ -146,22 +201,26 @@
           <td>{{ mov.fecha|date:"d/m/Y H:i:s" }}</td>
           <td>
             {% if mov.tipo == "INGRESO" %}
-              <span class="badge-abierta">🟢 Ingreso</span>
+              <span class="badge-abierta">🟢 + Gs. {{ mov.monto|floatformat:2 }}</span>
             {% else %}
-              <span class="badge-sobrante">🔴 Egreso</span>
+              <span class="badge-sobrante">🔴 - Gs. {{ mov.monto|floatformat:2 }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if mov.moneda and mov.monto_divisa %}
+              {% if mov.tipo_divisa == "INGRESO" %}
+                <span style="color: #34d399; font-weight: 700;">🟢 + {{ mov.monto_divisa|floatformat:2 }} {{ mov.moneda.siglas }}</span>
+              {% else %}
+                <span style="color: #f87171; font-weight: 700;">🔴 - {{ mov.monto_divisa|floatformat:2 }} {{ mov.moneda.siglas }}</span>
+              {% endif %}
+            {% else %}
+              <span style="color: #64748b;">—</span>
             {% endif %}
           </td>
           <td>{{ mov.concepto }}</td>
           <td>
-            {% if mov.tipo == "INGRESO" %}
-              <strong style="color: #34d399;">+ Gs. {{ mov.monto|floatformat:2 }}</strong>
-            {% else %}
-              <strong style="color: #f87171;">- Gs. {{ mov.monto|floatformat:2 }}</strong>
-            {% endif %}
-          </td>
-          <td>
             {% if mov.operacion %}
-              <span style="color: #94a3b8;">#{{ mov.operacion.id }}</span>
+              <span style="color: #94a3b8; font-weight: 600;">#{{ mov.operacion.id }}</span>
             {% else %}
               <span style="color: #64748b;">-</span>
             {% endif %}
@@ -173,35 +232,32 @@
   {% else %}
     <div class="empty-state">
       <div class="empty-icon">📭</div>
-      <p>No hay movimientos registrados en este turno aún. Se registrarán automáticamente al confirmar compras o ventas.</p>
+      <p>No hay movimientos registrados en este turno aún. Se registrarán automáticamente al confirmar compras o ventas en caja.</p>
     </div>
   {% endif %}
-
 
 {% else %}
   <!-- Sin sesión activa -->
   <div class="no-sesion-card">
-    <div style="font-size: 3rem; margin-bottom: 0.8rem;">🔐</div>
-    <h3>No hay caja abierta</h3>
-    <p>No tenés ninguna sesión de caja activa. Aperturá tu caja para comenzar el turno.</p>
-    <a href="{% url 'apertura_caja' %}" class="action-btn btn-aperturar">🔓 Aperturar Caja</a>
+    <div style="font-size: 3.5rem; margin-bottom: 0.8rem;">🔒</div>
+    <h3>No tenés una sesión de caja abierta actualmente</h3>
+    <p>Para registrar transacciones de cambio y movimientos físicos de efectivo, debés aperturar tu turno.</p>
+    <a href="{% url 'apertura_caja' %}" class="action-btn btn-aperturar">🔓 Aperturar Caja Ahora</a>
   </div>
 {% endif %}
 
-<!-- Historial de sesiones cerradas -->
+<!-- Sesiones cerradas históricas -->
 {% if sesiones_cerradas %}
-  <p class="section-title">📂 Últimas Sesiones Cerradas</p>
+  <p class="section-title">📂 Tus Últimas Sesiones de Caja Cerradas</p>
   <table class="caja-table">
     <thead>
       <tr>
         <th>Caja</th>
         <th>Apertura</th>
         <th>Cierre</th>
-        <th>Fondo Inicial</th>
-        <th>Saldo Esperado</th>
-        <th>Monto Final</th>
+        <th>Fondo Inicial (Gs.)</th>
+        <th>Saldo Final Declarado (Gs.)</th>
         <th>Diferencia</th>
-        <th>Resultado</th>
       </tr>
     </thead>
     <tbody>
@@ -211,24 +267,14 @@
         <td>{{ s.fecha_apertura|date:"d/m/Y H:i" }}</td>
         <td>{{ s.fecha_cierre|date:"d/m/Y H:i" }}</td>
         <td>Gs. {{ s.monto_inicial|floatformat:2 }}</td>
-        <td>Gs. {{ s.saldo_esperado|floatformat:2 }}</td>
         <td>Gs. {{ s.monto_final_declarado|floatformat:2 }}</td>
         <td>
-          {% if s.diferencia > 0 %}
-            <span style="color: #34d399;">+Gs. {{ s.diferencia|floatformat:2 }}</span>
-          {% elif s.diferencia < 0 %}
-            <span style="color: #f87171;">Gs. {{ s.diferencia|floatformat:2 }}</span>
+          {% if s.tipo_diferencia == 'EXACTO' %}
+            <span style="color: #34d399; font-weight: 700;">✅ Exacto</span>
+          {% elif s.tipo_diferencia == 'SOBRANTE' %}
+            <span style="color: #fbbf24; font-weight: 700;">⚠️ +Gs. {{ s.diferencia|floatformat:2 }}</span>
           {% else %}
-            <span style="color: #94a3b8;">Gs. 0.00</span>
-          {% endif %}
-        </td>
-        <td>
-          {% if s.diferencia > 0 %}
-            <span class="badge-sobrante">⬆ Sobrante</span>
-          {% elif s.diferencia < 0 %}
-            <span class="badge-faltante">⬇ Faltante</span>
-          {% else %}
-            <span class="badge-exacto">✔ Exacto</span>
+            <span style="color: #f87171; font-weight: 700;">🚨 -Gs. {{ s.diferencia|floatformat:2 }}</span>
           {% endif %}
         </td>
       </tr>

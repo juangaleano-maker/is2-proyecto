@@ -53,3 +53,35 @@ class Moneda(models.Model):
                         pass
 
         return False
+
+
+class DenominacionMoneda(models.Model):
+    """
+    Representa un corte o valor facial de billete para una moneda específica (ej. USD 100, 50; PYG 100000, 50000).
+    Permite el conteo físico y arqueo detallado en caja.
+    """
+    moneda = models.ForeignKey(
+        Moneda,
+        on_delete=models.CASCADE,
+        related_name='denominaciones',
+        verbose_name="Moneda"
+    )
+    valor = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name="Valor facial del billete"
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name="¿Corte activo?"
+    )
+
+    class Meta:
+        verbose_name = "Denominación de Billete"
+        verbose_name_plural = "Denominaciones de Billetes"
+        ordering = ['moneda', '-valor']
+        unique_together = ('moneda', 'valor')
+
+    def __str__(self):
+        val_str = f"{self.valor:,.0f}" if self.valor % 1 == 0 else f"{self.valor}"
+        return f"{self.moneda.siglas} {val_str}"

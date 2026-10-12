@@ -1428,9 +1428,13 @@ def apertura_caja_view(request):
     """
     Vista para aperturar una sesión de caja al inicio del turno.
     Valida que el cajero no tenga ya una sesión abierta.
+    Soporta desglose de billetes por cada moneda activa (IS2-60 / Multidivisa).
     """
-    from .models import SesionCaja
+    from .models import SesionCaja, SaldoSesionMoneda, ConteoBilleteSesion
     from .forms import AperturaCajaForm
+    from monedas.models import Moneda, DenominacionMoneda
+    from django.db.models import Prefetch
+    from decimal import Decimal
 
     # Verificar si el cajero ya tiene una sesión abierta
     sesion_activa = SesionCaja.objects.filter(
@@ -1447,57 +1451,124 @@ def apertura_caja_view(request):
         )
         return redirect('caja_dashboard')
 
-    if request.method == 'POST':
-        form = AperturaCajaForm(request.POST)
-        if form.is_valid():
-            sesion = SesionCaja.objects.create(
-                cajero=request.user,
-                nombre_caja=form.cleaned_data['nombre_caja'],
-                monto_inicial=form.cleaned_data['monto_inicial'],
-            )
-            messages.success(
-                request,
-                f'✅ Caja "{sesion.nombre_caja}" aperturada correctamente con un fondo inicial de '
-                f'Gs. {sesion.monto_inicial:,.2f}.',
-            )
-            return redirect('caja_dashboard')
-    else:
-        form = AperturaCajaForm()
+    # Solo considerar monedas activas con sus denominaciones activas
+    monedas_activas = Moneda.objects.filter(activa=True).prefetch_related(
+        Prefetch('denominaciones', queryset=DenominacionMoneda.objects.filter(activo=True).order_by('-valor'))
+    ).order_by('id')
 
-    return render(request, 'cotizaciones/caja/apertura.html', {'form': form})
+    if request.method == 'POST':
+        nombre_caja = request.POST.get('nombre_caja', 'Caja Principal').strip() or 'Caja Principal'
+        monto_inicial_pyg = Decimal('0.00')
+
+        datos_por_moneda = {}
+        for m in monedas_activas:
+            total_m = Decimal('0.00')
+            conteos_m = []
+            for d in m.denominaciones.all():
+                cant_str = request.POST.get(f'cant_billete_{d.id}', '0').strip()
+                try:
+                    cant = int(cant_str) if cant_str else 0
+                except ValueError:
+                    cant = 0
+                if cant > 0:
+                    sub = Decimal(str(cant)) * d.valor
+                    total_m += sub
+                    conteos_m.append((d, cant))
+
+            monto_directo_str = request.POST.get(f'monto_inicial_moneda_{m.id}', '').strip()
+            if monto_directo_str:
+                try:
+                    monto_directo = Decimal(monto_directo_str)
+                    if monto_directo > total_m or (len(conteos_m) == 0):
+                        total_m = monto_directo
+                except Exception:
+                    pass
+
+            datos_por_moneda[m.id] = {
+                'moneda': m,
+                'total': total_m,
+                'conteos': conteos_m,
+            }
+            if m.siglas.upper() == 'PYG':
+                monto_inicial_pyg = total_m
+
+        # Fallback si se usó el campo legado 'monto_inicial' del AperturaCajaForm
+        monto_inicial_legacy = request.POST.get('monto_inicial', '').strip()
+        if monto_inicial_legacy:
+            try:
+                legacy_dec = Decimal(monto_inicial_legacy)
+                if legacy_dec > monto_inicial_pyg or monto_inicial_pyg == Decimal('0.00'):
+                    monto_inicial_pyg = legacy_dec
+                    for m_id, info in datos_por_moneda.items():
+                        if info['moneda'].siglas.upper() == 'PYG':
+                            info['total'] = legacy_dec
+            except Exception:
+                pass
+
+        sesion = SesionCaja.objects.create(
+            cajero=request.user,
+            nombre_caja=nombre_caja,
+            monto_inicial=monto_inicial_pyg,
+        )
+
+        for m_id, info in datos_por_moneda.items():
+            SaldoSesionMoneda.objects.create(
+                sesion=sesion,
+                moneda=info['moneda'],
+                monto_inicial=info['total'],
+            )
+            for d, cant in info['conteos']:
+                ConteoBilleteSesion.objects.create(
+                    sesion=sesion,
+                    denominacion=d,
+                    momento=ConteoBilleteSesion.MomentoConteo.APERTURA,
+                    cantidad=cant,
+                )
+
+        messages.success(
+            request,
+            f'✅ Caja "{sesion.nombre_caja}" aperturada correctamente con control multidivisa '
+            f'({monedas_activas.count()} monedas activas monitoreadas).',
+        )
+        return redirect('caja_dashboard')
+
+    form = AperturaCajaForm()
+    return render(request, 'cotizaciones/caja/apertura.html', {
+        'form': form,
+        'monedas_activas': monedas_activas,
+    })
 
 
 @rol_requerido('cajero', 'admin', 'operador', 'supervisor')
 def caja_dashboard_view(request):
     """
-    Dashboard del cajero: muestra el estado de la sesión actual,
-    el saldo calculado hasta ahora y los movimientos registrados (IS2-61).
+    Dashboard del cajero: muestra el estado multidivisa de la sesión actual,
+    los saldos por moneda activa y los movimientos registrados (IS2-61).
     """
     from .models import SesionCaja, MovimientoCaja
     from decimal import Decimal
-
 
     sesion_activa = SesionCaja.objects.filter(
         cajero=request.user,
         estado=SesionCaja.EstadoSesion.ABIERTA,
     ).first()
 
-    # Historial de sesiones cerradas del usuario
     sesiones_cerradas = SesionCaja.objects.filter(
         cajero=request.user,
         estado=SesionCaja.EstadoSesion.CERRADA,
     ).order_by('-fecha_cierre')[:10]
 
-    # Movimientos del turno actual
     movimientos_turno = []
     saldo_estimado = None
     total_ingresos = Decimal('0.00')
     total_egresos = Decimal('0.00')
+    saldos_multidivisa = []
 
     if sesion_activa:
-        movimientos_turno = sesion_activa.movimientos.select_related('operacion', 'registrado_por').all()
+        movimientos_turno = sesion_activa.movimientos.select_related('operacion', 'registrado_por', 'moneda').all()
         total_ingresos, total_egresos = sesion_activa.calcular_ingresos_turno()
         saldo_estimado = sesion_activa.calcular_saldo_esperado()
+        saldos_multidivisa = sesion_activa.calcular_saldos_esperados_multidivisa()
 
     return render(request, 'cotizaciones/caja/dashboard.html', {
         'sesion_activa': sesion_activa,
@@ -1506,6 +1577,7 @@ def caja_dashboard_view(request):
         'total_ingresos': total_ingresos,
         'total_egresos': total_egresos,
         'saldo_estimado': saldo_estimado,
+        'saldos_multidivisa': saldos_multidivisa,
     })
 
 
@@ -1583,10 +1655,14 @@ def historial_movimientos_view(request):
 def cierre_caja_view(request):
     """
     Vista para cerrar la sesión de caja activa.
-    El cajero declara el monto físico final; el sistema calcula el arqueo.
+    El cajero declara el monto físico final por cada moneda activa (mediante conteo de billetes o total).
+    El sistema calcula el arqueo y diferencias específicas para cada divisa.
     """
-    from .models import SesionCaja
+    from .models import SesionCaja, SaldoSesionMoneda, ConteoBilleteSesion
     from .forms import CierreCajaForm
+    from monedas.models import Moneda, DenominacionMoneda
+    from django.db.models import Prefetch
+    from decimal import Decimal
 
     sesion_activa = SesionCaja.objects.filter(
         cajero=request.user,
@@ -1600,47 +1676,122 @@ def cierre_caja_view(request):
         )
         return redirect('apertura_caja')
 
+    # Monedas activas con sus denominaciones
+    monedas_activas = Moneda.objects.filter(activa=True).prefetch_related(
+        Prefetch('denominaciones', queryset=DenominacionMoneda.objects.filter(activo=True).order_by('-valor'))
+    ).order_by('id')
+
+    saldos_multidivisa = sesion_activa.calcular_saldos_esperados_multidivisa()
     saldo_esperado_preview = sesion_activa.calcular_saldo_esperado()
 
     if request.method == 'POST':
-        form = CierreCajaForm(request.POST)
-        if form.is_valid():
-            monto_final = form.cleaned_data['monto_final_declarado']
-            observaciones = form.cleaned_data.get('observaciones', '')
-            sesion_activa.cerrar(
-                monto_final_declarado=monto_final,
-                observaciones=observaciones,
+        observaciones = request.POST.get('observaciones', '').strip()
+        monto_final_legacy_str = request.POST.get('monto_final_declarado', '').strip()
+
+        monto_final_pyg = Decimal('0.00')
+        if monto_final_legacy_str:
+            try:
+                monto_final_pyg = Decimal(monto_final_legacy_str)
+            except Exception:
+                pass
+
+        hay_diferencias = False
+        resumen_arqueo = []
+
+        datos_arqueo_map = {item['moneda'].id: item for item in saldos_multidivisa}
+
+        for m in monedas_activas:
+            info_esp = datos_arqueo_map.get(m.id, {})
+            esperado = info_esp.get('saldo_esperado', Decimal('0.00'))
+
+            # 1. Conteo de billetes para esta moneda
+            total_declarado_m = Decimal('0.00')
+            conteos_m = []
+            for d in m.denominaciones.all():
+                cant_str = request.POST.get(f'cant_cierre_billete_{d.id}', '0').strip()
+                try:
+                    cant = int(cant_str) if cant_str else 0
+                except ValueError:
+                    cant = 0
+                if cant > 0:
+                    sub = Decimal(str(cant)) * d.valor
+                    total_declarado_m += sub
+                    conteos_m.append((d, cant))
+
+            # 2. O ingreso directo del total declarado para esa moneda
+            monto_directo_str = request.POST.get(f'monto_final_moneda_{m.id}', '').strip()
+            if monto_directo_str:
+                try:
+                    m_dec = Decimal(monto_directo_str)
+                    if m_dec > total_declarado_m or (len(conteos_m) == 0):
+                        total_declarado_m = m_dec
+                except Exception:
+                    pass
+
+            if m.siglas.upper() == 'PYG' and monto_final_legacy_str:
+                try:
+                    total_declarado_m = Decimal(monto_final_legacy_str)
+                except Exception:
+                    pass
+
+            if m.siglas.upper() == 'PYG':
+                monto_final_pyg = total_declarado_m
+
+            dif = total_declarado_m - esperado
+            if dif != Decimal('0.00'):
+                hay_diferencias = True
+
+            saldo_obj, _ = SaldoSesionMoneda.objects.get_or_create(
+                sesion=sesion_activa,
+                moneda=m,
+                defaults={'monto_inicial': Decimal('0.00')}
+            )
+            saldo_obj.monto_final_declarado = total_declarado_m
+            saldo_obj.saldo_esperado = esperado
+            saldo_obj.diferencia = dif
+            saldo_obj.save()
+
+            for d, cant in conteos_m:
+                ConteoBilleteSesion.objects.create(
+                    sesion=sesion_activa,
+                    denominacion=d,
+                    momento=ConteoBilleteSesion.MomentoConteo.CIERRE,
+                    cantidad=cant,
+                )
+
+            resumen_arqueo.append({
+                'moneda': m,
+                'esperado': esperado,
+                'declarado': total_declarado_m,
+                'diferencia': dif,
+                'tipo': saldo_obj.tipo_diferencia,
+            })
+
+        sesion_activa.cerrar(
+            monto_final_declarado=monto_final_pyg,
+            observaciones=observaciones,
+        )
+
+        if not hay_diferencias:
+            messages.success(
+                request,
+                f'✅ Caja "{sesion_activa.nombre_caja}" cerrada. Arqueo EXACTO en todas las divisas.',
+            )
+        else:
+            detalles_dif = [f"{r['moneda'].siglas}: {r['diferencia']:+,.2f}" for r in resumen_arqueo if r['diferencia'] != 0]
+            messages.warning(
+                request,
+                f'⚠️ Caja "{sesion_activa.nombre_caja}" cerrada con diferencias: ' + ', '.join(detalles_dif),
             )
 
-            tipo = sesion_activa.tipo_diferencia
-            diferencia_abs = abs(sesion_activa.diferencia)
+        return redirect('caja_dashboard')
 
-            if tipo == 'EXACTO':
-                messages.success(
-                    request,
-                    f'✅ Caja "{sesion_activa.nombre_caja}" cerrada. Saldo EXACTO — '
-                    f'no hay diferencias.',
-                )
-            elif tipo == 'SOBRANTE':
-                messages.warning(
-                    request,
-                    f'⚠️ Caja "{sesion_activa.nombre_caja}" cerrada. '
-                    f'SOBRANTE de Gs. {diferencia_abs:,.2f}.',
-                )
-            else:
-                messages.error(
-                    request,
-                    f'🚨 Caja "{sesion_activa.nombre_caja}" cerrada. '
-                    f'FALTANTE de Gs. {diferencia_abs:,.2f}.',
-                )
-
-            return redirect('caja_dashboard')
-    else:
-        form = CierreCajaForm()
-
+    form = CierreCajaForm()
     return render(request, 'cotizaciones/caja/cierre.html', {
         'form': form,
         'sesion': sesion_activa,
         'saldo_esperado_preview': saldo_esperado_preview,
+        'monedas_activas': monedas_activas,
+        'saldos_multidivisa': saldos_multidivisa,
     })
 

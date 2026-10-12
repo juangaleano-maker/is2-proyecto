@@ -1940,5 +1940,97 @@ class MovimientoCajaTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Historial de Movimientos de Caja')
 
+    def test_apertura_caja_multidivisa_con_conteo_billetes(self):
+        """Apertura registra saldo por cada divisa activa y conteo físico de billetes."""
+        from monedas.models import DenominacionMoneda
+        from .models import SaldoSesionMoneda, ConteoBilleteSesion
+        
+        # Denominaciones para USD
+        d100 = DenominacionMoneda.objects.create(moneda=self.moneda, valor=Decimal('100.00'), activo=True)
+        d50 = DenominacionMoneda.objects.create(moneda=self.moneda, valor=Decimal('50.00'), activo=True)
+
+        # Cerrar sesión anterior para permitir abrir una nueva
+        self.sesion.estado = self.SesionCaja.EstadoSesion.CERRADA
+        self.sesion.save()
+
+        self.client.force_login(self.cajero)
+        resp = self.client.post(reverse('apertura_caja'), {
+            'nombre_caja': 'Caja Multidivisa Test',
+            f'cant_billete_{d100.id}': '10',  # 10 * 100 = 1000 USD
+            f'cant_billete_{d50.id}': '4',    # 4 * 50 = 200 USD -> Total 1200 USD
+            'monto_inicial': '500000.00',      # 500.000 Gs.
+        })
+        self.assertRedirects(resp, reverse('caja_dashboard'))
+
+        nueva_sesion = self.SesionCaja.objects.filter(cajero=self.cajero, estado=self.SesionCaja.EstadoSesion.ABIERTA).first()
+        self.assertIsNotNone(nueva_sesion)
+        self.assertEqual(nueva_sesion.nombre_caja, 'Caja Multidivisa Test')
+        
+        # SaldoSesionMoneda para USD
+        saldo_usd = SaldoSesionMoneda.objects.filter(sesion=nueva_sesion, moneda=self.moneda).first()
+        self.assertIsNotNone(saldo_usd)
+        self.assertEqual(saldo_usd.monto_inicial, Decimal('1200.00'))
+
+        # Conteo físico de billetes registrado
+        conteo = ConteoBilleteSesion.objects.filter(sesion=nueva_sesion, denominacion=d100).first()
+        self.assertIsNotNone(conteo)
+        self.assertEqual(conteo.cantidad, 10)
+        self.assertEqual(conteo.subtotal, Decimal('1000.00'))
+
+    def test_cierre_arqueo_multidivisa_por_billetes_y_diferencias(self):
+        """Al cerrar caja se valida el arqueo y diferencias por cada divisa activa."""
+        from monedas.models import DenominacionMoneda
+        from .models import SaldoSesionMoneda
+        
+        d100 = DenominacionMoneda.objects.create(moneda=self.moneda, valor=Decimal('100.00'), activo=True)
+        saldo_usd = SaldoSesionMoneda.objects.create(
+            sesion=self.sesion,
+            moneda=self.moneda,
+            monto_inicial=Decimal('1000.00'),
+        )
+
+        # Operación de venta de 200 USD (entra 200 USD a caja)
+        op = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.VENTA,
+            monto=Decimal('200.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PAGADA,
+            registrado_por=self.cajero,
+        )
+
+        # El saldo esperado de USD es 1000 + 200 = 1200 USD
+        # El cajero cuenta 11 billetes de 100 = 1100 USD (FALTANTE de 100 USD)
+        self.client.force_login(self.cajero)
+        resp = self.client.post(reverse('cierre_caja'), {
+            f'cant_cierre_billete_{d100.id}': '11',  # 1100 USD
+            'monto_final_declarado': '1000000.00',   # Gs.
+            'observaciones': 'Faltante de 1 billete de 100 USD',
+        })
+        self.assertRedirects(resp, reverse('caja_dashboard'))
+
+        saldo_usd.refresh_from_db()
+        self.assertEqual(saldo_usd.saldo_esperado, Decimal('1200.00'))
+        self.assertEqual(saldo_usd.monto_final_declarado, Decimal('1100.00'))
+        self.assertEqual(saldo_usd.diferencia, Decimal('-100.00'))
+        self.assertEqual(saldo_usd.tipo_diferencia, 'FALTANTE')
+
+    def test_caja_ignora_monedas_inactivas(self):
+        """Monedas con activa=False no aparecen en la apertura ni arqueo de caja."""
+        from monedas.models import Moneda
+        moneda_inactiva = Moneda.objects.create(nombre="Yen Japonés", siglas="JPY", activa=False)
+
+        # Cerrar sesión activa previa para poder acceder a apertura_caja
+        self.sesion.estado = self.SesionCaja.EstadoSesion.CERRADA
+        self.sesion.save()
+
+        self.client.force_login(self.cajero)
+        resp = self.client.get(reverse('apertura_caja'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "USD")
+        self.assertNotContains(resp, "JPY")
+
 
 

@@ -1,6 +1,6 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 
-{% block title %}Apertura de Caja | Global Exchange{% endblock %}
+{% block title %}Apertura de Caja Multidivisa | Global Exchange{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -18,22 +18,19 @@
   .caja-hero h1 { margin: 0; font-size: 1.8rem; color: #e2e8f0; font-weight: 700; }
   .caja-hero p  { margin: 0.25rem 0 0; color: #94a3b8; font-size: 0.95rem; }
 
-  .caja-card {
-    background: linear-gradient(145deg, #1e293b, #162032);
-    border: 1px solid rgba(99,179,237,0.15);
-    border-radius: 16px;
-    padding: 2rem 2.5rem;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
-    max-width: 540px;
+  .caja-layout {
+    max-width: 900px;
     margin: 0 auto;
   }
-  .form-label { color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem; }
+  .form-label { color: #cbd5e1; font-weight: 600; margin-bottom: 0.4rem; display: block; }
   .form-control {
     background: rgba(15,23,42,0.8);
     border: 1px solid rgba(99,179,237,0.2);
     color: #e2e8f0;
     border-radius: 8px;
     padding: 0.65rem 1rem;
+    width: 100%;
+    box-sizing: border-box;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
   .form-control:focus {
@@ -43,80 +40,221 @@
     color: #f1f5f9;
     outline: none;
   }
-  .form-control::placeholder { color: #64748b; }
+  .info-box {
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    color: #93c5fd;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  .moneda-card {
+    background: linear-gradient(145deg, #1e293b, #162032);
+    border: 1px solid rgba(99,179,237,0.15);
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
+  .moneda-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding-bottom: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  .moneda-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .moneda-badge {
+    background: rgba(99,179,237,0.15);
+    color: #63b3ed;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .total-pill {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #34d399;
+  }
+  .billetes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 0.8rem;
+  }
+  .billete-item {
+    background: rgba(15,23,42,0.6);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .billete-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    white-space: nowrap;
+  }
+  .input-cant {
+    width: 75px;
+    text-align: right;
+    padding: 0.4rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid rgba(99,179,237,0.25);
+    background: #0f172a;
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .input-cant:focus {
+    border-color: #38bdf8;
+    outline: none;
+  }
   .btn-apertura {
     background: linear-gradient(135deg, #059669, #10b981);
     border: none;
     color: #fff;
     font-weight: 700;
-    padding: 0.75rem 2rem;
+    padding: 0.9rem 2rem;
     border-radius: 10px;
-    font-size: 1rem;
+    font-size: 1.05rem;
     width: 100%;
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s;
     box-shadow: 0 4px 14px rgba(16,185,129,0.4);
+    margin-top: 1rem;
   }
   .btn-apertura:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16,185,129,0.5); }
-  .error-list { color: #f87171; font-size: 0.85rem; margin-top: 0.3rem; list-style: none; padding: 0; }
-  .info-box {
-    background: rgba(59,130,246,0.1);
-    border: 1px solid rgba(59,130,246,0.3);
-    border-radius: 10px;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-    color: #93c5fd;
-    font-size: 0.9rem;
-  }
-  .info-box strong { color: #bfdbfe; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="caja-hero">
-  <span class="caja-hero-icon">🏦</span>
-  <div>
-    <h1>Apertura de Caja</h1>
-    <p>Registrá el fondo inicial para comenzar tu turno de trabajo.</p>
+<div class="caja-layout">
+  <div class="caja-hero">
+    <span class="caja-hero-icon">🏦</span>
+    <div>
+      <h1>Apertura de Caja Multidivisa</h1>
+      <p>Control físico de billetes y fondo inicial por cada divisa activa.</p>
+    </div>
   </div>
-</div>
 
-<div class="caja-card">
   <div class="info-box">
-    ℹ️ <strong>Tip:</strong> El monto inicial es el efectivo físico que recibís al comienzo
-    del turno. Este valor se usará como base para calcular el arqueo al cierre.
+    ℹ️ <strong>Control Físico Multidivisa:</strong> Ingresá la cantidad de billetes que recibís en cada moneda activa al iniciar el turno. El sistema multiplicará y calculará el fondo inicial exacto para cada divisa por separado.
   </div>
 
   <form method="post" id="form-apertura-caja">
     {% csrf_token %}
 
-    <div class="mb-4">
-      <label for="{{ form.nombre_caja.id_for_label }}" class="form-label">
-        🗂️ {{ form.nombre_caja.label }}
+    <div class="moneda-card" style="margin-bottom: 2rem;">
+      <label for="id_nombre_caja" class="form-label">
+        🗂️ Identificador de Caja
       </label>
-      {{ form.nombre_caja }}
-      {% if form.nombre_caja.errors %}
-        <ul class="error-list">
-          {% for error in form.nombre_caja.errors %}<li>⚠️ {{ error }}</li>{% endfor %}
-        </ul>
-      {% endif %}
+      <input type="text" name="nombre_caja" id="id_nombre_caja" class="form-control"
+             value="Caja Principal" required placeholder="Ej. Caja 1, Caja Principal…">
     </div>
 
-    <div class="mb-4">
-      <label for="{{ form.monto_inicial.id_for_label }}" class="form-label">
-        💵 {{ form.monto_inicial.label }}
-      </label>
-      {{ form.monto_inicial }}
-      {% if form.monto_inicial.errors %}
-        <ul class="error-list">
-          {% for error in form.monto_inicial.errors %}<li>⚠️ {{ error }}</li>{% endfor %}
-        </ul>
+    <h2 style="font-size: 1.2rem; color: #f1f5f9; margin-bottom: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+      💵 Fondo Inicial por Moneda Activa ({{ monedas_activas.count }})
+    </h2>
+
+    {% for m in monedas_activas %}
+    <div class="moneda-card" data-moneda-siglas="{{ m.siglas }}">
+      <div class="moneda-header">
+        <div class="moneda-title">
+          <span>💰 {{ m.nombre }}</span>
+          <span class="moneda-badge">{{ m.siglas }}</span>
+        </div>
+        <div class="total-pill">
+          Total: <span id="total-display-{{ m.id }}">0.00</span> {{ m.siglas }}
+        </div>
+      </div>
+
+      {% if m.denominaciones.all %}
+        <p style="color: #94a3b8; font-size: 0.82rem; margin-top: 0; margin-bottom: 0.8rem;">
+          Ingresá la cantidad de billetes por cada corte:
+        </p>
+        <div class="billetes-grid">
+          {% for d in m.denominaciones.all %}
+          <div class="billete-item">
+            <span class="billete-label">
+              Billete <strong>{{ d.valor|floatformat:0 }}</strong>
+            </span>
+            <input type="number" min="0" step="1" name="cant_billete_{d.id}"
+                   class="input-cant js-billete-input"
+                   data-moneda-id="{{ m.id }}"
+                   data-valor="{{ d.valor }}"
+                   value="0"
+                   placeholder="0">
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="background: rgba(15,23,42,0.4); padding: 1rem; border-radius: 8px;">
+          <p style="color: #94a3b8; font-size: 0.85rem; margin: 0 0 0.5rem;">
+            No hay cortes de billetes configurados para {{ m.siglas }}. Podés ingresar el total de fondo inicial directamente:
+          </p>
+          <input type="number" step="0.01" min="0" name="monto_inicial_moneda_{{ m.id }}"
+                 class="form-control js-monto-directo" data-moneda-id="{{ m.id }}" placeholder="0.00">
+        </div>
+      {% endif %}
+
+      <!-- Campo oculto para compatibilidad con monto_inicial legado si es PYG -->
+      {% if m.siglas == 'PYG' %}
+        <input type="hidden" name="monto_inicial" id="legacy_monto_inicial" value="0.00">
       {% endif %}
     </div>
+    {% endfor %}
 
     <button type="submit" class="btn-apertura" id="btn-aperturar-caja">
-      🔓 Aperturar Caja
+      🔓 Confirmar Apertura de Caja
     </button>
   </form>
 </div>
+
+<script>
+  function recalcularTotalMoneda(monedaId) {
+    let total = 0;
+    const inputs = document.querySelectorAll(`.js-billete-input[data-moneda-id="${monedaId}"]`);
+    inputs.forEach(input => {
+      const cant = parseInt(input.value) || 0;
+      const valor = parseFloat(input.dataset.valor) || 0;
+      total += (cant * valor);
+    });
+
+    const directoInput = document.querySelector(`.js-monto-directo[data-moneda-id="${monedaId}"]`);
+    if (directoInput && directoInput.value) {
+      total += (parseFloat(directoInput.value) || 0);
+    }
+
+    const display = document.getElementById(`total-display-${monedaId}`);
+    if (display) {
+      display.textContent = total.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    const legacyPyg = document.getElementById('legacy_monto_inicial');
+    const pygCard = document.querySelector('.moneda-card[data-moneda-siglas="PYG"]');
+    if (legacyPyg && pygCard && pygCard.contains(display)) {
+      legacyPyg.value = total.toFixed(2);
+    }
+  }
+
+  document.querySelectorAll('.js-billete-input, .js-monto-directo').forEach(input => {
+    input.addEventListener('input', function() {
+      recalcularTotalMoneda(this.dataset.monedaId);
+    });
+  });
+</script>
 {% endblock %}

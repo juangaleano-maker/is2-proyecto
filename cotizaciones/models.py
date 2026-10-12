@@ -144,6 +144,11 @@ class Operacion(models.Model):
             return (sub - com).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         return (sub + com).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
+    @property
+    def movimiento_caja(self):
+        """Retorna el primer movimiento de caja asociado (compatibilidad hacia atrás)."""
+        return self.movimientos_caja.first() if hasattr(self, 'movimientos_caja') else None
+
 
 class AlertaTasa(models.Model):
     """
@@ -446,6 +451,85 @@ class SesionCaja(models.Model):
             return 'FALTANTE'
         return 'EXACTO'
 
+    def calcular_ingresos_turno_por_moneda(self):
+        """
+        Retorna un diccionario agrupado por cada moneda activa:
+        - Para PYG (moneda local): suma 'monto' según 'tipo'.
+        - Para divisas extranjeras (USD, EUR, BRL): suma 'monto_divisa' según 'tipo_divisa'.
+        """
+        from monedas.models import Moneda
+        from django.db.models import Sum
+
+        monedas_activas = Moneda.objects.filter(activa=True)
+        res = {}
+        for m in monedas_activas:
+            siglas = m.siglas.upper()
+            if siglas == 'PYG':
+                ing = self.movimientos.filter(tipo='INGRESO').aggregate(s=Sum('monto'))['s'] or Decimal('0.00')
+                egr = self.movimientos.filter(tipo='EGRESO').aggregate(s=Sum('monto'))['s'] or Decimal('0.00')
+            else:
+                movs_m = self.movimientos.filter(moneda=m, monto_divisa__isnull=False)
+                ing = movs_m.filter(tipo_divisa='INGRESO').aggregate(s=Sum('monto_divisa'))['s'] or Decimal('0.00')
+                egr = movs_m.filter(tipo_divisa='EGRESO').aggregate(s=Sum('monto_divisa'))['s'] or Decimal('0.00')
+
+            res[m.id] = {
+                'moneda': m,
+                'ingresos': ing,
+                'egresos': egr,
+                'saldo_neto': ing - egr,
+            }
+        return res
+
+    def calcular_saldos_esperados_multidivisa(self):
+        """
+        Calcula el saldo esperado para cada moneda activa en la sesión.
+        saldo_esperado = monto_inicial + ingresos - egresos.
+        """
+        from monedas.models import Moneda
+        movs_por_moneda = self.calcular_ingresos_turno_por_moneda()
+        saldos_existentes = {s.moneda_id: s for s in self.saldos_moneda.select_related('moneda')}
+
+        resultado = []
+        for m in Moneda.objects.filter(activa=True).order_by('id'):
+            saldo_obj = saldos_existentes.get(m.id)
+            if saldo_obj:
+                inicial = saldo_obj.monto_inicial
+                final_dec = saldo_obj.monto_final_declarado
+            elif m.siglas.upper() == 'PYG':
+                inicial = self.monto_inicial
+                final_dec = self.monto_final_declarado
+            else:
+                inicial = Decimal('0.00')
+                final_dec = None
+
+            datos_movs = movs_por_moneda.get(m.id, {'ingresos': Decimal('0.00'), 'egresos': Decimal('0.00')})
+            ingresos = datos_movs['ingresos']
+            egresos = datos_movs['egresos']
+            esperado = inicial + ingresos - egresos
+
+            dif = (final_dec - esperado) if final_dec is not None else None
+            tipo_dif = None
+            if dif is not None:
+                if dif == Decimal('0.00'):
+                    tipo_dif = 'EXACTO'
+                elif dif > Decimal('0.00'):
+                    tipo_dif = 'SOBRANTE'
+                else:
+                    tipo_dif = 'FALTANTE'
+
+            resultado.append({
+                'moneda': m,
+                'saldo_obj': saldo_obj,
+                'monto_inicial': inicial,
+                'ingresos': ingresos,
+                'egresos': egresos,
+                'saldo_esperado': esperado,
+                'monto_final_declarado': final_dec,
+                'diferencia': dif,
+                'tipo_diferencia': tipo_dif,
+            })
+        return resultado
+
 
 class MovimientoCaja(models.Model):
     """
@@ -465,12 +549,34 @@ class MovimientoCaja(models.Model):
     tipo = models.CharField(
         max_length=10,
         choices=TipoMovimiento.choices,
-        verbose_name='Tipo de Movimiento',
+        verbose_name='Tipo de Movimiento (Moneda Local)',
     )
     monto = models.DecimalField(
         max_digits=14,
         decimal_places=2,
-        verbose_name='Monto (Gs.)',
+        verbose_name='Monto en Moneda Local (Gs.)',
+    )
+    moneda = models.ForeignKey(
+        'monedas.Moneda',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='movimientos_caja',
+        verbose_name='Divisa Extranjera',
+    )
+    monto_divisa = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Monto en Divisa',
+    )
+    tipo_divisa = models.CharField(
+        max_length=10,
+        choices=TipoMovimiento.choices,
+        null=True,
+        blank=True,
+        verbose_name='Tipo de Movimiento Divisa',
     )
     concepto = models.CharField(
         max_length=255,
@@ -504,7 +610,117 @@ class MovimientoCaja(models.Model):
 
     def __str__(self):
         signo = '+' if self.tipo == self.TipoMovimiento.INGRESO else '-'
-        return f"{self.sesion.nombre_caja} | {self.tipo} ({signo}Gs. {self.monto}) - {self.concepto}"
+        siglas = self.moneda.siglas if self.moneda else 'Gs.'
+        return f"{self.sesion.nombre_caja} | {self.tipo} ({signo}{siglas} {self.monto}) - {self.concepto}"
+
+
+class SaldoSesionMoneda(models.Model):
+    """
+    Control de saldo inicial, movimientos y arqueo por cada moneda física activa
+    en la sesión de caja (PYG, USD, EUR, BRL, etc.).
+    """
+    sesion = models.ForeignKey(
+        SesionCaja,
+        on_delete=models.CASCADE,
+        related_name='saldos_moneda',
+        verbose_name='Sesión de Caja'
+    )
+    moneda = models.ForeignKey(
+        'monedas.Moneda',
+        on_delete=models.PROTECT,
+        related_name='saldos_caja',
+        verbose_name='Moneda'
+    )
+    monto_inicial = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name='Fondo Inicial'
+    )
+    monto_final_declarado = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Monto Final Declarado'
+    )
+    saldo_esperado = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Saldo Esperado'
+    )
+    diferencia = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name='Diferencia (+ Sobrante / - Faltante)'
+    )
+
+    class Meta:
+        verbose_name = 'Saldo de Sesión por Moneda'
+        verbose_name_plural = 'Saldos de Sesión por Moneda'
+        unique_together = ('sesion', 'moneda')
+
+    def __str__(self):
+        return f"{self.sesion.nombre_caja} - {self.moneda.siglas}: Inicial {self.monto_inicial}"
+
+    @property
+    def tipo_diferencia(self):
+        if self.diferencia is None:
+            return None
+        if self.diferencia > Decimal('0.00'):
+            return 'SOBRANTE'
+        if self.diferencia < Decimal('0.00'):
+            return 'FALTANTE'
+        return 'EXACTO'
+
+
+class ConteoBilleteSesion(models.Model):
+    """
+    Registra el desglose físico de billetes contados por denominación
+    al momento de la apertura o del arqueo de cierre.
+    """
+    class MomentoConteo(models.TextChoices):
+        APERTURA = 'APERTURA', 'Apertura'
+        CIERRE = 'CIERRE', 'Arqueo de Cierre'
+
+    sesion = models.ForeignKey(
+        SesionCaja,
+        on_delete=models.CASCADE,
+        related_name='conteos_billetes',
+        verbose_name='Sesión de Caja'
+    )
+    denominacion = models.ForeignKey(
+        'monedas.DenominacionMoneda',
+        on_delete=models.PROTECT,
+        related_name='conteos_sesion',
+        verbose_name='Denominación de Billete'
+    )
+    momento = models.CharField(
+        max_length=15,
+        choices=MomentoConteo.choices,
+        verbose_name='Momento de Conteo'
+    )
+    cantidad = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Cantidad de Billetes'
+    )
+
+    class Meta:
+        verbose_name = 'Conteo de Billete en Sesión'
+        verbose_name_plural = 'Conteos de Billetes en Sesión'
+        unique_together = ('sesion', 'denominacion', 'momento')
+
+    def __str__(self):
+        return f"{self.sesion.nombre_caja} [{self.momento}] - {self.cantidad}x {self.denominacion}"
+
+    @property
+    def subtotal(self):
+        from decimal import Decimal
+        return Decimal(str(self.cantidad)) * self.denominacion.valor
 
 
 
