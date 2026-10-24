@@ -172,25 +172,36 @@ def registrar_movimiento_caja_operacion(sender, instance, created, **kwargs):
     if MovimientoCaja.objects.filter(operacion=instance).exists():
         return
 
-    # Buscar sesión activa del cajero responsable
+    # Buscar sesión activa vinculada a la operación o del cajero responsable
+    sesion_activa = instance.sesion_caja
     cajero = instance.registrado_por
-    if not cajero:
-        logger.warning(
-            f"[IS2-61] Operación #{instance.id} confirmada como PAGADA sin usuario registrado_por. "
-            f"No se pudo vincular a ninguna caja."
-        )
-        return
 
-    sesion_activa = SesionCaja.objects.filter(
-        cajero=cajero,
-        estado=SesionCaja.EstadoSesion.ABIERTA,
-    ).first()
+    if not sesion_activa and cajero:
+        sesion_activa = SesionCaja.objects.filter(
+            cajero=cajero,
+            estado=SesionCaja.EstadoSesion.ABIERTA,
+        ).first()
 
     if not sesion_activa:
         logger.warning(
-            f"[IS2-61] Operación #{instance.id} pagada por {cajero.username}, "
-            f"pero el usuario NO tiene una sesión de caja ABIERTA actualmente."
+            f"[IS2-61] Operación #{instance.id} confirmada como PAGADA sin sesión de caja activa vinculada "
+            f"o el usuario ({cajero.username if cajero else 'anónimo'}) no tiene caja ABIERTA actualmente."
         )
+        return
+
+    # Sincronizar caja y sesion_caja en la operación sin re-disparar post_save
+    update_kwargs = {}
+    if not instance.sesion_caja:
+        instance.sesion_caja = sesion_activa
+        update_kwargs['sesion_caja'] = sesion_activa
+    if sesion_activa.caja and not instance.caja:
+        instance.caja = sesion_activa.caja
+        update_kwargs['caja'] = sesion_activa.caja
+    if update_kwargs:
+        Operacion.objects.filter(id=instance.id).update(**update_kwargs)
+
+    # Re-verificar que no se haya creado ya el movimiento
+    if MovimientoCaja.objects.filter(operacion=instance).exists():
         return
 
     # Determinar tipo de movimiento local (PYG) y tipo en divisa
@@ -210,16 +221,18 @@ def registrar_movimiento_caja_operacion(sender, instance, created, **kwargs):
         f"(Cliente: {instance.cliente.nombre if hasattr(instance.cliente, 'nombre') else instance.cliente})"
     )
 
-    MovimientoCaja.objects.create(
-        sesion=sesion_activa,
-        tipo=tipo_local,
-        monto=monto_local,
-        moneda=instance.moneda,
-        monto_divisa=monto_divisa,
-        tipo_divisa=tipo_divisa,
-        concepto=concepto,
+    MovimientoCaja.objects.get_or_create(
         operacion=instance,
-        registrado_por=cajero,
+        defaults={
+            'sesion': sesion_activa,
+            'tipo': tipo_local,
+            'monto': monto_local,
+            'moneda': instance.moneda,
+            'monto_divisa': monto_divisa,
+            'tipo_divisa': tipo_divisa,
+            'concepto': concepto,
+            'registrado_por': cajero,
+        }
     )
     logger.info(
         f"[IS2-61] Movimiento de caja registrado: {tipo_local} Gs. {monto_local} | {tipo_divisa} {monto_divisa} {moneda_str} "

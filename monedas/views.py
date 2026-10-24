@@ -103,10 +103,10 @@ def editar_moneda(request, pk):
     })
 
 
-@rol_requerido('admin')
+@rol_requerido('admin', 'analista_cambiario')
 def gestionar_denominaciones_moneda(request, moneda_id):
     """
-    Permite ver y agregar denominaciones (cortes de billetes) para una moneda.
+    Permite ver y agregar denominaciones (cortes de billetes) para una moneda (RF38).
     Solo las denominaciones y monedas activas se consideran en apertura y arqueo de caja.
     """
     from decimal import Decimal, InvalidOperation
@@ -141,9 +141,9 @@ def gestionar_denominaciones_moneda(request, moneda_id):
     })
 
 
-@rol_requerido('admin')
+@rol_requerido('admin', 'analista_cambiario')
 def alternar_estado_denominacion(request, pk):
-    """Alterna el estado activo/inactivo de una denominación de billete."""
+    """Alterna el estado activo/inactivo de una denominación de billete (RF38)."""
     if request.method != 'POST':
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(['POST'])
@@ -157,9 +157,9 @@ def alternar_estado_denominacion(request, pk):
     return redirect('monedas:gestionar_billetes', moneda_id=denom.moneda_id)
 
 
-@rol_requerido('admin')
+@rol_requerido('admin', 'analista_cambiario')
 def eliminar_denominacion(request, pk):
-    """Elimina una denominación si no tiene registros históricos."""
+    """Elimina una denominación si no tiene registros históricos (RF38)."""
     if request.method != 'POST':
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(['POST'])
@@ -175,3 +175,4 @@ def eliminar_denominacion(request, pk):
         denom.delete()
         messages.success(request, 'Denominación eliminada correctamente.')
     return redirect('monedas:gestionar_billetes', moneda_id=moneda_id)
+

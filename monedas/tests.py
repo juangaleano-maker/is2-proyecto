@@ -325,3 +325,19 @@ class MonedaTestCase(TestCase):
         url_eliminar = reverse('monedas:eliminar_billete', kwargs={'pk': denom.pk})
         self.client.post(url_eliminar)
         self.assertFalse(DenominacionMoneda.objects.filter(pk=denom.pk).exists())
+
+    def test_rf38_analista_cambiario_puede_configurar_denominaciones(self):
+        """RF38: El sistema permitirá al analista o administrador configurar denominaciones de billetes por divisa."""
+        from .models import DenominacionMoneda
+        analista_group = Group.objects.get_or_create(name='analista_cambiario')[0]
+        analista_user = User.objects.create_user(username="analista_test_rf38", email="analista_rf38@test.com")
+        analista_user.groups.add(analista_group)
+
+        self.client.force_login(analista_user)
+        url = reverse('monedas:gestionar_billetes', kwargs={'moneda_id': self.moneda1.id})
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+
+        resp_post = self.client.post(url, {'valor': '10.00'})
+        self.assertRedirects(resp_post, url)
+        self.assertTrue(DenominacionMoneda.objects.filter(moneda=self.moneda1, valor=10).exists())

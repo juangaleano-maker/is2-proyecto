@@ -195,7 +195,7 @@ def obtener_clientes_asignados_usuario(user):
     user_roles = set(getattr(user, 'roles', []))
     if hasattr(user, 'groups'):
         user_roles.update(user.groups.values_list('name', flat=True))
-    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado'}
+    roles_gestion = {'admin', 'supervisor', 'operador', 'empleado', 'cajero'}
     es_personal = bool(user_roles.intersection(roles_gestion)) or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)
 
     if es_personal:
@@ -361,11 +361,11 @@ def calcular_comision_operacion(cliente, monto, tasa_aplicada, tipo='VENTA') -> 
     }
 
 
-def registrar_operacion_cambio(cliente, moneda, tipo, monto, tasa_aplicada, usuario=None):
+def registrar_operacion_cambio(cliente, moneda, tipo, monto, tasa_aplicada, usuario=None, caja=None, sesion_caja=None, canal='DIGITAL'):
     """
     Crea y persiste una Operacion en estado PENDIENTE, calculando la comisión
     correspondiente según las reglas del negocio de manera auditable e íntegra.
-    Compatible tanto para 'VENTA' como para 'COMPRA'.
+    Compatible tanto para 'VENTA' como para 'COMPRA', asociando la caja y turno si es canal físico (RN15).
     """
     from .models import Operacion
     from monedas.models import Moneda
@@ -392,6 +392,9 @@ def registrar_operacion_cambio(cliente, moneda, tipo, monto, tasa_aplicada, usua
         comision=calculo['comision'],
         estado=Operacion.EstadoOperacion.PENDIENTE,
         registrado_por=usuario if (usuario and getattr(usuario, 'is_authenticated', False)) else None,
+        caja=caja,
+        sesion_caja=sesion_caja,
+        canal=canal,
     )
 
     return operacion, calculo

@@ -53,6 +53,10 @@ class Operacion(models.Model):
         PAGO_FALLIDO = "PAGO_FALLIDO", "Pago fallido"
         RECHAZADA = "RECHAZADA", "Rechazada"
 
+    class CanalOperacion(models.TextChoices):
+        FISICO = "FISICO", "Canal Físico (Caja)"
+        DIGITAL = "DIGITAL", "Canal Digital / Web"
+
     cliente = models.ForeignKey(
         'clientes.Cliente', 
         on_delete=models.RESTRICT, 
@@ -103,6 +107,31 @@ class Operacion(models.Model):
         blank=True,
         verbose_name="Registrado por",
         related_name='operaciones_registradas'
+    )
+    caja = models.ForeignKey(
+        'Caja',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='operaciones',
+        verbose_name="Caja Física",
+        help_text="Punto físico de atención asignado donde se realizó la operación (canal físico - RN15)."
+    )
+    sesion_caja = models.ForeignKey(
+        'SesionCaja',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='operaciones',
+        verbose_name="Turno / Sesión de Caja",
+        help_text="Turno de caja durante el cual se procesó la operación (RN15/RN16)."
+    )
+    canal = models.CharField(
+        max_length=15,
+        choices=CanalOperacion.choices,
+        default=CanalOperacion.DIGITAL,
+        verbose_name="Canal de Atención",
+        help_text="Indica si la operación se realizó por ventanilla física o vía web."
     )
     stripe_payment_intent_id = models.CharField(
         max_length=255,
@@ -300,6 +329,70 @@ class NotificacionTasa(models.Model):
         return f"[{self.moneda.siglas}] {self.titulo} - Para: {self.usuario.username} ({'Leída' if self.leida else 'Nueva'})"
 
 
+class Caja(models.Model):
+    """
+    Punto físico de atención asignado a un cajero durante su turno,
+    con stock propio de billetes por denominación (Definición ERS Pág. 4).
+    """
+    numero = models.PositiveIntegerField(unique=True, verbose_name="Número de Caja")
+    nombre = models.CharField(max_length=100, verbose_name="Nombre / Ventanilla")
+    sucursal = models.CharField(max_length=100, default="Casa Central", verbose_name="Sucursal")
+    activa = models.BooleanField(default=True, verbose_name="Habilitada para Operar")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
+
+    class Meta:
+        verbose_name = "Caja Física"
+        verbose_name_plural = "Cajas Físicas"
+        ordering = ['numero']
+
+    def __str__(self):
+        return f"Caja #{self.numero} - {self.nombre} ({self.sucursal})"
+
+    @property
+    def sesion_activa(self):
+        """Retorna el turno / sesión actualmente abierta en esta caja física."""
+        return self.sesiones.filter(estado=SesionCaja.EstadoSesion.ABIERTA).first()
+
+    @property
+    def esta_abierta(self):
+        """Indica si la caja se encuentra actualmente abierta por un turno activo (RN16)."""
+        return self.sesion_activa is not None
+
+
+class StockBilleteCaja(models.Model):
+    """
+    Stock propio de billetes físicos por denominación en una caja física (Definición ERS).
+    """
+    caja = models.ForeignKey(
+        Caja,
+        on_delete=models.CASCADE,
+        related_name='stock_billetes',
+        verbose_name='Caja Física'
+    )
+    denominacion = models.ForeignKey(
+        'monedas.DenominacionMoneda',
+        on_delete=models.CASCADE,
+        related_name='stocks_caja',
+        verbose_name='Denominación de Billete'
+    )
+    cantidad = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Cantidad de Billetes en Stock'
+    )
+
+    class Meta:
+        verbose_name = 'Stock de Billete en Caja'
+        verbose_name_plural = 'Stock de Billetes en Caja'
+        unique_together = ('caja', 'denominacion')
+
+    def __str__(self):
+        return f"{self.caja.nombre} - {self.cantidad}x {self.denominacion}"
+
+    @property
+    def subtotal(self):
+        return Decimal(str(self.cantidad)) * self.denominacion.valor
+
+
 class SesionCaja(models.Model):
     """
     Modelo para el control de apertura y cierre de caja por turno (IS2-60).
@@ -310,6 +403,15 @@ class SesionCaja(models.Model):
         ABIERTA = 'ABIERTA', 'Abierta'
         CERRADA = 'CERRADA', 'Cerrada'
 
+    caja = models.ForeignKey(
+        Caja,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='sesiones',
+        verbose_name='Caja Física Asignada',
+        help_text='Punto físico de atención asignado al cajero durante su turno (RN15).'
+    )
     cajero = models.ForeignKey(
         'auth.User',
         on_delete=models.RESTRICT,
@@ -374,10 +476,16 @@ class SesionCaja(models.Model):
         ordering = ['-fecha_apertura']
 
     def __str__(self):
+        caja_info = f"{self.caja.nombre}" if self.caja else self.nombre_caja
         return (
-            f"{self.nombre_caja} — {self.cajero.get_full_name() or self.cajero.username} "
+            f"{caja_info} — {self.cajero.get_full_name() or self.cajero.username} "
             f"({self.get_estado_display()}) [{self.fecha_apertura.strftime('%d/%m/%Y %H:%M')}]"
         )
+
+    def save(self, *args, **kwargs):
+        if self.caja and (not self.nombre_caja or self.nombre_caja == 'Caja Principal'):
+            self.nombre_caja = self.caja.nombre
+        super().save(*args, **kwargs)
 
     # ------------------------------------------------------------------
     # Lógica de negocio
@@ -706,7 +814,15 @@ class ConteoBilleteSesion(models.Model):
     )
     cantidad = models.PositiveIntegerField(
         default=0,
-        verbose_name='Cantidad de Billetes'
+        verbose_name='Cantidad de Billetes Contada'
+    )
+    cantidad_sistema = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Cantidad de Billetes Registrada por Sistema'
+    )
+    diferencia_piezas = models.IntegerField(
+        default=0,
+        verbose_name='Diferencia de Piezas (+ Sobrante / - Faltante)'
     )
 
     class Meta:
@@ -721,6 +837,16 @@ class ConteoBilleteSesion(models.Model):
     def subtotal(self):
         from decimal import Decimal
         return Decimal(str(self.cantidad)) * self.denominacion.valor
+
+    @property
+    def subtotal_sistema(self):
+        from decimal import Decimal
+        return Decimal(str(self.cantidad_sistema)) * self.denominacion.valor
+
+    @property
+    def diferencia_monto(self):
+        from decimal import Decimal
+        return Decimal(str(self.diferencia_piezas)) * self.denominacion.valor
 
 
 

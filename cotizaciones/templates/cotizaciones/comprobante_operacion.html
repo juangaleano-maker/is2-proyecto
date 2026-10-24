@@ -141,6 +141,26 @@
             <th>Monto Total ({{ operacion.moneda.siglas }})</th>
             <td>{{ operacion.monto }}</td>
         </tr>
+        <tr>
+            <th>Canal de Atención</th>
+            <td>{{ operacion.get_canal_display|default:"Digital" }}</td>
+        </tr>
+        {% if operacion.caja %}
+        <tr>
+            <th>Punto de Atención</th>
+            <td>Caja #{{ operacion.caja.numero }} - {{ operacion.caja.nombre }}</td>
+        </tr>
+        <tr>
+            <th>Sucursal</th>
+            <td>{{ operacion.caja.sucursal }}</td>
+        </tr>
+        {% endif %}
+        {% if operacion.registrado_por %}
+        <tr>
+            <th>Atendido por (Cajero/Operador)</th>
+            <td>{{ operacion.registrado_por.get_full_name|default:operacion.registrado_por.username }}</td>
+        </tr>
+        {% endif %}
     </table>
 
     <div class="footer">

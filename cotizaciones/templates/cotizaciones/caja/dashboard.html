@@ -137,22 +137,50 @@
 
 {% if sesion_activa %}
   <!-- Info general de sesion -->
-  <div style="background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+  <div style="background: rgba(30,41,59,0.7); border: 1px solid rgba(99,179,237,0.2); border-radius: 12px; padding: 1.2rem 1.5rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
     <div>
-      <span style="color: #94a3b8; font-size: 0.85rem;">Caja:</span>
-      <strong style="color: #f1f5f9; font-size: 1.1rem; margin-left: 6px;">{{ sesion_activa.nombre_caja }}</strong>
-      <span style="color: #64748b; margin: 0 10px;">•</span>
-      <span style="color: #94a3b8; font-size: 0.85rem;">Apertura:</span>
-      <span style="color: #cbd5e1; font-size: 0.9rem; margin-left: 6px;">{{ sesion_activa.fecha_apertura|date:"d/m/Y H:i" }}</span>
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+        <span class="badge-abierta">🟢 TURNO ACTIVO</span>
+        <strong style="color: #f8fafc; font-size: 1.25rem;">
+          {% if sesion_activa.caja %}
+            Caja #{{ sesion_activa.caja.numero }} - {{ sesion_activa.caja.nombre }}
+          {% else %}
+            {{ sesion_activa.nombre_caja }}
+          {% endif %}
+        </strong>
+      </div>
+      <div style="color: #94a3b8; font-size: 0.88rem; display: flex; gap: 12px; flex-wrap: wrap;">
+        <span>🏢 Sucursal: <strong style="color: #cbd5e1;">{{ sesion_activa.caja.sucursal|default:"Casa Central" }}</strong></span>
+        <span>👤 Cajero: <strong style="color: #cbd5e1;">{{ sesion_activa.cajero.get_full_name|default:sesion_activa.cajero.username }}</strong></span>
+        <span>⏱️ Apertura: <strong style="color: #cbd5e1;">{{ sesion_activa.fecha_apertura|date:"d/m/Y H:i" }}</strong></span>
+      </div>
     </div>
-    <div style="display: flex; gap: 10px;">
-      <a href="{% url 'cierre_caja' %}" class="action-btn btn-cerrar">🔒 Cerrar y Arquear Caja</a>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <a href="{% url 'cierre_caja' %}" class="action-btn btn-cerrar">🔒 Cerrar y Arquear Turno</a>
       <a href="{% url 'historial_movimientos' %}" class="action-btn" style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; color: #93c5fd;">📜 Historial</a>
     </div>
   </div>
 
+  <!-- Barra de Operaciones de Caja Física -->
+  <div style="background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,58,95,0.8)); border: 1px solid rgba(56,189,248,0.25); border-radius: 12px; padding: 1.2rem 1.5rem; margin-bottom: 2rem;">
+    <p style="margin: 0 0 0.8rem 0; font-size: 0.82rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em;">
+      ⚡ Operaciones de Cambio en Ventanilla (Canal Físico)
+    </p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+      <a href="{% url 'comprar_moneda' %}" class="action-btn btn-aperturar" style="display: inline-flex; align-items: center; gap: 6px;">
+        💵 Registrar Compra de Divisas
+      </a>
+      <a href="{% url 'operacion_venta' %}" class="action-btn" style="background: linear-gradient(135deg, #0284c7, #0ea5e9); color: white; display: inline-flex; align-items: center; gap: 6px;">
+        💰 Registrar Venta de Divisas
+      </a>
+      <a href="{% url 'operaciones_lista' %}" class="action-btn" style="background: rgba(148, 163, 184, 0.15); border: 1px solid rgba(148,163,184,0.3); color: #e2e8f0; display: inline-flex; align-items: center; gap: 6px;">
+        📋 Ver / Pagar Operaciones
+      </a>
+    </div>
+  </div>
+
   <!-- Tarjetas por cada moneda activa monitoreada -->
-  <p class="section-title">📊 Saldos Físicos Estimados por Moneda Activa</p>
+  <p class="section-title">📊 Saldos Físicos Estimados por Divisa Habilitada</p>
   <div class="monedas-grid">
     {% for s in saldos_multidivisa %}
     <div class="moneda-stat-card">
@@ -182,8 +210,93 @@
     {% endfor %}
   </div>
 
+  <!-- Operaciones de Cambio del Turno -->
+  <p class="section-title">💼 Operaciones de Cambio del Turno ({{ operaciones_turno|length }})</p>
+  {% if operaciones_turno %}
+    <table class="caja-table" style="margin-bottom: 2rem;">
+      <thead>
+        <tr>
+          <th>N° Op</th>
+          <th>Hora</th>
+          <th>Cliente</th>
+          <th>Tipo</th>
+          <th>Monto Divisa</th>
+          <th>Total Local</th>
+          <th>Estado</th>
+          <th>Comprobante</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for op in operaciones_turno %}
+        <tr>
+          <td><strong style="color: #38bdf8;">#{{ op.id|stringformat:"05d" }}</strong></td>
+          <td>{{ op.fecha|date:"H:i:s" }}</td>
+          <td>{{ op.cliente.nombre }} {{ op.cliente.apellido|default:"" }}</td>
+          <td>
+            {% if op.tipo == "COMPRA" %}
+              <span class="badge-abierta">COMPRA</span>
+            {% else %}
+              <span class="badge-sobrante">VENTA</span>
+            {% endif %}
+          </td>
+          <td><strong>{{ op.monto|floatformat:2 }} {{ op.moneda.siglas }}</strong></td>
+          <td>
+            {% if op.monto_moneda_local %}
+              Gs. {{ op.monto_moneda_local|floatformat:0 }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% if op.estado == "PAGADA" %}
+              <span style="color: #34d399; font-weight: 700;">✅ PAGADA</span>
+            {% elif op.estado == "PENDIENTE" %}
+              <span style="color: #fbbf24; font-weight: 700;">⏳ PENDIENTE</span>
+            {% else %}
+              <span style="color: #94a3b8;">{{ op.get_estado_display }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'comprobante_operacion' op.id %}" target="_blank" style="color: #60a5fa; text-decoration: none; font-weight: 600;">
+              🧾 Ver Recibo
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="empty-state" style="margin-bottom: 2rem;">
+      <div class="empty-icon">🤝</div>
+      <p>No se han registrado operaciones de cambio en ventanilla durante este turno aún.</p>
+    </div>
+  {% endif %}
+
+  <!-- Stock de Billetes en Apertura -->
+  {% if conteos_apertura %}
+    <p class="section-title">💵 Stock Inicial de Billetes Registrado en Apertura ({{ conteos_apertura|length }})</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.8rem; margin-bottom: 2rem;">
+      {% for c in conteos_apertura %}
+      <div style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.8rem 1rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <span style="font-size: 0.78rem; color: #94a3b8; display: block;">{{ c.denominacion.moneda.siglas }}</span>
+          <strong style="color: #f1f5f9; font-size: 1rem;">Billete {{ c.denominacion.valor|floatformat:0 }}</strong>
+        </div>
+        <div style="text-align: right;">
+          <span style="background: rgba(56,189,248,0.15); color: #38bdf8; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 0.85rem;">
+            {{ c.cantidad }} uds.
+          </span>
+          <span style="display: block; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+            Sub: {{ c.subtotal|floatformat:0 }}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   <!-- Movimientos del turno -->
-  <p class="section-title">📑 Movimientos de Caja del Turno Actual ({{ movimientos_turno|length }})</p>
+  <p class="section-title">📑 Flujo de Fondos y Movimientos de Caja ({{ movimientos_turno|length }})</p>
   {% if movimientos_turno %}
     <table class="caja-table" style="margin-bottom: 2rem;">
       <thead>

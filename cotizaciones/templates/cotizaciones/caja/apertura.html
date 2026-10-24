@@ -159,11 +159,20 @@
     {% csrf_token %}
 
     <div class="moneda-card" style="margin-bottom: 2rem;">
-      <label for="id_nombre_caja" class="form-label">
-        🗂️ Identificador de Caja
+      <label for="id_caja_id" class="form-label" style="font-size: 1rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.6rem;">
+        🏦 Punto Físico de Atención (Caja Asignada - RN15)
       </label>
-      <input type="text" name="nombre_caja" id="id_nombre_caja" class="form-control"
-             value="Caja Principal" required placeholder="Ej. Caja 1, Caja Principal…">
+      <select name="caja_id" id="id_caja_id" class="form-control" style="font-size: 0.95rem; font-weight: 600; padding: 0.75rem 1rem; margin-bottom: 0.8rem;">
+        {% for c in cajas_disponibles %}
+          <option value="{{ c.id }}" {% if c.esta_abierta %}disabled style="color: #94a3b8; background: #1e293b;"{% else %}style="color: #38bdf8; background: #0f172a;"{% endif %}>
+            Caja #{{ c.numero }} - {{ c.nombre }} ({{ c.sucursal }}) {% if c.esta_abierta %}⛔ [OCUPADA / ABIERTA]{% else %}✅ [DISPONIBLE]{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+      <input type="hidden" name="nombre_caja" id="id_nombre_caja" value="Caja Principal">
+      <small style="color: #94a3b8; font-size: 0.82rem; display: block;">
+        * Solo puedes operar la caja física asignada durante tu turno activo (RN15). Si una caja ya está abierta por otro turno, no puede abrirse hasta su cierre (RN16).
+      </small>
     </div>
 
     <h2 style="font-size: 1.2rem; color: #f1f5f9; margin-bottom: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
@@ -192,7 +201,7 @@
             <span class="billete-label">
               Billete <strong>{{ d.valor|floatformat:0 }}</strong>
             </span>
-            <input type="number" min="0" step="1" name="cant_billete_{d.id}"
+            <input type="number" min="0" step="1" name="cant_billete_{{ d.id }}"
                    class="input-cant js-billete-input"
                    data-moneda-id="{{ m.id }}"
                    data-valor="{{ d.valor }}"

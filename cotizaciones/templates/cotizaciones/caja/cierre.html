@@ -138,6 +138,52 @@
   .dif-sobrante { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
   .dif-faltante { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); }
 
+  .arqueo-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 1.2rem;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(15,23,42,0.4);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .arqueo-table th {
+    background: rgba(15,23,42,0.8);
+    color: #94a3b8;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .arqueo-table td {
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.9rem;
+    color: #e2e8f0;
+  }
+  .arqueo-table tr:last-child td { border-bottom: none; }
+  .badge-sistema {
+    background: rgba(100,116,139,0.2);
+    color: #94a3b8;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  .dif-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.82rem;
+  }
+  .dif-tag-neutral { background: rgba(148,163,184,0.1); color: #94a3b8; }
+  .dif-tag-exacto  { background: rgba(52,211,153,0.15); color: #34d399; }
+  .dif-tag-sobrante{ background: rgba(251,191,36,0.2); color: #fbbf24; }
+  .dif-tag-faltante{ background: rgba(248,113,113,0.2); color: #f87171; }
+
   .form-control {
     background: rgba(15,23,42,0.8);
     border: 1px solid rgba(139,92,246,0.25);
@@ -198,10 +244,10 @@
     {% csrf_token %}
 
     <h2 style="font-size: 1.2rem; color: #f1f5f9; margin-bottom: 1rem; font-weight: 700;">
-      💵 Arqueo por Moneda Activa ({{ monedas_activas.count }})
+      💵 Arqueo Físico Comparativo por Divisa ({{ monedas_activas.count }})
     </h2>
 
-    {% for item in saldos_multidivisa %}
+    {% for item in arqueo_items %}
     {% with m=item.moneda %}
     <div class="moneda-arqueo-card" data-moneda-siglas="{{ m.siglas }}">
       <div class="mac-header">
@@ -210,30 +256,55 @@
           <span class="mac-badge">{{ m.siglas }}</span>
         </div>
         <div class="esperado-tag">
-          Saldo Esperado: <strong>{{ item.saldo_esperado|floatformat:2 }} {{ m.siglas }}</strong>
+          Saldo Estimado del Sistema: <strong>{{ item.saldo_esperado|floatformat:2 }} {{ m.siglas }}</strong>
         </div>
       </div>
 
-      {% if m.denominaciones.all %}
+      {% if item.denominaciones %}
         <p style="color: #94a3b8; font-size: 0.82rem; margin-top: 0; margin-bottom: 0.8rem;">
-          Conteo físico por billetes:
+          Comparación de billetes registrados por el sistema vs. contados físicamente en caja (RN17):
         </p>
-        <div class="billetes-grid">
-          {% for d in m.denominaciones.all %}
-          <div class="billete-item">
-            <span class="billete-label">
-              Billete <strong>{{ d.valor|floatformat:0 }}</strong>
-            </span>
-            <input type="number" min="0" step="1" name="cant_cierre_billete_{{ d.id }}"
-                   class="input-cant js-cierre-billete"
-                   data-moneda-id="{{ m.id }}"
-                   data-valor="{{ d.valor }}"
-                   data-esperado="{{ item.saldo_esperado }}"
-                   value="0"
-                   placeholder="0">
-          </div>
-          {% endfor %}
-        </div>
+        <table class="arqueo-table">
+          <thead>
+            <tr>
+              <th>Denominación</th>
+              <th style="text-align: center;">Stock Sistema</th>
+              <th style="text-align: center;">Conteo Físico</th>
+              <th style="text-align: center;">Dif. Piezas</th>
+              <th style="text-align: right;">Subtotal Físico</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d_item in item.denominaciones %}
+            <tr>
+              <td>
+                <strong style="color: #f1f5f9;">Billete {{ d_item.denominacion.valor|floatformat:0 }}</strong>
+                <span style="font-size: 0.78rem; color: #64748b; margin-left: 4px;">{{ m.siglas }}</span>
+              </td>
+              <td style="text-align: center;">
+                <span class="badge-sistema">{{ d_item.cantidad_sistema }} uds.</span>
+              </td>
+              <td style="text-align: center;">
+                <input type="number" min="0" step="1" name="cant_cierre_billete_{{ d_item.denominacion.id }}"
+                       class="input-cant js-cierre-billete"
+                       data-moneda-id="{{ m.id }}"
+                       data-denom-id="{{ d_item.denominacion.id }}"
+                       data-valor="{{ d_item.denominacion.valor }}"
+                       data-sistema="{{ d_item.cantidad_sistema }}"
+                       data-esperado="{{ item.saldo_esperado }}"
+                       value="0"
+                       placeholder="0">
+              </td>
+              <td style="text-align: center;">
+                <span id="dif-piezas-{{ d_item.denominacion.id }}" class="dif-tag dif-tag-neutral">0</span>
+              </td>
+              <td style="text-align: right; font-weight: 700;">
+                <span id="subtotal-billete-{{ d_item.denominacion.id }}" style="color: #38bdf8;">0.00</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       {% else %}
         <div style="background: rgba(15,23,42,0.4); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
           <label style="color: #94a3b8; font-size: 0.85rem; display: block; margin-bottom: 6px;">
@@ -249,7 +320,7 @@
 
       <div class="mac-footer">
         <div class="total-conteo">
-          Total Físico: <strong id="cierre-display-{{ m.id }}">0.00</strong> {{ m.siglas }}
+          Total Físico Contado: <strong id="cierre-display-{{ m.id }}">0.00</strong> {{ m.siglas }}
         </div>
         <div id="dif-indicator-{{ m.id }}" class="diferencia-indicator dif-exacto" style="display: none;">
           Diferencia: 0.00
@@ -288,8 +359,33 @@
     inputs.forEach(input => {
       const cant = parseInt(input.value) || 0;
       const valor = parseFloat(input.dataset.valor) || 0;
-      total += (cant * valor);
+      const sistema = parseInt(input.dataset.sistema) || 0;
+      const subtotal = cant * valor;
+      total += subtotal;
       if (input.dataset.esperado) esperado = parseFloat(input.dataset.esperado) || 0;
+
+      // Actualizar diferencia de piezas para esta denominación
+      const denomId = input.dataset.denomId;
+      if (denomId) {
+        const subDisplay = document.getElementById(`subtotal-billete-${denomId}`);
+        if (subDisplay) {
+          subDisplay.textContent = subtotal.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        const difSpan = document.getElementById(`dif-piezas-${denomId}`);
+        if (difSpan) {
+          const difPiezas = cant - sistema;
+          if (difPiezas === 0) {
+            difSpan.className = 'dif-tag dif-tag-exacto';
+            difSpan.textContent = '0 (Exacto)';
+          } else if (difPiezas > 0) {
+            difSpan.className = 'dif-tag dif-tag-sobrante';
+            difSpan.textContent = `+${difPiezas} (Sobrante)`;
+          } else {
+            difSpan.className = 'dif-tag dif-tag-faltante';
+            difSpan.textContent = `${difPiezas} (Faltante)`;
+          }
+        }
+      }
     });
 
     const directo = document.querySelector(`.js-cierre-directo[data-moneda-id="${monedaId}"]`);

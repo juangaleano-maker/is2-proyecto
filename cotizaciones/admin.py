@@ -1,29 +1,39 @@
 from django.contrib import admin
-from .models import Cotizacion, Operacion, AlertaTasa, NotificacionTasa
+from .models import (
+    Cotizacion,
+    Operacion,
+    AlertaTasa,
+    NotificacionTasa,
+    Caja,
+    StockBilleteCaja,
+    SesionCaja,
+    MovimientoCaja,
+    SaldoSesionMoneda,
+    ConteoBilleteSesion,
+)
 
-@admin.register(Cotizacion)
-class CotizacionAdmin(admin.ModelAdmin):
-    list_display = ('moneda_origen', 'moneda_destino', 'compra', 'venta', 'fecha', 'activo')
-    list_filter = ('moneda_origen', 'moneda_destino', 'activo', 'fecha')
-    search_fields = ('moneda_origen__nombre', 'moneda_origen__siglas', 'moneda_destino__nombre', 'moneda_destino__siglas')
+@admin.register(Caja)
+class CajaAdmin(admin.ModelAdmin):
+    list_display = ('numero', 'nombre', 'sucursal', 'activa', 'esta_abierta', 'fecha_creacion')
+    list_filter = ('activa', 'sucursal')
+    search_fields = ('nombre', 'numero', 'sucursal')
 
-@admin.register(Operacion)
-class OperacionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'cliente', 'moneda', 'tipo', 'monto', 'tasa_aplicada', 'comision', 'estado', 'fecha', 'registrado_por')
-    list_filter = ('tipo', 'estado', 'moneda', 'fecha')
-    search_fields = ('cliente__nombre', 'cliente__apellido', 'cliente__razon_social', 'cliente__documento', 'moneda__siglas')
-    readonly_fields = ('fecha',)
+@admin.register(StockBilleteCaja)
+class StockBilleteCajaAdmin(admin.ModelAdmin):
+    list_display = ('caja', 'denominacion', 'cantidad', 'subtotal')
+    list_filter = ('caja', 'denominacion__moneda')
 
-@admin.register(AlertaTasa)
-class AlertaTasaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'usuario', 'moneda', 'tipo', 'valor_objetivo', 'activa', 'fecha_creacion')
-    list_filter = ('tipo', 'activa', 'moneda')
-    search_fields = ('usuario__username', 'moneda__siglas')
+@admin.register(SesionCaja)
+class SesionCajaAdmin(admin.ModelAdmin):
+    list_display = ('id', 'caja', 'cajero', 'estado', 'fecha_apertura', 'fecha_cierre', 'monto_inicial', 'diferencia')
+    list_filter = ('estado', 'caja', 'fecha_apertura')
+    search_fields = ('cajero__username', 'nombre_caja')
 
-@admin.register(NotificacionTasa)
-class NotificacionTasaAdmin(admin.ModelAdmin):
-    list_display = ('id', 'usuario', 'moneda', 'titulo', 'tasa_compra', 'tasa_venta', 'leida', 'fecha_actualizacion')
-    list_filter = ('leida', 'moneda', 'fecha_creacion')
-    search_fields = ('usuario__username', 'titulo', 'mensaje', 'moneda__siglas')
+@admin.register(MovimientoCaja)
+class MovimientoCajaAdmin(admin.ModelAdmin):
+    list_display = ('id', 'sesion', 'tipo', 'monto', 'moneda', 'monto_divisa', 'tipo_divisa', 'fecha')
+    list_filter = ('tipo', 'tipo_divisa', 'fecha')
+    search_fields = ('concepto',)
+
 
 

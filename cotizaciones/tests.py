@@ -1669,11 +1669,16 @@ class SesionCajaViewTestCase(TestCase):
         self.assertIn('login', resp.url.lower())
 
     def test_cajero_puede_ver_formulario_apertura(self):
-        """Un cajero autenticado puede acceder al formulario de apertura."""
+        """Un cajero autenticado puede acceder al formulario de apertura y ver inputs de billetes."""
+        from monedas.models import Moneda, DenominacionMoneda
+        moneda_usd = Moneda.objects.create(nombre='Dólar Test', siglas='USDT', activa=True)
+        d_test = DenominacionMoneda.objects.create(moneda=moneda_usd, valor=Decimal('20.00'), activo=True)
         self.client.force_login(self.cajero)
         resp = self.client.get(reverse('apertura_caja'))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Apertura de Caja')
+        self.assertContains(resp, f'name="cant_billete_{d_test.id}"')
+        self.assertNotContains(resp, 'name="cant_billete_{d.id}"')
 
     def test_cajero_puede_aperturar_caja_via_post(self):
         """Un POST válido crea una SesionCaja y redirige al dashboard."""
@@ -2031,6 +2036,128 @@ class MovimientoCajaTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "USD")
         self.assertNotContains(resp, "JPY")
+
+    def test_rn16_cajero_sin_caja_abierta_no_puede_acceder_a_compra_ni_venta(self):
+        """RN16: Una caja debe encontrarse abierta para que el cajero asociado pueda registrar operaciones sobre ella."""
+        self.sesion.estado = self.SesionCaja.EstadoSesion.CERRADA
+        self.sesion.save()
+
+        self.client.force_login(self.cajero)
+        resp_compra = self.client.get(reverse('comprar_moneda'))
+        self.assertRedirects(resp_compra, reverse('apertura_caja'))
+
+        resp_venta = self.client.get(reverse('operacion_venta'))
+        self.assertRedirects(resp_venta, reverse('apertura_caja'))
+
+    def test_rn15_operacion_cajero_se_vincula_a_caja_sesion_y_canal_fisico(self):
+        """RN15: El cajero registra operaciones sobre su caja asignada en turno activo por canal físico."""
+        from .models import Caja
+        caja_obj = Caja.objects.create(numero=10, nombre='Caja 10 Test', sucursal='Central')
+        self.sesion.caja = caja_obj
+        self.sesion.save()
+
+        self.client.force_login(self.cajero)
+        resp = self.client.post(reverse('operacion_venta'), {
+            'cliente': self.cliente.id,
+            'moneda': self.moneda.id,
+            'monto': '150.00',
+            'tasa_aplicada': '7500.00',
+        })
+        self.assertEqual(resp.status_code, 302)
+
+        op = self.Operacion.objects.filter(registrado_por=self.cajero).order_by('-id').first()
+        self.assertIsNotNone(op)
+        self.assertEqual(op.canal, self.Operacion.CanalOperacion.FISICO)
+        self.assertEqual(op.caja, caja_obj)
+        self.assertEqual(op.sesion_caja, self.sesion)
+
+    def test_rn15_cajero_solo_ve_operaciones_de_su_caja_en_listado(self):
+        """RN15 y Jerarquía: El cajero solo accede a operaciones de su caja asignada."""
+        from .models import Caja
+        caja1 = Caja.objects.create(numero=11, nombre='Caja 11', sucursal='Central')
+        caja2 = Caja.objects.create(numero=12, nombre='Caja 12', sucursal='Central')
+        self.sesion.caja = caja1
+        self.sesion.save()
+
+        # Operación de este cajero en su caja
+        op_propia = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.COMPRA,
+            monto=Decimal('50.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PENDIENTE,
+            registrado_por=self.cajero,
+            caja=caja1,
+            sesion_caja=self.sesion,
+            canal=self.Operacion.CanalOperacion.FISICO,
+        )
+
+        # Operación de otro cajero en otra caja
+        otro_cajero = User.objects.create_user(username='otro_cajero', password='Password123!')
+        otro_cajero.groups.add(self.grupo_cajero)
+        op_ajena = self.Operacion.objects.create(
+            cliente=self.cliente,
+            moneda=self.moneda,
+            tipo=self.Operacion.TipoOperacion.VENTA,
+            monto=Decimal('80.00'),
+            tasa_aplicada=Decimal('7500.00'),
+            comision=Decimal('0.00'),
+            estado=self.Operacion.EstadoOperacion.PENDIENTE,
+            registrado_por=otro_cajero,
+            caja=caja2,
+            canal=self.Operacion.CanalOperacion.FISICO,
+        )
+
+        self.client.force_login(self.cajero)
+        resp = self.client.get(reverse('listar_operaciones'))
+        self.assertEqual(resp.status_code, 200)
+        operaciones_en_contexto = list(resp.context['operaciones'])
+        self.assertIn(op_propia, operaciones_en_contexto)
+        self.assertNotIn(op_ajena, operaciones_en_contexto)
+
+    def test_arqueo_con_diferencia_de_piezas_y_actualizacion_stock(self):
+        """Arqueo: compara billetes de sistema con contados físicamente y actualiza StockBilleteCaja."""
+        from monedas.models import DenominacionMoneda
+        from .models import Caja, ConteoBilleteSesion, StockBilleteCaja
+        caja_obj = Caja.objects.create(numero=13, nombre='Caja 13 Arqueo', sucursal='Central')
+        self.sesion.caja = caja_obj
+        self.sesion.save()
+
+        d100 = DenominacionMoneda.objects.create(moneda=self.moneda, valor=Decimal('100.00'), activo=True)
+
+        # Apertura: registrar 5 billetes de 100
+        ConteoBilleteSesion.objects.create(
+            sesion=self.sesion,
+            denominacion=d100,
+            momento=ConteoBilleteSesion.MomentoConteo.APERTURA,
+            cantidad=5,
+            cantidad_sistema=5,
+            diferencia_piezas=0,
+        )
+        StockBilleteCaja.objects.create(caja=caja_obj, denominacion=d100, cantidad=5)
+
+        # Cierre: contar 6 billetes (1 de sobra)
+        self.client.force_login(self.cajero)
+        resp = self.client.post(reverse('cierre_caja'), {
+            f'cant_cierre_billete_{d100.id}': '6',
+            'monto_final_declarado': '1000000.00',
+        })
+        self.assertRedirects(resp, reverse('caja_dashboard'))
+
+        conteo_cierre = ConteoBilleteSesion.objects.filter(
+            sesion=self.sesion,
+            momento=ConteoBilleteSesion.MomentoConteo.CIERRE,
+            denominacion=d100
+        ).first()
+        self.assertIsNotNone(conteo_cierre)
+        self.assertEqual(conteo_cierre.cantidad_sistema, 5)
+        self.assertEqual(conteo_cierre.cantidad, 6)
+        self.assertEqual(conteo_cierre.diferencia_piezas, 1)
+
+        stock = StockBilleteCaja.objects.get(caja=caja_obj, denominacion=d100)
+        self.assertEqual(stock.cantidad, 6)
 
 
 
