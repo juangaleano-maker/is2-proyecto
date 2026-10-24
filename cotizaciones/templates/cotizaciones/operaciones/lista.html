@@ -233,9 +233,15 @@
                                 💵 Liquidar en Caja
                             </a>
                             {% elif op.tipo == 'COMPRA' %}
-                            <a href="{% url 'operacion_detalle' op.id %}" style="display: inline-block; padding: 5px 12px; background: #4f46e5; color: white; border: 1px solid #4338ca; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 700; margin-right: 5px;">
-                                💳 Pagar Compra
-                            </a>
+                                {% if op.stripe_payment_intent_id %}
+                                <a href="{% url 'pagos:verificar_pago_stripe' op.id %}" style="display: inline-block; padding: 5px 12px; background: #7c3aed; color: white; border: 1px solid #6d28d9; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 700; margin-right: 5px;">
+                                    🔄 Verificar pago
+                                </a>
+                                {% else %}
+                                <a href="{% url 'operacion_detalle' op.id %}" style="display: inline-block; padding: 5px 12px; background: #4f46e5; color: white; border: 1px solid #4338ca; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 700; margin-right: 5px;">
+                                    💳 Pagar Compra
+                                </a>
+                                {% endif %}
                             {% endif %}
                         {% endif %}
                         <a href="{% url 'operacion_detalle' op.id %}" style="display: inline-block; padding: 5px 12px; background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 600;">

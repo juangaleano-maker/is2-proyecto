@@ -460,14 +460,24 @@
                         🧾 Ver Ticket
                     </a>
                     {% elif operacion.estado == 'PENDIENTE' %}
-                        {% if operacion.tipo == 'COMPRA' and not operacion.stripe_payment_intent_id %}
-                        {# Solo mostrar opciones de pasarela de pago en COMPRA #}
-                        <a href="{% url 'pagos:iniciar_pago_stripe' operacion.id %}" class="btn" style="background-color: #4f46e5; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
-                            💳 Pagar con Stripe
-                        </a>
-                        <a href="{% url 'pagos:subir_comprobante_sipap' operacion.id %}" class="btn" style="background-color: #0284c7; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
-                            🏦 Adjuntar SIPAP
-                        </a>
+                        {% if operacion.tipo == 'COMPRA' %}
+                            {% if operacion.stripe_payment_intent_id %}
+                            {# Tiene sesión Stripe activa — mostrar verificar + reintentar #}
+                            <a href="{% url 'pagos:verificar_pago_stripe' operacion.id %}" class="btn" style="background-color: #7c3aed; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                                🔄 Verificar estado de pago
+                            </a>
+                            <a href="{% url 'pagos:iniciar_pago_stripe' operacion.id %}" class="btn" style="background-color: #4f46e5; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                                💳 Reintentar / Nueva sesión Stripe
+                            </a>
+                            {% else %}
+                            {# Aún no tiene sesión Stripe — flujo inicial de pago #}
+                            <a href="{% url 'pagos:iniciar_pago_stripe' operacion.id %}" class="btn" style="background-color: #4f46e5; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                                💳 Pagar con Stripe
+                            </a>
+                            <a href="{% url 'pagos:subir_comprobante_sipap' operacion.id %}" class="btn" style="background-color: #0284c7; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                                🏦 Adjuntar SIPAP
+                            </a>
+                            {% endif %}
                         {% elif operacion.tipo == 'VENTA' and es_personal %}
                         <a href="{% url 'confirmar_operacion_pago' operacion.id %}" class="btn" style="background-color: #059669; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
                             💵 Liquidar en Caja
@@ -478,6 +488,7 @@
                         🔁 Reintentar pago con Stripe
                     </a>
                     {% endif %}
+
                     {% if operacion.tipo == 'COMPRA' %}
                     <a href="{% url 'comprar_moneda' %}" class="btn" style="background-color: #2563eb; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
                         ➕ Nueva Compra de Moneda

@@ -183,7 +183,7 @@ STATICFILES_DIRS = [
 ]
 
 # Media Files
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Redis & Cache Configuration (Servidor de Cache)

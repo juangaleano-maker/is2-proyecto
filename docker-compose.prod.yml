@@ -51,6 +51,8 @@ services:
       - EMAIL_HOST=${EMAIL_HOST:-smtp.gmail.com}
       - EMAIL_PORT=${EMAIL_PORT:-587}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL:-globalexchangegrupo1@gmail.com}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media

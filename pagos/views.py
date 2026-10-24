@@ -109,8 +109,16 @@ def _procesar_evento_stripe(evento: dict) -> None:
     data_obj = evento.get("data", {}).get("object", {})
 
     if tipo in ("payment_intent.succeeded", "checkout.session.completed"):
-        _handle_pago_exitoso(tipo, data_obj)
-    elif tipo == "payment_intent.payment_failed":
+        if tipo == "checkout.session.completed" and data_obj.get("payment_status") not in (None, "", "paid"):
+            logger.info("Checkout session completada pero sin pago confirmado (payment_status: %s)", data_obj.get("payment_status"))
+            _handle_pago_fallido(data_obj)
+        else:
+            _handle_pago_exitoso(tipo, data_obj)
+    elif tipo in (
+        "payment_intent.payment_failed",
+        "checkout.session.async_payment_failed",
+        "checkout.session.expired",
+    ):
         _handle_pago_fallido(data_obj)
     else:
         logger.debug("Evento Stripe no manejado: %s", tipo)
@@ -191,21 +199,38 @@ def _handle_pago_exitoso(tipo_evento: str, data_obj: dict) -> None:
 
 def _handle_pago_fallido(data_obj: dict) -> None:
     """
-    Marca la operación como PAGO_FALLIDO al recibir ``payment_intent.payment_failed``.
+    Marca la operación como PAGO_FALLIDO al recibir ``payment_intent.payment_failed``
+    o cuando un intento de cobro en Stripe es rechazado/fallido.
     """
     payment_intent_id = data_obj.get("id", "")
-    if not payment_intent_id:
-        return
+    session_id = data_obj.get("id", "") if data_obj.get("object") == "checkout.session" else ""
+    metadata = data_obj.get("metadata", {})
+    metadata_op_id = metadata.get("operacion_id")
 
-    operacion = Operacion.objects.filter(
-        stripe_payment_intent_id=payment_intent_id
-    ).first()
+    operacion = None
+    if metadata_op_id:
+        operacion = Operacion.objects.filter(id=metadata_op_id).first()
+
+    if not operacion and payment_intent_id:
+        operacion = Operacion.objects.filter(
+            stripe_payment_intent_id=payment_intent_id
+        ).first()
+
+    if not operacion and session_id:
+        operacion = Operacion.objects.filter(
+            stripe_payment_intent_id=session_id
+        ).first()
 
     if not operacion:
         logger.warning(
-            "No se encontró operación con stripe_payment_intent_id=%s (pago fallido)",
-            payment_intent_id,
+            "No se encontró operación vinculada a Stripe en pago fallido (id=%s, metadata_op_id=%s)",
+            payment_intent_id or session_id,
+            metadata_op_id,
         )
+        return
+
+    if operacion.estado == Operacion.EstadoOperacion.PAGADA:
+        logger.warning("Intento de marcar como PAGO_FALLIDO una operación que ya estaba PAGADA (#%s)", operacion.id)
         return
 
     if operacion.estado == Operacion.EstadoOperacion.PAGO_FALLIDO:
@@ -213,7 +238,7 @@ def _handle_pago_fallido(data_obj: dict) -> None:
 
     operacion.estado = Operacion.EstadoOperacion.PAGO_FALLIDO
     operacion.save(update_fields=["estado"])
-    logger.info("Operación #%s → PAGO_FALLIDO (Stripe: %s).", operacion.id, payment_intent_id)
+    logger.info("Operación #%s → PAGO_FALLIDO (Stripe: %s).", operacion.id, payment_intent_id or session_id)
 
 
 # =============================================================================
@@ -477,12 +502,11 @@ def iniciar_pago_stripe(request, operacion_id):
 
     if request.method == "POST":
         # Al presionar "Pagar", crear Checkout Session oficial
-        success_url = request.build_absolute_uri(
-            reverse("operacion_detalle", kwargs={"operacion_id": operacion.id})
-        ) + "?stripe=success"
-        cancel_url = request.build_absolute_uri(
-            reverse("operacion_detalle", kwargs={"operacion_id": operacion.id})
-        ) + "?stripe=cancelled"
+        retorno_url = request.build_absolute_uri(
+            reverse("pagos:retorno_stripe", kwargs={"operacion_id": operacion.id})
+        )
+        success_url = f"{retorno_url}?status=success&session_id={{CHECKOUT_SESSION_ID}}"
+        cancel_url = f"{retorno_url}?status=cancelled&session_id={{CHECKOUT_SESSION_ID}}"
 
         resultado = StripePasarela.crear_checkout_session(
             operacion=operacion,
@@ -511,6 +535,272 @@ def iniciar_pago_stripe(request, operacion_id):
             "stripe_configurado": bool(stripe_key and not stripe_key.startswith("sk_test_REEMPLAZAR")),
         },
     )
+
+
+@login_required
+def retorno_pago_stripe(request, operacion_id):
+    """
+    Punto de retorno tras la interacción del cliente en la pasarela de Stripe Checkout.
+
+    Verifica de forma inmediata y automática con la API de Stripe:
+    - Si el pago fue aprobado/confirmado ('paid'), transiciona la operación
+      a PAGADA, emite el TicketTransaccion oficial y redirige al detalle.
+    - Si el pago fue rechazado, cancelado o falló, transiciona la operación
+      a PAGO_FALLIDO para permitir el reintento.
+    - Resuelve la confirmación en tiempo real sin depender exclusivamente
+      de webhooks externos.
+    """
+    operacion = get_object_or_404(
+        Operacion.objects.select_related("cliente", "moneda"), id=operacion_id
+    )
+
+    status_param = request.GET.get("status", "").strip().lower()
+
+    # Stripe pasa el session_id en la URL; si no viene por URL lo tomamos del campo guardado.
+    session_id_url = request.GET.get("session_id", "").strip()
+    session_id_guardado = getattr(operacion, "stripe_payment_intent_id", "") or ""
+
+    # Actualizar el campo si Stripe nos pasó el session_id y aún no estaba guardado
+    if session_id_url and session_id_url.startswith("cs_") and not session_id_guardado.startswith("cs_"):
+        operacion.stripe_payment_intent_id = session_id_url
+        operacion.save(update_fields=["stripe_payment_intent_id"])
+        session_id_guardado = session_id_url
+
+    session_id = session_id_url or session_id_guardado
+
+    logger.info(
+        "Retorno Stripe | op #%s | status_param=%s | session_id=%s",
+        operacion.id, status_param, session_id
+    )
+
+    # Si ya fue pagada previamente (por ejemplo, por webhook concurrente)
+    if operacion.estado == Operacion.EstadoOperacion.PAGADA:
+        messages.success(
+            request,
+            f"🎉 ¡Pago confirmado! La transacción #{operacion.id} ya está pagada."
+        )
+        return redirect("operacion_detalle", operacion_id=operacion.id)
+
+    # Si el cliente canceló en Stripe (botón "Volver", cerrar ventana, etc.)
+    if status_param == "cancelled":
+        if operacion.estado == Operacion.EstadoOperacion.PENDIENTE:
+            operacion.estado = Operacion.EstadoOperacion.PAGO_FALLIDO
+            operacion.save(update_fields=["estado"])
+            logger.info("Operación #%s → PAGO_FALLIDO (cliente canceló en Stripe).", operacion.id)
+        messages.warning(
+            request,
+            "⚠️ Cancelaste el pago en Stripe. La operación quedó en Pago Fallido. Podés reintentar cuando quieras."
+        )
+        return redirect("operacion_detalle", operacion_id=operacion.id)
+
+    # Si volvemos con success — verificar con la API de Stripe en tiempo real
+    if status_param == "success" and session_id and session_id.startswith("cs_"):
+        res = StripePasarela.consultar_checkout_session(session_id)
+        logger.info("Consulta Stripe para op #%s: %s", operacion.id, res)
+
+        if res.get("exito"):
+            payment_status = res.get("payment_status")
+            pi_id = res.get("payment_intent_id") or session_id
+
+            if payment_status == "paid":
+                _handle_pago_exitoso(
+                    "checkout.session.completed",
+                    {
+                        "id": session_id,
+                        "payment_intent": pi_id,
+                        "payment_status": "paid",
+                        "metadata": {
+                            "operacion_id": str(operacion.id),
+                            "monto_centavos": str(res.get("amount_total") or ""),
+                        },
+                    },
+                )
+                messages.success(
+                    request,
+                    f"🎉 ¡Pago aprobado por Stripe! Transacción #{operacion.id} confirmada exitosamente."
+                )
+                return redirect("operacion_detalle", operacion_id=operacion.id)
+
+            elif res.get("status") == "expired":
+                _handle_pago_fallido({
+                    "id": pi_id,
+                    "metadata": {"operacion_id": str(operacion.id)},
+                })
+                messages.error(
+                    request,
+                    "❌ La sesión de pago Stripe expiró sin completarse. La operación pasó a Pago Fallido. Podés reintentar."
+                )
+                return redirect("operacion_detalle", operacion_id=operacion.id)
+
+            else:
+                # payment_status == "unpaid" o "no_payment_required" — raro en success redirect, pero manejarlo
+                error_msg = res.get("error_message") or f"Estado de pago: {payment_status}"
+                logger.warning(
+                    "Stripe devolvió status_param=success pero payment_status=%s para op #%s",
+                    payment_status, operacion.id,
+                )
+                messages.warning(
+                    request,
+                    f"⚠️ Stripe indica que el pago aún no fue procesado ({error_msg}). "
+                    "Usá el botón 🔄 Verificar estado para actualizar manualmente."
+                )
+                return redirect("operacion_detalle", operacion_id=operacion.id)
+
+        else:
+            # No pudimos consultar Stripe (key inválida, red, etc.)
+            err = res.get("error", "Error desconocido")
+            logger.error("Error consultando Stripe en retorno para op #%s: %s", operacion.id, err)
+            messages.warning(
+                request,
+                "⚠️ No pudimos verificar el pago automáticamente con Stripe. "
+                "Usá el botón 🔄 Verificar estado en el detalle de la operación para actualizarlo."
+            )
+            return redirect("operacion_detalle", operacion_id=operacion.id)
+
+    # Fallback sin session_id o sin status claro
+    messages.info(
+        request,
+        "Fuiste redirigido desde Stripe. Verificá el estado de tu pago con el botón correspondiente."
+    )
+    return redirect("operacion_detalle", operacion_id=operacion.id)
+
+
+def _verificar_y_aplicar_estado_stripe(operacion) -> dict:
+    """
+    Consulta el estado actual de la Checkout Session en Stripe y aplica la
+    transición de estado correspondiente en la operación (PAGADA / PAGO_FALLIDO).
+
+    Puede llamarse desde cualquier vista (retorno, verificación manual, detalle).
+    Returns dict con keys: exito, estado_aplicado (PAGADA|PAGO_FALLIDO|SIN_CAMBIO), mensaje, error.
+    """
+    session_id = getattr(operacion, "stripe_payment_intent_id", "") or ""
+
+    if not session_id:
+        return {"exito": False, "estado_aplicado": "SIN_CAMBIO", "error": "La operación no tiene una sesión de Stripe asociada."}
+
+    # Si la sesión está guardada como payment_intent (pi_...) ya fue confirmada por webhook
+    if session_id.startswith("pi_"):
+        if operacion.estado == Operacion.EstadoOperacion.PAGADA:
+            return {"exito": True, "estado_aplicado": "PAGADA", "mensaje": "El pago ya estaba confirmado."}
+        # Poco probable pero si hay pi_ y no está PAGADA, algo raro pasó
+        return {"exito": False, "estado_aplicado": "SIN_CAMBIO", "error": "Estado inconsistente. Verificar manualmente."}
+
+    if not session_id.startswith("cs_"):
+        return {"exito": False, "estado_aplicado": "SIN_CAMBIO", "error": f"ID de sesión inválido: {session_id}"}
+
+    # Consultar a Stripe
+    res = StripePasarela.consultar_checkout_session(session_id)
+
+    if not res.get("exito"):
+        error = res.get("error", "Error desconocido al consultar Stripe.")
+        logger.error("No se pudo verificar sesión Stripe %s para operación #%s: %s", session_id, operacion.id, error)
+        return {"exito": False, "estado_aplicado": "SIN_CAMBIO", "error": error}
+
+    payment_status = res.get("payment_status")
+    stripe_status = res.get("status")
+    pi_id = res.get("payment_intent_id") or session_id
+    error_message = res.get("error_message") or ""
+
+    logger.info(
+        "Verificación Stripe op #%s | session=%s | payment_status=%s | status=%s",
+        operacion.id, session_id, payment_status, stripe_status,
+    )
+
+    if payment_status == "paid":
+        if operacion.estado == Operacion.EstadoOperacion.PAGADA:
+            return {"exito": True, "estado_aplicado": "PAGADA", "mensaje": "El pago ya estaba confirmado."}
+        _handle_pago_exitoso(
+            "checkout.session.completed",
+            {
+                "id": session_id,
+                "payment_intent": pi_id,
+                "payment_status": "paid",
+                "metadata": {
+                    "operacion_id": str(operacion.id),
+                    "monto_centavos": str(res.get("amount_total") or ""),
+                },
+            },
+        )
+        return {"exito": True, "estado_aplicado": "PAGADA", "mensaje": "¡Pago confirmado exitosamente por Stripe!"}
+
+    elif stripe_status == "expired" or (stripe_status == "open" and payment_status == "unpaid" and error_message):
+        if operacion.estado != Operacion.EstadoOperacion.PAGO_FALLIDO:
+            _handle_pago_fallido({
+                "id": pi_id,
+                "metadata": {"operacion_id": str(operacion.id)},
+            })
+        msg = error_message or "El pago fue rechazado o no se completó en Stripe."
+        return {"exito": True, "estado_aplicado": "PAGO_FALLIDO", "mensaje": msg}
+
+    else:
+        # Estado ambiguo: la sesión sigue abierta (el usuario aún no pagó o está en proceso)
+        return {
+            "exito": True,
+            "estado_aplicado": "SIN_CAMBIO",
+            "mensaje": f"El pago aún no ha sido confirmado por Stripe (estado: {payment_status or stripe_status}). Esperá unos segundos y volvé a verificar.",
+        }
+
+
+@login_required
+def verificar_pago_stripe(request, operacion_id):
+    """
+    Verificación manual del estado del pago con Stripe.
+    Consultamos la API de Stripe en tiempo real y actualizamos el estado.
+    Accesible para el propietario de la operación, personal y admin.
+    """
+    operacion = get_object_or_404(
+        Operacion.objects.select_related("cliente", "moneda"), id=operacion_id
+    )
+
+    # Control de acceso
+    roles = set(getattr(request, "roles", [])) | set(
+        request.user.groups.values_list("name", flat=True)
+    )
+    roles_gestion = {"admin", "supervisor", "operador", "empleado"}
+    es_personal = bool(roles.intersection(roles_gestion)) or request.user.is_staff
+
+    if not es_personal and operacion.registrado_por != request.user:
+        messages.error(request, "No tenés permiso para verificar esta operación.")
+        return redirect("menu")
+
+    if operacion.estado == Operacion.EstadoOperacion.PAGADA:
+        messages.success(request, f"🎉 La operación #{operacion.id} ya está PAGADA.")
+        return redirect("operacion_detalle", operacion_id=operacion.id)
+
+    if operacion.estado == Operacion.EstadoOperacion.CANCELADA:
+        messages.info(request, f"La operación #{operacion.id} está cancelada.")
+        return redirect("operacion_detalle", operacion_id=operacion.id)
+
+    resultado = _verificar_y_aplicar_estado_stripe(operacion)
+    operacion.refresh_from_db()
+
+    if not resultado.get("exito"):
+        messages.error(
+            request,
+            f"❌ No se pudo verificar el estado con Stripe: {resultado.get('error')} "
+            "Verificá que STRIPE_SECRET_KEY esté configurada en tu .env."
+        )
+        return redirect("operacion_detalle", operacion_id=operacion.id)
+
+    estado_aplicado = resultado.get("estado_aplicado")
+    msg = resultado.get("mensaje", "")
+
+    if estado_aplicado == "PAGADA":
+        messages.success(request, f"🎉 {msg} La transacción #{operacion.id} está pagada.")
+    elif estado_aplicado == "PAGO_FALLIDO":
+        messages.error(
+            request,
+            f"❌ {msg} La operación quedó en estado PAGO FALLIDO. Podés reintentar el pago."
+        )
+    else:
+        messages.info(
+            request,
+            f"🔄 {msg}"
+        )
+
+    return redirect("operacion_detalle", operacion_id=operacion.id)
+
+
 
 
 @login_required

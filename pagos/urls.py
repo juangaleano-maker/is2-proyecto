@@ -43,8 +43,18 @@ urlpatterns = [
         name="iniciar_pago_stripe",
     ),
     path(
+        "stripe/<int:operacion_id>/retorno/",
+        views.retorno_pago_stripe,
+        name="retorno_stripe",
+    ),
+    path(
         "stripe/<int:operacion_id>/simular/",
         views.simular_pago_stripe,
         name="simular_pago_stripe",
+    ),
+    path(
+        "stripe/<int:operacion_id>/verificar/",
+        views.verificar_pago_stripe,
+        name="verificar_pago_stripe",
     ),
 ]

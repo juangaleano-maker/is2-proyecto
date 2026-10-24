@@ -863,6 +863,40 @@ def detalle_operacion_view(request, operacion_id):
             messages.error(request, "No tienes permiso para consultar esta operación.")
             return redirect('menu')
 
+    # Auto-verificación de pagos Stripe si la operación está pendiente o retorna con parámetro stripe
+    stripe_param = request.GET.get('stripe', '').strip().lower()
+    if stripe_param == 'cancelled':
+        if operacion.estado != Operacion.EstadoOperacion.PAGADA and operacion.estado != Operacion.EstadoOperacion.PAGO_FALLIDO:
+            operacion.estado = Operacion.EstadoOperacion.PAGO_FALLIDO
+            operacion.save(update_fields=['estado'])
+            messages.warning(request, "⚠️ El pago en Stripe fue cancelado o rechazado por la plataforma. Podés reintentar cuando lo desees.")
+    elif operacion.estado in (Operacion.EstadoOperacion.PENDIENTE, Operacion.EstadoOperacion.PAGO_FALLIDO) and operacion.stripe_payment_intent_id and operacion.stripe_payment_intent_id.startswith('cs_'):
+        try:
+            from pagos.services import StripePasarela
+            res = StripePasarela.consultar_checkout_session(operacion.stripe_payment_intent_id)
+            if res.get('exito'):
+                if res.get('payment_status') == 'paid' and operacion.estado != Operacion.EstadoOperacion.PAGADA:
+                    from pagos.views import _handle_pago_exitoso
+                    _handle_pago_exitoso('checkout.session.completed', {
+                        'id': operacion.stripe_payment_intent_id,
+                        'payment_intent': res.get('payment_intent_id') or operacion.stripe_payment_intent_id,
+                        'payment_status': 'paid',
+                        'metadata': {
+                            'operacion_id': str(operacion.id),
+                            'monto_centavos': str(res.get('amount_total') or ''),
+                        }
+                    })
+                    operacion.refresh_from_db()
+                    messages.success(request, f"🎉 ¡Pago confirmado automáticamente por Stripe! La transacción #{operacion.id} está pagada y se generó el ticket oficial.")
+                elif res.get('status') == 'expired' or (res.get('payment_status') != 'paid' and res.get('error_message')):
+                    if operacion.estado != Operacion.EstadoOperacion.PAGO_FALLIDO:
+                        operacion.estado = Operacion.EstadoOperacion.PAGO_FALLIDO
+                        operacion.save(update_fields=['estado'])
+                        err = res.get('error_message') or "El pago fue rechazado por la plataforma bancaria."
+                        messages.error(request, f"❌ {err} La operación quedó en estado PAGO FALLIDO.")
+        except Exception:
+            pass
+
     return render(request, 'cotizaciones/operaciones/detalle.html', {
         'operacion': operacion,
         'es_personal': es_personal,

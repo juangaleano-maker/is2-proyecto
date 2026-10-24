@@ -599,3 +599,63 @@ class StripeCheckoutWebTests(BasePagosTestCase):
             reverse("operacion_detalle", kwargs={"operacion_id": self.operacion.id}),
         )
 
+    def test_retorno_stripe_exitoso_confirma_operacion_y_genera_ticket(self):
+        """Retorno desde Stripe con pago confirmado pasa a PAGADA y emite ticket automáticamente."""
+        session_id = "cs_test_mock_approved"
+        self.operacion.stripe_payment_intent_id = session_id
+        self.operacion.save(update_fields=["stripe_payment_intent_id"])
+
+        mock_session_data = {
+            "exito": True,
+            "session_id": session_id,
+            "status": "complete",
+            "payment_status": "paid",
+            "payment_intent_id": "pi_test_real_123",
+            "amount_total": int(self.operacion.total_neto * 100),
+            "metadata": {"operacion_id": str(self.operacion.id)},
+            "error_message": "",
+        }
+
+        retorno_url = reverse("pagos:retorno_stripe", kwargs={"operacion_id": self.operacion.id})
+        with patch.object(StripePasarela, "consultar_checkout_session", return_value=mock_session_data):
+            response = self.client.get(f"{retorno_url}?status=success&session_id={session_id}")
+            self.assertRedirects(
+                response,
+                reverse("operacion_detalle", kwargs={"operacion_id": self.operacion.id}),
+            )
+
+        self.operacion.refresh_from_db()
+        self.assertEqual(self.operacion.estado, Operacion.EstadoOperacion.PAGADA)
+        self.assertEqual(self.operacion.stripe_payment_intent_id, "pi_test_real_123")
+        self.assertTrue(TicketTransaccion.objects.filter(operacion=self.operacion).exists())
+
+    def test_retorno_stripe_cancelado_o_rechazado_marca_pago_fallido(self):
+        """Retorno cancelado o con tarjeta rechazada transiciona a PAGO_FALLIDO."""
+        session_id = "cs_test_mock_declined"
+        self.operacion.stripe_payment_intent_id = session_id
+        self.operacion.save(update_fields=["stripe_payment_intent_id"])
+
+        mock_session_data = {
+            "exito": True,
+            "session_id": session_id,
+            "status": "open",
+            "payment_status": "unpaid",
+            "payment_intent_id": "pi_test_declined_123",
+            "amount_total": int(self.operacion.total_neto * 100),
+            "metadata": {"operacion_id": str(self.operacion.id)},
+            "error_message": "Your card was declined.",
+        }
+
+        retorno_url = reverse("pagos:retorno_stripe", kwargs={"operacion_id": self.operacion.id})
+        with patch.object(StripePasarela, "consultar_checkout_session", return_value=mock_session_data):
+            response = self.client.get(f"{retorno_url}?status=cancelled&session_id={session_id}")
+            self.assertRedirects(
+                response,
+                reverse("operacion_detalle", kwargs={"operacion_id": self.operacion.id}),
+            )
+
+        self.operacion.refresh_from_db()
+        self.assertEqual(self.operacion.estado, Operacion.EstadoOperacion.PAGO_FALLIDO)
+        self.assertFalse(TicketTransaccion.objects.filter(operacion=self.operacion).exists())
+
+

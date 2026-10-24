@@ -199,6 +199,12 @@ class StripePasarela(PasarelaPago):
         try:
             stripe = _get_stripe()
             session = stripe.checkout.Session.create(
+                payment_intent_data={
+                    "metadata": {
+                        "operacion_id": str(operacion.id),
+                        "monto_centavos": str(monto_centavos),
+                    }
+                },
                 line_items=[{
                     "price_data": {
                         "currency": "usd",
@@ -245,6 +251,47 @@ class StripePasarela(PasarelaPago):
             "monto_usd": monto_usd,
             "monto_centavos": monto_centavos,
         }
+
+    @classmethod
+    def consultar_checkout_session(cls, session_id: str) -> Dict[str, Any]:
+        """
+        Consulta el estado de una Checkout Session en Stripe con su PaymentIntent.
+
+        Returns:
+            Diccionario estructurado con el estado de pago, identificadores y errores si hubo.
+        """
+        try:
+            stripe = _get_stripe()
+            session_obj = stripe.checkout.Session.retrieve(
+                session_id, expand=["payment_intent"]
+            )
+            # Stripe API resources no son dicts; convertir para acceso uniforme
+            session = session_obj.to_dict() if hasattr(session_obj, "to_dict") else dict(session_obj)
+
+            pi = session.get("payment_intent")
+            pi_id = ""
+            error_message = ""
+            if isinstance(pi, dict):
+                pi_id = pi.get("id", "")
+                last_err = pi.get("last_payment_error")
+                if last_err and isinstance(last_err, dict):
+                    error_message = last_err.get("message", "")
+            elif isinstance(pi, str):
+                pi_id = pi
+
+            return {
+                "exito": True,
+                "session_id": session.get("id"),
+                "status": session.get("status"),  # 'complete', 'expired', 'open'
+                "payment_status": session.get("payment_status"),  # 'paid', 'unpaid', 'no_payment_required'
+                "payment_intent_id": pi_id,
+                "amount_total": session.get("amount_total"),
+                "metadata": session.get("metadata", {}),
+                "error_message": error_message,
+            }
+        except Exception as exc:
+            logger.error("Error consultando Checkout Session %s: %s", session_id, exc, exc_info=True)
+            return {"exito": False, "error": str(exc)}
 
     @staticmethod
     def verificar_firma_webhook(payload_raw: bytes, sig_header: str) -> Any:
