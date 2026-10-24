@@ -76,6 +76,7 @@
         "http://127.0.0.1:8000/oidc/callback/",
         "http://127.0.0.1/oidc/callback/",
         "http://127.0.0.1:80/oidc/callback/",
+        "*",
         "/*"
       ],
       "webOrigins": [
@@ -85,7 +86,8 @@
         "http://127.0.0.1:8000",
         "http://127.0.0.1",
         "http://127.0.0.1:80",
-        "+"
+        "+",
+        "*"
       ],
       "fullScopeAllowed": true,
       "protocolMappers": [

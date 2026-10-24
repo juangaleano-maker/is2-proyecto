@@ -39,6 +39,11 @@ CSRF_TRUSTED_ORIGINS = [
     if origin.strip()
 ]
 
+_app_base_url = os.getenv('APP_BASE_URL', '').strip()
+if _app_base_url and _app_base_url not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append(_app_base_url)
+
+
 # Configuración para proxy inverso Nginx
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
