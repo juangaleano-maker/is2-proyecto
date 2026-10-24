@@ -2160,4 +2160,105 @@ class MovimientoCajaTestCase(TestCase):
         self.assertEqual(stock.cantidad, 6)
 
 
+class CotizacionDesactivacionTests(TestCase):
+    """
+    Pruebas para las observaciones de control de cotizaciones:
+    1. Al registrar una nueva cotización se debe desactivar automáticamente la anterior vigente.
+    2. No se debe permitir registrar cotizaciones para monedas inactivas.
+    """
+
+    def setUp(self):
+        from django.contrib.auth.models import Group, User
+        from monedas.models import Moneda
+        self.analista_group = Group.objects.get_or_create(name='analista_cambiario')[0]
+        self.analista = User.objects.create_user(username='analista_desact', email='analista_d@test.com')
+        self.analista.groups.add(self.analista_group)
+
+        self.usd = Moneda.objects.create(nombre='Dólar Estadounidense', siglas='USD', activa=True)
+        self.pyg = Moneda.objects.create(nombre='Guaraní Paraguayo', siglas='PYG', activa=True)
+        self.ars_inactiva = Moneda.objects.create(nombre='Peso Argentino', siglas='ARS', activa=False)
+        self.client = Client()
+
+    def test_registrar_nueva_cotizacion_desactiva_la_anterior(self):
+        """Al crear una nueva cotización para USD->PYG, la cotización vigente anterior pasa a activo=False."""
+        import json
+        cot_antigua = Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7500.00'),
+            venta=Decimal('7550.00'),
+            activo=True
+        )
+
+        self.client.force_login(self.analista)
+        url = reverse('api_registrar_cotizacion')
+        payload = {
+            'moneda_origen': self.usd.id,
+            'moneda_destino': self.pyg.id,
+            'compra': 7600.00,
+            'venta': 7650.00,
+        }
+        resp = self.client.post(url, data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 201)
+
+        cot_antigua.refresh_from_db()
+        self.assertFalse(cot_antigua.activo, "La cotización antigua debía ser desactivada al crear una nueva cotización.")
+
+        # La nueva debe estar activa
+        nueva_cot = Cotizacion.objects.get(id=resp.json()['id'])
+        self.assertTrue(nueva_cot.activo)
+        self.assertEqual(nueva_cot.compra, Decimal('7600.00'))
+
+    def test_no_permite_crear_cotizacion_para_moneda_inactiva(self):
+        """Registrar una cotización para una moneda inactiva debe ser rechazado con 400."""
+        import json
+        self.client.force_login(self.analista)
+        url = reverse('api_registrar_cotizacion')
+        payload = {
+            'moneda_origen': self.ars_inactiva.id,
+            'moneda_destino': self.pyg.id,
+            'compra': 10.00,
+            'venta': 12.00,
+        }
+        resp = self.client.post(url, data=json.dumps(payload), content_type='application/json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.json())
+        self.assertIn("inactiva", resp.json()['error'].lower())
+
+    def test_cotizacion_form_valida_monedas_activas_y_desactiva_anterior(self):
+        """El CotizacionForm no permite monedas inactivas y desactiva cotizaciones anteriores al guardar."""
+        from cotizaciones.forms import CotizacionForm
+        cot_antigua = Cotizacion.objects.create(
+            moneda_origen=self.usd,
+            moneda_destino=self.pyg,
+            compra=Decimal('7500.00'),
+            venta=Decimal('7550.00'),
+            activo=True
+        )
+
+        # Form con moneda inactiva no debe ser válido
+        form_invalido = CotizacionForm(data={
+            'moneda_origen': self.ars_inactiva.id,
+            'moneda_destino': self.pyg.id,
+            'compra': '10.00',
+            'venta': '12.00',
+        })
+        self.assertFalse(form_invalido.is_valid())
+
+        # Form válido desactiva la anterior al guardar
+        form_valido = CotizacionForm(data={
+            'moneda_origen': self.usd.id,
+            'moneda_destino': self.pyg.id,
+            'compra': '7700.00',
+            'venta': '7750.00',
+        })
+        self.assertTrue(form_valido.is_valid(), form_valido.errors)
+        nueva = form_valido.save()
+
+        cot_antigua.refresh_from_db()
+        self.assertFalse(cot_antigua.activo)
+        self.assertTrue(nueva.activo)
+
+
+
 

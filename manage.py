@@ -68,7 +68,10 @@ def ejecutar_tests_previos():
     print("=" * 72)
 
     apps_to_test = ['authentication', 'clientes', 'cotizaciones', 'monedas', 'pagos', 'usuarios', 'agregar_usuario']
-    cmd = [sys.executable, 'manage.py', 'test'] + apps_to_test
+    cmd = [sys.executable, 'manage.py', 'test', '--noinput']
+    if os.environ.get('KEEPDB') == '1' or '--keepdb' in sys.argv:
+        cmd.append('--keepdb')
+    cmd += apps_to_test
     resultado = subprocess.run(cmd)
 
     if resultado.returncode != 0:

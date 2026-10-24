@@ -2,7 +2,29 @@
 
 from django.contrib import admin
 
-from .models import ComprobanteSIPAP, StripeEventoProcesado, TicketTransaccion
+from .models import ComprobanteSIPAP, MetodoPagoSistema, StripeEventoProcesado, TicketTransaccion
+
+
+@admin.register(MetodoPagoSistema)
+class MetodoPagoSistemaAdmin(admin.ModelAdmin):
+    """Administración del catálogo global de métodos de pago del sistema."""
+
+    list_display = ("nombre", "categoria", "icono", "activo", "creado_en")
+    list_filter = ("categoria", "activo")
+    search_fields = ("nombre", "descripcion")
+    list_editable = ("activo",)
+    readonly_fields = ("creado_en", "actualizado_en")
+    ordering = ("categoria", "nombre")
+
+    fieldsets = (
+        (None, {
+            "fields": ("nombre", "categoria", "icono", "activo"),
+        }),
+        ("Detalles", {
+            "fields": ("descripcion", "creado_en", "actualizado_en"),
+            "classes": ("collapse",),
+        }),
+    )
 
 
 @admin.register(ComprobanteSIPAP)

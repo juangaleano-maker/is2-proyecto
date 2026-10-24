@@ -32,6 +32,15 @@ class Cliente(models.Model):
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
 
+    # Métodos de pago del catálogo global asignados a este cliente
+    metodos_pago_sistema = models.ManyToManyField(
+        'pagos.MetodoPagoSistema',
+        blank=True,
+        related_name='clientes_asignados',
+        verbose_name='Métodos de Pago Habilitados',
+        help_text='Métodos de pago del sistema que este cliente puede utilizar para sus operaciones.',
+    )
+
     def __str__(self):
         return self.razon_social if self.tipo_persona == self.TipoPersona.JURIDICA else f"{self.nombre} {self.apellido}"
 

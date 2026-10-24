@@ -49,20 +49,44 @@ def alternar_estado_moneda(request, pk):
     Alterna el estado (activa/inactiva) de una moneda.
     Garantiza que el historial no se borre al no eliminar el registro físico.
     Solo acepta solicitudes POST para prevenir cambios accidentales por GET.
+
+    Reglas de negocio:
+    - Desactivar una moneda NO elimina ni desactiva sus cotizaciones históricas.
+    - Desactivar una moneda NO cancela operaciones existentes asociadas a ella.
+    - La desactivación solo excluye la moneda de los selectores de NUEVAS operaciones y cotizaciones.
     """
     if request.method != 'POST':
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(['POST'])
 
     moneda = get_object_or_404(Moneda, pk=pk)
-    
+
     # Invertir el estado
     moneda.activa = not moneda.activa
     moneda.save(update_fields=['activa'])
-    
-    accion = "activada" if moneda.activa else "desactivada"
-    messages.success(request, f'La moneda "{moneda.nombre} ({moneda.siglas})" ha sido {accion} exitosamente.')
-    
+
+    if moneda.activa:
+        messages.success(
+            request,
+            f'La moneda "{moneda.nombre} ({moneda.siglas})" fue activada exitosamente. '
+            f'Ya está disponible para registrar nuevas cotizaciones y operaciones.'
+        )
+    else:
+        # Desactivar cotizaciones vigentes asociadas a esta moneda (origen o destino)
+        from cotizaciones.models import Cotizacion
+        from django.db.models import Q
+        cots_desactivadas = Cotizacion.objects.filter(
+            Q(moneda_origen=moneda) | Q(moneda_destino=moneda),
+            activo=True
+        ).update(activo=False)
+
+        messages.warning(
+            request,
+            f'La moneda "{moneda.nombre} ({moneda.siglas})" fue desactivada. '
+            f'Se desactivaron {cots_desactivadas} cotización(es) vigentes asociadas (el historial permanece preservado). '
+            f'La moneda ya no aparecerá disponible para nuevas cotizaciones ni operaciones.'
+        )
+
     return redirect('monedas:consultar')
 
 @rol_requerido('admin')

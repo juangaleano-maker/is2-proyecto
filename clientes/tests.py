@@ -427,3 +427,97 @@ class ApiClientesTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(len(data["clientes"]), 1)
         self.assertEqual(data["clientes"][0]["segmento"], "VIP")
+
+
+#  HU: Métodos de Pago Globales del Sistema y Asignación por Cliente
+
+class AsignacionMetodosPagoSistemaTests(TestCase):
+    """
+    Pruebas para las observaciones de métodos de pago generales estáticos
+    e implementación de su asignación por cliente.
+    """
+
+    def setUp(self):
+        from pagos.models import MetodoPagoSistema
+        self.cliente = crear_cliente(nombre="Empresa XYZ", documento="80012345-6")
+        self.metodo1 = MetodoPagoSistema.objects.create(
+            nombre="Efectivo Guaraníes",
+            categoria=MetodoPagoSistema.Categoria.EFECTIVO,
+            icono="GS",
+            descripcion="Pago en efectivo local",
+            activo=True
+        )
+        self.metodo2 = MetodoPagoSistema.objects.create(
+            nombre="Transferencia SIPAP",
+            categoria=MetodoPagoSistema.Categoria.TRANSFERENCIA,
+            icono="TB",
+            descripcion="Transferencia interbancaria",
+            activo=True
+        )
+        self.metodo_inactivo = MetodoPagoSistema.objects.create(
+            nombre="Método Deshabilitado",
+            categoria=MetodoPagoSistema.Categoria.DIGITAL,
+            activo=False
+        )
+
+    def test_catalogo_estatico_metodos_pago_sistema(self):
+        """El catálogo de métodos de pago del sistema se puede consultar y clasificar por categoría."""
+        from pagos.models import MetodoPagoSistema
+        self.assertEqual(MetodoPagoSistema.objects.count(), 3)
+        activos = MetodoPagoSistema.objects.filter(activo=True)
+        self.assertEqual(activos.count(), 2)
+
+    def test_asignar_metodos_pago_a_cliente_m2m(self):
+        """Un cliente puede tener asignados múltiples métodos de pago del catálogo general."""
+        self.cliente.metodos_pago_sistema.add(self.metodo1, self.metodo2)
+        self.assertEqual(self.cliente.metodos_pago_sistema.count(), 2)
+        self.assertIn(self.metodo1, self.cliente.metodos_pago_sistema.all())
+        self.assertIn(self.metodo2, self.cliente.metodos_pago_sistema.all())
+
+        # Desasignar uno
+        self.cliente.metodos_pago_sistema.remove(self.metodo1)
+        self.assertEqual(self.cliente.metodos_pago_sistema.count(), 1)
+        self.assertNotIn(self.metodo1, self.cliente.metodos_pago_sistema.all())
+
+    def test_vista_gestionar_metodos_pago_cliente_get(self):
+        """GET a gestionar_metodos_pago muestra la interfaz con los métodos disponibles."""
+        url = reverse("clientes:gestionar_metodos_pago", args=[self.cliente.pk])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Efectivo Guaraníes")
+        self.assertContains(resp, "Transferencia SIPAP")
+        # El método inactivo no debe aparecer como opción asignable
+        self.assertNotContains(resp, "Método Deshabilitado")
+
+    def test_vista_gestionar_metodos_pago_cliente_post_asignar_y_desasignar(self):
+        """POST a gestionar_metodos_pago permite asignar y desasignar métodos al cliente."""
+        url = reverse("clientes:gestionar_metodos_pago", args=[self.cliente.pk])
+
+        # Asignar
+        resp_asig = self.client.post(url, {
+            'accion': 'asignar',
+            'metodo_id': self.metodo1.pk
+        })
+        self.assertRedirects(resp_asig, url)
+        self.assertTrue(self.cliente.metodos_pago_sistema.filter(pk=self.metodo1.pk).exists())
+
+        # Desasignar
+        resp_desasig = self.client.post(url, {
+            'accion': 'desasignar',
+            'metodo_id': self.metodo1.pk
+        })
+        self.assertRedirects(resp_desasig, url)
+        self.assertFalse(self.cliente.metodos_pago_sistema.filter(pk=self.metodo1.pk).exists())
+
+    def test_api_metodos_pago_sistema(self):
+        """GET /clientes/api/metodos-pago-sistema/ retorna el catálogo en formato JSON."""
+        url = reverse("clientes:api_metodos_pago_sistema")
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data.get("ok"))
+        nombres = [m["nombre"] for m in data.get("metodos", [])]
+        self.assertIn("Efectivo Guaraníes", nombres)
+        self.assertIn("Transferencia SIPAP", nombres)
+        self.assertNotIn("Método Deshabilitado", nombres)
+

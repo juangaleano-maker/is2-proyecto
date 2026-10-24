@@ -34,6 +34,7 @@ def cotizaciones_frontend(request):
 @require_http_methods(["POST"])
 def registrar_cotizacion_api(request):
     """Endpoint API para registrar una nueva cotización."""
+    from monedas.models import Moneda
     try:
         data = json.loads(request.body)
         moneda_origen = data.get('moneda_origen')
@@ -42,16 +43,30 @@ def registrar_cotizacion_api(request):
         venta = data.get('venta')
         if not all([moneda_origen, moneda_destino, compra, venta]):
             return JsonResponse({'error': 'Todos los campos son obligatorios.'}, status=400)
+
+        # Validar que ambas monedas existan y estén activas
+        origen_obj = Moneda.objects.filter(id=moneda_origen, activa=True).first()
+        destino_obj = Moneda.objects.filter(id=moneda_destino, activa=True).first()
+        if not origen_obj or not destino_obj:
+            return JsonResponse({'error': 'No se puede registrar cotizaciones para monedas inactivas o inexistentes.'}, status=400)
         
         # Validar que la tasa de venta no sea menor a la compra
         if float(venta) < float(compra):
             return JsonResponse({'error': 'La tasa de venta no puede ser menor a la tasa de compra.'}, status=400)
 
-        cotizacion = Cotizacion.objects.create(
+        # Desactivar cotizaciones anteriores vigentes para el mismo par de monedas
+        Cotizacion.objects.filter(
             moneda_origen_id=moneda_origen,
             moneda_destino_id=moneda_destino,
+            activo=True
+        ).update(activo=False)
+
+        cotizacion = Cotizacion.objects.create(
+            moneda_origen=origen_obj,
+            moneda_destino=destino_obj,
             compra=compra,
             venta=venta,
+            activo=True,
             registrado_por=request.user if request.user.is_authenticated else None,
         )
         return JsonResponse({'mensaje': 'Cotización registrada exitosamente.', 'id': cotizacion.id}, status=201)
@@ -79,6 +94,9 @@ def modificar_cotizacion_api(request, cotizacion_id):
     from django.shortcuts import get_object_or_404
     try:
         cotizacion_anterior = get_object_or_404(Cotizacion, id=cotizacion_id, activo=True)
+        if not cotizacion_anterior.moneda_origen.activa or not cotizacion_anterior.moneda_destino.activa:
+            return JsonResponse({'error': 'No se puede modificar una cotización con monedas inactivas.'}, status=400)
+
         data = json.loads(request.body)
         compra = data.get('compra')
         venta = data.get('venta')
@@ -92,6 +110,13 @@ def modificar_cotizacion_api(request, cotizacion_id):
         # Pasar la actual al historial
         cotizacion_anterior.activo = False
         cotizacion_anterior.save()
+
+        # Desactivar otras cotizaciones vigentes del mismo par por consistencia
+        Cotizacion.objects.filter(
+            moneda_origen=cotizacion_anterior.moneda_origen,
+            moneda_destino=cotizacion_anterior.moneda_destino,
+            activo=True
+        ).exclude(id=cotizacion_anterior.id).update(activo=False)
         
         # Crear la nueva como vigente
         nueva_cotizacion = Cotizacion.objects.create(

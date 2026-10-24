@@ -2,6 +2,7 @@
 Modelos del módulo de pagos.
 
 Contiene:
+- MetodoPagoSistema: Catálogo estático de métodos de pago habilitados en el sistema.
 - ComprobanteSIPAP: Comprobante adjunto por el cliente para confirmación manual.
 - StripeEventoProcesado: Registro de eventos Stripe ya procesados (idempotencia).
 - TicketTransaccion: Registro inmutable del ticket generado al completar un pago.
@@ -29,6 +30,64 @@ def validar_tamano_archivo(archivo):
             f"El archivo no puede superar {limite_mb} MB. "
             f"Tamaño recibido: {archivo.size / (1024*1024):.2f} MB."
         )
+
+
+class MetodoPagoSistema(models.Model):
+    """
+    Catálogo global y estático de métodos de pago habilitados en el sistema.
+
+    Los administradores definen aquí los métodos disponibles (ej. Efectivo, Tarjeta
+    de Crédito, Transferencia Bancaria, SIPAP, Stripe). Estos se asignan luego
+    a clientes específicos mediante la relación M2M en el modelo Cliente.
+    """
+
+    class Categoria(models.TextChoices):
+        EFECTIVO = "EFECTIVO", "Efectivo"
+        TARJETA_CREDITO = "TARJETA_CREDITO", "Tarjeta de Crédito"
+        TARJETA_DEBITO = "TARJETA_DEBITO", "Tarjeta de Débito"
+        TRANSFERENCIA = "TRANSFERENCIA", "Transferencia Bancaria"
+        DIGITAL = "DIGITAL", "Pago Digital / Online"
+        OTRO = "OTRO", "Otro"
+
+    nombre = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name="Nombre del Método",
+        help_text="Denominación visible para usuarios y operadores (ej. 'Tarjeta Visa Crédito').",
+    )
+    categoria = models.CharField(
+        max_length=20,
+        choices=Categoria.choices,
+        default=Categoria.EFECTIVO,
+        verbose_name="Categoría",
+    )
+    descripcion = models.TextField(
+        blank=True,
+        verbose_name="Descripción",
+        help_text="Descripción detallada o instrucciones para el operador.",
+    )
+    icono = models.CharField(
+        max_length=10,
+        blank=True,
+        default="💳",
+        verbose_name="Ícono (emoji)",
+        help_text="Emoji representativo del método de pago.",
+    )
+    activo = models.BooleanField(
+        default=True,
+        verbose_name="¿Habilitado?",
+        help_text="Solo los métodos activos pueden asignarse a clientes y seleccionarse en operaciones.",
+    )
+    creado_en = models.DateTimeField(auto_now_add=True, verbose_name="Creado el")
+    actualizado_en = models.DateTimeField(auto_now=True, verbose_name="Actualizado el")
+
+    class Meta:
+        verbose_name = "Método de Pago del Sistema"
+        verbose_name_plural = "Métodos de Pago del Sistema"
+        ordering = ["categoria", "nombre"]
+
+    def __str__(self):
+        return f"{self.icono} {self.nombre} ({self.get_categoria_display()})"
 
 
 class ComprobanteSIPAP(models.Model):

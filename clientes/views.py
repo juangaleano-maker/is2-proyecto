@@ -444,3 +444,93 @@ def api_cliente_detalle(request, pk):
         return JsonResponse({"mensaje": f"Cliente «{cliente}» desactivado correctamente."})
 
     return JsonResponse({"error": "Método no permitido."}, status=405)
+
+
+# ============================================================
+# MÉTODOS DE PAGO DEL SISTEMA — ASIGNACIÓN POR CLIENTE
+# ============================================================
+
+def gestionar_metodos_pago_cliente(request, pk):
+    """
+    Gestiona los métodos de pago del catálogo global asignados a un cliente.
+    - GET: Muestra el catálogo de métodos disponibles con los ya asignados marcados.
+    - POST: Actualiza la asignación (add/remove) de un método de pago al cliente.
+    """
+    verificar_acceso_gestion_clientes(request)
+    cliente = get_object_or_404(Cliente, pk=pk)
+
+    from pagos.models import MetodoPagoSistema
+
+    metodos_disponibles = MetodoPagoSistema.objects.filter(activo=True).order_by('categoria', 'nombre')
+    asignados_ids = set(cliente.metodos_pago_sistema.values_list('id', flat=True))
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion')  # 'asignar' o 'desasignar'
+        metodo_id = request.POST.get('metodo_id')
+
+        try:
+            metodo = get_object_or_404(MetodoPagoSistema, pk=metodo_id, activo=True)
+            if accion == 'asignar':
+                cliente.metodos_pago_sistema.add(metodo)
+                messages.success(request, f'Método de pago «{metodo.nombre}» asignado a {cliente}.')
+            elif accion == 'desasignar':
+                cliente.metodos_pago_sistema.remove(metodo)
+                messages.success(request, f'Método de pago «{metodo.nombre}» desasignado de {cliente}.')
+            else:
+                messages.error(request, 'Acción no reconocida.')
+        except Exception as e:
+            messages.error(request, f'Error al gestionar el método de pago: {e}')
+
+        return redirect('clientes:gestionar_metodos_pago', pk=cliente.pk)
+
+    # Anotar cada método con si está asignado al cliente
+    for m in metodos_disponibles:
+        m.asignado = m.id in asignados_ids
+
+    return render(request, 'clientes/gestionar_metodos_pago.html', {
+        'cliente': cliente,
+        'metodos_disponibles': metodos_disponibles,
+        'total_asignados': len(asignados_ids),
+    })
+
+
+def api_metodos_pago_sistema(request):
+    """
+    API pública: devuelve la lista de métodos de pago del sistema activos.
+    Útil para poblar selectores en formularios de operaciones.
+    GET /clientes/api/metodos-pago-sistema/
+    """
+    from pagos.models import MetodoPagoSistema
+    metodos = MetodoPagoSistema.objects.filter(activo=True).order_by('categoria', 'nombre')
+    data = [
+        {
+            'id': m.id,
+            'nombre': m.nombre,
+            'categoria': m.categoria,
+            'categoria_display': m.get_categoria_display(),
+            'icono': m.icono,
+            'descripcion': m.descripcion,
+        }
+        for m in metodos
+    ]
+    return JsonResponse({'ok': True, 'metodos': data, 'total': len(data)})
+
+
+def api_metodos_pago_cliente(request, pk):
+    """
+    API: devuelve los métodos de pago del sistema asignados a un cliente específico.
+    GET /clientes/<pk>/api/metodos-pago/
+    """
+    cliente = get_object_or_404(Cliente, pk=pk)
+    metodos = cliente.metodos_pago_sistema.filter(activo=True).order_by('categoria', 'nombre')
+    data = [
+        {
+            'id': m.id,
+            'nombre': m.nombre,
+            'categoria': m.categoria,
+            'categoria_display': m.get_categoria_display(),
+            'icono': m.icono,
+        }
+        for m in metodos
+    ]
+    return JsonResponse({'ok': True, 'metodos': data, 'total': len(data), 'cliente_id': pk})

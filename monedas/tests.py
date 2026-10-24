@@ -110,6 +110,26 @@ class MonedaTestCase(TestCase):
         # Verificar que el registro sigue existiendo (historial preservado)
         self.assertTrue(Moneda.objects.filter(pk=self.moneda1.pk).exists())
 
+    def test_desactivar_moneda_desactiva_sus_cotizaciones_vigentes(self):
+        """Al desactivar una moneda, sus cotizaciones vigentes pasan a activo=False preservando el registro."""
+        from cotizaciones.models import Cotizacion
+        from decimal import Decimal
+
+        cot = Cotizacion.objects.create(
+            moneda_origen=self.moneda1,
+            moneda_destino=self.moneda2,
+            compra=Decimal('7000.00'),
+            venta=Decimal('7100.00'),
+            activo=True
+        )
+
+        self.client.force_login(self.admin_user)
+        url = reverse('monedas:alternar_estado', kwargs={'pk': self.moneda1.pk})
+        self.client.post(url)
+
+        cot.refresh_from_db()
+        self.assertFalse(cot.activo, "La cotización vigente debió ser desactivada al desactivar la moneda de origen.")
+
     def test_activar_moneda_inactiva(self):
         """Dado una moneda inactiva, al alternar su estado vuelve a estar activa."""
         self.client.force_login(self.admin_user)

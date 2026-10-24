@@ -49,6 +49,9 @@
         <a href="{% url 'clientes:editar' cliente.pk %}" class="btn btn-primary">
             <span>✏️</span> Editar Datos
         </a>
+        <a href="{% url 'clientes:gestionar_metodos_pago' cliente.pk %}" class="btn btn-primary" style="background: linear-gradient(135deg, #7c3aed, #4f46e5);">
+            <span>💳</span> Métodos de Pago
+        </a>
         {% if cliente.activo %}
         <a href="{% url 'clientes:desactivar' cliente.pk %}" class="btn btn-danger">
             <span>⏸️</span> Desactivar
@@ -209,4 +212,52 @@
     {% endif %}
 </div>
 {% endif %}
-{% endblock %}
+
+<!-- SECCIÓN: MÉTODOS DE PAGO DEL SISTEMA ASIGNADOS -->
+<div style="margin-top: 32px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 16px; color: #1e293b; font-weight: 700; margin: 0;">
+            🏦 Métodos de Pago del Sistema Asignados
+        </h3>
+        <a href="{% url 'clientes:gestionar_metodos_pago' cliente.pk %}" class="btn btn-primary" style="font-size: 13px; padding: 7px 14px; background: linear-gradient(135deg, #7c3aed, #4f46e5);">
+            ⚙️ Gestionar
+        </a>
+    </div>
+
+    {% with metodos_sistema=cliente.metodos_pago_sistema.all %}
+    {% if metodos_sistema %}
+    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+        {% for mp in metodos_sistema %}
+        {% if mp.activo %}
+        <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 18px;">{{ mp.icono }}</span>
+            <div>
+                <div style="font-size: 13px; font-weight: 700; color: #15803d;">{{ mp.nombre }}</div>
+                <div style="font-size: 11px; color: #64748b;">{{ mp.get_categoria_display }}</div>
+            </div>
+        </div>
+        {% else %}
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 14px; display: flex; align-items: center; gap: 8px; opacity: 0.6;">
+            <span style="font-size: 18px;">{{ mp.icono }}</span>
+            <div>
+                <div style="font-size: 13px; font-weight: 600; color: #94a3b8; text-decoration: line-through;">{{ mp.nombre }}</div>
+                <div style="font-size: 11px; color: #94a3b8;">Deshabilitado por el sistema</div>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 24px; text-align: center;">
+        <span style="font-size: 24px;">🏦</span>
+        <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">
+            No hay métodos de pago del sistema asignados a este cliente.<br>
+            <a href="{% url 'clientes:gestionar_metodos_pago' cliente.pk %}" style="color: #7c3aed; font-weight: 600;">Asignar métodos de pago →</a>
+        </p>
+    </div>
+    {% endif %}
+    {% endwith %}
+</div>
+
+{% endblock %}
+

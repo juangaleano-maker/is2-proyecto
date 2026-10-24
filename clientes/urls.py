@@ -19,4 +19,8 @@ urlpatterns = [
     path('medios-pago/<int:pk>/editar/', views.editar_medio_pago, name='editar_medio_pago'),
     path('medios-pago/', views.listar_medios_pago, name='listar_medios_pago'),
     path('medios-pago/<int:pk>/eliminar/', views.eliminar_medio_pago, name='eliminar_medio_pago'),
+    # Gestión de métodos de pago del sistema asignados por cliente
+    path('<int:pk>/metodos-pago/', views.gestionar_metodos_pago_cliente, name='gestionar_metodos_pago'),
+    path('<int:pk>/api/metodos-pago/', views.api_metodos_pago_cliente, name='api_metodos_pago_cliente'),
+    path('api/metodos-pago-sistema/', views.api_metodos_pago_sistema, name='api_metodos_pago_sistema'),
 ]

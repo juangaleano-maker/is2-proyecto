@@ -17,6 +17,39 @@ class CotizacionForm(forms.ModelForm):
             'venta': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['moneda_origen'].queryset = Moneda.objects.filter(activa=True)
+        self.fields['moneda_destino'].queryset = Moneda.objects.filter(activa=True)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        origen = cleaned_data.get('moneda_origen')
+        destino = cleaned_data.get('moneda_destino')
+        compra = cleaned_data.get('compra')
+        venta = cleaned_data.get('venta')
+
+        if origen and not origen.activa:
+            self.add_error('moneda_origen', f'La moneda {origen.siglas} está inactiva y no permite nuevas cotizaciones.')
+        if destino and not destino.activa:
+            self.add_error('moneda_destino', f'La moneda {destino.siglas} está inactiva y no permite nuevas cotizaciones.')
+        if compra and venta and venta < compra:
+            self.add_error('venta', 'El precio de venta no puede ser menor al de compra.')
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if instance.moneda_origen_id and instance.moneda_destino_id and instance.activo:
+            Cotizacion.objects.filter(
+                moneda_origen=instance.moneda_origen,
+                moneda_destino=instance.moneda_destino,
+                activo=True
+            ).exclude(pk=instance.pk).update(activo=False)
+        if commit:
+            instance.save()
+        return instance
+
 
 class BaseOperacionForm(forms.ModelForm):
     """
