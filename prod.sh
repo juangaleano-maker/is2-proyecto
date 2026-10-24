@@ -22,6 +22,10 @@ case "$1" in
       echo ""
       exit 1
     fi
+    if [ ! -f "$ENV_FILE" ]; then
+      echo "Aviso: No se encontró $ENV_FILE. Creándolo automáticamente desde $ENV_FILE.example..."
+      cp "$ENV_FILE.example" "$ENV_FILE"
+    fi
     echo "Levantando ambiente de producción con Docker Compose..."
     docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
     echo ""
