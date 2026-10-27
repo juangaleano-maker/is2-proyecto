@@ -1,130 +1,99 @@
 # 🚀 Deploy Script — Global Exchange
 
-Script de despliegue automático para el sistema **Global Exchange** (Django 5.1 + PostgreSQL 16 + Redis 7 + Celery 5.4 + Keycloak 26 + Nginx).
+Script de despliegue automático **Zero-Touch** para el sistema **Global Exchange** (Django 5.1 + PostgreSQL 16 + Redis 7 + Celery 5.4 + Keycloak 26 + Nginx).
 
-## Requisitos previos
+Diseñado para ejecutarse en una máquina limpia **sin ningún paso manual previo**.
 
-- **Docker** con Docker Compose v2 (`docker compose`)
-- **Git**
-- **curl** (para health check)
-- El motor de Docker debe estar corriendo
+---
 
-## Uso rápido
+## ⚡ Comando exacto en máquina limpia
+
+En cualquier servidor o máquina limpia con Git y Docker instalados, basta con ejecutar:
 
 ```bash
-# Dar permisos de ejecución (solo la primera vez)
-chmod +x scripts/deploy.sh
-
-# Desarrollo
-./scripts/deploy.sh dev                 # despliegue normal
-./scripts/deploy.sh dev --no-pull       # sin git pull (código local)
-./scripts/deploy.sh dev --reset-db      # borra TODO y recrea (pide confirmación)
-
-# Producción
-./scripts/deploy.sh prod                # despliegue normal (con backup automático)
-./scripts/deploy.sh prod --seed         # además intenta poblar datos iniciales
-./scripts/deploy.sh prod --no-pull      # sin git pull
-./scripts/deploy.sh prod --reset-db     # PELIGROSO: borra volúmenes y recrea
+git clone https://github.com/juangaleano-maker/is2-proyecto.git
+cd is2-proyecto
+./scripts/deploy.sh dev
 ```
 
-## Etapas del despliegue
+> **¿Qué hace de forma 100% automática sin intervención?**
+> 1. Se ubica en la raíz del repositorio sin importar desde dónde se invoque.
+> 2. Detecta si Docker necesita permisos de superusuario y hace fallback a `sudo docker` automáticamente.
+> 3. Autogenera el archivo `.env` (o `.env.prod`) desde `.env.example` con secretos aleatorios criptográficamente seguros.
+> 4. Construye las imágenes y levanta la base de datos PostgreSQL.
+> 5. Aplica todas las migraciones de Django (`migrate`).
+> 6. Ejecuta automáticamente el **seed inicial idempotente** (monedas PYG, USD, BRL, EUR, ARS, cortes de billetes, catálogo de métodos de pago, cotizaciones iniciales y clientes demo).
+> 7. Ejecuta `collectstatic` y realiza el **health check HTTP directo** (sin `-L`, aceptando la respuesta inmediata de Django).
+> 8. Imprime los enlaces de acceso y credenciales de prueba de Keycloak.
+
+---
+
+## 💻 Uso general
+
+El script ya cuenta con permisos de ejecución en Git (`chmod +x` trackeado en el repositorio) y fin de línea LF forzado en `.gitattributes`.
+
+```bash
+# Desarrollo (docker-compose.yml)
+./scripts/deploy.sh dev
+
+# Producción (docker-compose.prod.yml con Nginx, Redis y Gunicorn)
+./scripts/deploy.sh prod
+
+# Opciones adicionales
+./scripts/deploy.sh dev --no-pull       # no hace git pull (útil si estás editando localmente)
+./scripts/deploy.sh dev --seed          # fuerza verificación y población de datos iniciales
+./scripts/deploy.sh dev --reset-db      # borra volúmenes docker, recrea todo y repuebla
+```
+
+---
+
+## 📋 Etapas del despliegue
 
 | # | Etapa | Qué hace |
 |---|---|---|
-| 1/7 | Requisitos | Verifica git, docker, compose v2 y permisos |
-| 2/7 | Código fuente | `git fetch` + `pull --ff-only` de la rama configurada |
-| 3/7 | Configuración | Valida `.env` (dev) o `.env.prod` (prod) con variables obligatorias |
-| 4/7 | Build | `docker compose build --pull` + levanta DB/Redis primero |
-| 5/7 | Base de datos | Espera PostgreSQL, backup comprimido en prod (últimos 10), migraciones |
-| 6/7 | Seed | Carga datos iniciales (cuando existan fixtures/management command) |
-| 7/7 | Verificación | `collectstatic`, `check --deploy` (prod), health check HTTP |
+| **1/7** | **Requisitos** | Valida `git`, `curl`, `docker` (con fallback transparente a `sudo docker`) y compose v2. |
+| **2/7** | **Código fuente** | `git fetch` y `git pull --ff-only` de la rama de trabajo (`develop`). |
+| **3/7** | **Configuración** | Si `.env` o `.env.prod` no existen, los autogenera desde `.env.example` o `.env.prod.example` generando `SECRET_KEY`, `DB_PASSWORD` y `KEYCLOAK_ADMIN_PASSWORD` aleatorios con permisos seguros (`600`). |
+| **4/7** | **Build e Infra** | `docker compose build --pull` y levantado prioritario del motor de base de datos (`db-dev` o `db-prod`). |
+| **5/7** | **Base de datos** | Espera activa a PostgreSQL (`pg_isready`), backup comprimido automático en producción (`.sql.gz`), migraciones Django (`migrate --noinput`) y levantado de todos los servicios. |
+| **6/7** | **Población (Seed)** | Ejecuta el comando Django `python manage.py seed --idempotent` de forma automática en el primer despliegue o al detectar base vacía (no duplica registros). |
+| **7/7** | **Verificación** | `collectstatic`, `check --deploy` (en prod) y health check HTTP directo (sin flag `-L` para evaluar directamente `200` o redirección `302`). |
 
-## Variables de entorno configurables
+---
 
-Todas tienen valores por defecto razonables. Podés sobreescribirlas:
+## ⚙️ Variables de entorno configurables
+
+Todas tienen valores por defecto listos para usar. Podés sobreescribirlas anteponiéndolas al comando:
 
 ```bash
-# Ejemplo: cambiar rama de producción
+# Ejemplo: cambiar la rama a desplegar
 BRANCH_PROD=main ./scripts/deploy.sh prod
 
-# Ejemplo: desplegar en otro directorio
-APP_DIR=/opt/global-exchange ./scripts/deploy.sh prod
+# Ejemplo: cambiar reintentos o intervalo de health check
+HEALTH_RETRIES=40 HEALTH_INTERVAL=5 ./scripts/deploy.sh dev
 ```
 
 | Variable | Default | Descripción |
 |---|---|---|
-| `REPO_URL` | `https://github.com/juangaleano-maker/is2-proyecto.git` | URL del repositorio |
-| `APP_DIR` | `.` (directorio actual) | Directorio de la aplicación |
-| `BRANCH_DEV` | `develop` | Rama para dev |
-| `BRANCH_PROD` | `develop` | Rama para prod |
-| `HEALTH_RETRIES` | `30` | Reintentos del health check |
-| `HEALTH_INTERVAL` | `3` | Segundos entre reintentos |
-| `BACKUP_DIR` | `./backups` | Directorio de backups (prod) |
-| `BACKUP_KEEP` | `10` | Cantidad de backups a conservar |
+| `REPO_URL` | `https://github.com/juangaleano-maker/is2-proyecto.git` | URL del repositorio Git |
+| `APP_DIR` | `.` (directorio actual) | Directorio donde reside o se clonará la app |
+| `BRANCH_DEV` | `develop` | Rama para ambiente de desarrollo |
+| `BRANCH_PROD` | `develop` | Rama para ambiente de producción |
+| `HEALTH_URL_DEV` | `http://localhost:8000/` | URL para verificar que Django responda en dev |
+| `HEALTH_URL_PROD` | `http://localhost/` | URL para verificar que Nginx/Django responda en prod |
+| `HEALTH_RETRIES` | `30` | Cantidad de reintentos del health check |
+| `HEALTH_INTERVAL` | `3` | Segundos entre cada intento de health check |
+| `BACKUP_DIR` | `./backups` | Directorio local donde se guardan los backups de producción |
+| `BACKUP_KEEP` | `10` | Cantidad de backups históricos a conservar |
 
-## Archivos de entorno
+---
 
-- **Dev:** `.env` (copiado de `.env.example` si no existe)
-- **Prod:** `.env.prod` (copiado de `.env.prod.example` si no existe)
+## 🔑 Cuentas demo preconfiguradas
 
-### Variables obligatorias
+Keycloak incluye el realm `global-exchange` con usuarios listos para autenticarse:
 
-| Variable | Ambos ambientes | Solo producción |
-|---|---|---|
-| `DB_NAME` | ✅ | |
-| `DB_USER` | ✅ | |
-| `DB_PASSWORD` | ✅ | |
-| `SECRET_KEY` | | ✅ |
-
-## Keycloak
-
-La configuración de Keycloak se importa **automáticamente** desde `keycloak/realm-export.json` con `--import-realm`. No requiere configuración manual.
-
-Incluye:
-- Realm: `global-exchange`
-- Roles: `admin`, `operador`, `supervisor`, `empleado`, `cliente`, `analista_cambiario`
-- Client OIDC: `django-app`
-- Usuarios demo: `admin.demo` / `Admin123!` (admin), `operador.demo` / `Operador123!` (operador)
-
-## Seed / Datos iniciales
-
-> ⚠️ **Actualmente no existen fixtures ni management command `seed` en el repositorio.**
-
-Cuando se creen, editar la sección `6/7` del script. El orden de carga por dependencias FK es:
-
-1. `monedas` (Moneda, DenominacionMoneda)
-2. `clientes` (Cliente, MedioDePago)
-3. `cotizaciones` (Cotizacion, Operacion, Caja, etc.)
-4. `pagos` (ComprobanteSIPAP, TicketTransaccion)
-5. `usuarios` (PerfilUsuario)
-
-## Backups (solo producción)
-
-- Se crean automáticamente antes de cada migración en prod
-- Formato: `{DB_NAME}_YYYYMMDD_HHMMSS.sql.gz`
-- Se conservan los últimos 10 (configurable con `BACKUP_KEEP`)
-- Ubicación: `./backups/` (configurable con `BACKUP_DIR`)
-- **No se crean backups con `--reset-db`** (los datos se borran intencionalmente)
-
-## Servicios Docker por ambiente
-
-### Dev (`docker-compose.yml`)
-| Servicio | Puerto |
-|---|---|
-| `web-dev` | 8000 |
-| `db-dev` | 5432 |
-| `mail-dev` | 1025, 8025 |
-| `keycloak` | 8080 |
-| `keycloak-db` | — |
-
-### Prod (`docker-compose.prod.yml`)
-| Servicio | Puerto |
-|---|---|
-| `nginx-prod` | 80, 443 |
-| `web-prod` | — (interno) |
-| `db-prod` | — |
-| `redis-prod` | — |
-| `celery-worker` | — |
-| `celery-beat` | — |
-| `keycloak-prod` | 8080 |
-| `keycloak-db-prod` | — |
+| Usuario | Contraseña | Rol | Acceso |
+|---|---|---|---|
+| `admin.demo` | `Admin123!` | Administrador | Completo a todas las funcionalidades |
+| `operador.demo` | `Operador123!` | Operador de Caja | Cajas, cotizaciones, operaciones y pagos |
+| `admin` (Keycloak) | `admin` (dev) / *aleatoria* (prod) | Master Admin | Consola Keycloak en `:8080` |

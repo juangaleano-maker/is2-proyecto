@@ -7,19 +7,32 @@
 #   ./scripts/deploy.sh dev                 # despliega ambiente de desarrollo
 #   ./scripts/deploy.sh prod                # despliega ambiente de producción
 #   ./scripts/deploy.sh prod --seed         # puebla la base de datos
-#   ./scripts/deploy.sh prod --no-pull      # no hace git pull
+#   ./scripts/deploy.sh prod --no-pull      # no hace git pull (código local)
 #   ./scripts/deploy.sh dev  --reset-db     # borra volúmenes, recrea y puebla
 #
+# Características de resiliencia:
+#   - Se ejecuta desde cualquier directorio (hace cd a la raíz del repositorio).
+#   - Autogenera .env / .env.prod desde el template con secretos aleatorios en clean install.
+#   - Detecta si Docker requiere permisos de superusuario y hace fallback a 'sudo docker'.
+#   - Ejecuta seed idempotente en el primer despliegue automáticamente.
+#   - Health check sin -L para verificar el código de respuesta directo de Django/Nginx.
+#
 # Etapas:
-#   1/7 Verificación de requisitos (docker, compose v2, git)
+#   1/7 Verificación de requisitos (docker con fallback a sudo, compose, git, curl)
 #   2/7 Código fuente (git clone / fetch + pull --ff-only)
-#   3/7 Configuración (.env / .env.prod) — valida variables obligatorias
-#   4/7 Build y levantado de contenedores
-#   5/7 Base de datos (wait, backup en prod, migrate)
-#   6/7 Población de datos (fixtures / seed) — solo con --seed o --reset-db
-#   7/7 Estáticos, check --deploy y health check HTTP
+#   3/7 Configuración (.env / .env.prod autogenerados con secretos si no existen)
+#   4/7 Build y levantado de infraestructura de datos
+#   5/7 Base de datos (wait, backup en prod, migrate, servicios restantes)
+#   6/7 Población de datos (seed idempotente automático en primer despliegue)
+#   7/7 Estáticos, check --deploy y health check HTTP (sin -L)
 # =============================================================================
 set -Eeuo pipefail
+
+# ======================== 0. RAÍZ DEL REPOSITORIO =========================== #
+# Determinar y cambiar al directorio raíz del repositorio de forma absoluta
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." >/dev/null 2>&1 && pwd)"
+cd "$REPO_ROOT" || { echo "Error: No se pudo cambiar a la raíz del repositorio en ${REPO_ROOT}"; exit 1; }
 
 # ======================== CONFIGURACIÓN POR DEFECTO ========================= #
 REPO_URL="${REPO_URL:-https://github.com/juangaleano-maker/is2-proyecto.git}"
@@ -38,8 +51,8 @@ SVC_DB_PROD="${SVC_DB_PROD:-db-prod}"
 SVC_REDIS_PROD="${SVC_REDIS_PROD:-redis-prod}"
 
 # Health check
-HEALTH_URL_DEV="${HEALTH_URL_DEV:-http://localhost:8000/login/}"
-HEALTH_URL_PROD="${HEALTH_URL_PROD:-http://localhost/login/}"
+HEALTH_URL_DEV="${HEALTH_URL_DEV:-http://localhost:8000/}"
+HEALTH_URL_PROD="${HEALTH_URL_PROD:-http://localhost/}"
 HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
 HEALTH_INTERVAL="${HEALTH_INTERVAL:-3}"
 
@@ -56,6 +69,36 @@ log()   { echo "  ${C_BLU}▶${C_RESET} $*"; }
 ok()    { echo "  ${C_GRN}✔${C_RESET} $*"; }
 warn()  { echo "  ${C_YEL}⚠${C_RESET} $*"; }
 die()   { echo "  ${C_RED}✖ ERROR:${C_RESET} $*" >&2; exit 1; }
+
+# Generador de secretos criptográficamente seguros portable (Linux, macOS, Windows Git Bash)
+generate_secret() {
+  local length="${1:-32}"
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex "$((length / 2))" 2>/dev/null
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c "import secrets; print(secrets.token_hex($((length / 2))))" 2>/dev/null
+  elif [[ -r /dev/urandom ]]; then
+    LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom 2>/dev/null | head -c "$length" || true
+  else
+    echo "sec_$(date +%s%N 2>/dev/null || date +%s)_${RANDOM}_${RANDOM}"
+  fi
+}
+
+# Reemplazo seguro de variables en archivos con sed portable
+replace_env_var() {
+  local key="$1"
+  local val="$2"
+  local file="$3"
+  if grep -q "^${key}=" "$file"; then
+    if sed --version >/dev/null 2>&1; then
+      sed -i "s|^${key}=.*|${key}=${val}|g" "$file"
+    else
+      sed -i '' "s|^${key}=.*|${key}=${val}|g" "$file"
+    fi
+  else
+    echo "${key}=${val}" >> "$file"
+  fi
+}
 
 # Trap: muestra la línea que falló
 cleanup() {
@@ -75,7 +118,7 @@ usage() {
   echo ""
   echo "  dev       Ambiente de desarrollo (docker-compose.yml)"
   echo "  prod      Ambiente de producción  (docker-compose.prod.yml)"
-  echo "  --seed    Poblar la base de datos con datos iniciales"
+  echo "  --seed    Forzar población de datos iniciales (idempotente)"
   echo "  --no-pull No ejecutar git pull (usar código local)"
   echo "  --reset-db Borrar volúmenes y recrear DB (pide confirmación)"
   exit 1
@@ -129,20 +172,46 @@ echo ""
 # ======================== 1/7 REQUISITOS ==================================== #
 step "1/7" "Verificando requisitos"
 
-command -v git    >/dev/null 2>&1 || die "git no está instalado"
-command -v docker >/dev/null 2>&1 || die "docker no está instalado"
-command -v curl   >/dev/null 2>&1 || die "curl no está instalado (necesario para health check)"
+command -v git  >/dev/null 2>&1 || die "git no está instalado"
+command -v curl >/dev/null 2>&1 || die "curl no está instalado (necesario para health check)"
 
-docker compose version >/dev/null 2>&1 || die "Docker Compose v2 no disponible (se necesita 'docker compose', no 'docker-compose')"
-docker info >/dev/null 2>&1 || die "No hay permisos sobre Docker. Agrega tu usuario al grupo 'docker' o ejecutá con sudo."
+# Detección de Docker con fallback transparente a sudo
+DOCKER_CMD=()
+if command -v docker >/dev/null 2>&1; then
+  if docker info >/dev/null 2>&1; then
+    DOCKER_CMD=("docker")
+  elif command -v sudo >/dev/null 2>&1 && sudo docker info >/dev/null 2>&1; then
+    warn "Docker requiere privilegios de superusuario. Se usará 'sudo docker'."
+    DOCKER_CMD=("sudo" "docker")
+  else
+    die "El motor de Docker no responde. Asegurate de que Docker esté corriendo y que tu usuario tenga permisos (o sudo)."
+  fi
+else
+  die "docker no está instalado en el sistema."
+fi
 
-COMPOSE_VER=$(docker compose version --short 2>/dev/null || echo "desconocida")
-ok "git $(git --version | cut -d' ' -f3), docker $(docker --version | cut -d' ' -f3 | tr -d ','), compose v${COMPOSE_VER}"
+# Detección de Docker Compose (plugin v2 o standalone) con fallback a sudo
+DC_BASE=()
+if "${DOCKER_CMD[@]}" compose version >/dev/null 2>&1; then
+  DC_BASE=("${DOCKER_CMD[@]}" "compose")
+elif command -v docker-compose >/dev/null 2>&1; then
+  if docker-compose version >/dev/null 2>&1; then
+    DC_BASE=("docker-compose")
+  elif command -v sudo >/dev/null 2>&1 && sudo docker-compose version >/dev/null 2>&1; then
+    warn "docker-compose requiere privilegios de superusuario. Se usará 'sudo docker-compose'."
+    DC_BASE=("sudo" "docker-compose")
+  fi
+fi
+
+[[ ${#DC_BASE[@]} -gt 0 ]] || die "Docker Compose no disponible (se necesita 'docker compose' o 'docker-compose')"
+
+COMPOSE_VER=$("${DC_BASE[@]}" version --short 2>/dev/null || echo "v2+")
+ok "git $(git --version | cut -d' ' -f3), ${DOCKER_CMD[*]} $("${DOCKER_CMD[@]}" --version | cut -d' ' -f3 | tr -d ','), compose ${COMPOSE_VER}"
 
 # ======================== 2/7 CÓDIGO FUENTE ================================= #
 step "2/7" "Código fuente (rama: ${BRANCH})"
 
-if [[ "$APP_DIR" != "." ]]; then
+if [[ "$APP_DIR" != "." && "$APP_DIR" != "$REPO_ROOT" ]]; then
   if [[ ! -d "$APP_DIR/.git" ]]; then
     log "Clonando repositorio en $APP_DIR..."
     git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
@@ -152,17 +221,21 @@ fi
 
 if $DO_PULL; then
   if [[ -d ".git" ]]; then
-    git fetch --all --prune
-    git checkout "$BRANCH"
-    git pull --ff-only origin "$BRANCH"
-    ok "Commit: $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
+    log "Actualizando código fuente..."
+    git fetch --all --prune || warn "No se pudo realizar fetch remoto; usando código local."
+    # Si la rama local ya existe, checkout y pull
+    if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+      git checkout "$BRANCH" 2>/dev/null || true
+      git pull --ff-only origin "$BRANCH" 2>/dev/null || warn "No se pudo hacer pull --ff-only; usando estado actual."
+    fi
+    ok "Commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'local') — $(git log -1 --pretty=%s 2>/dev/null || echo '')"
   else
-    warn "No es un repositorio git (APP_DIR='.'); se usa el código local."
+    warn "No es un repositorio git; se usa el código local."
   fi
 else
   warn "--no-pull: se usa el código local tal como está"
   if [[ -d ".git" ]]; then
-    ok "Commit local: $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
+    ok "Commit local: $(git rev-parse --short HEAD 2>/dev/null || echo 'local') — $(git log -1 --pretty=%s 2>/dev/null || echo '')"
   fi
 fi
 
@@ -171,12 +244,31 @@ step "3/7" "Configuración (${ENV_FILE})"
 
 [[ -f "$COMPOSE_FILE" ]] || die "No existe ${COMPOSE_FILE} en $(pwd)"
 
+FIRST_DEPLOY=false
 if [[ ! -f "$ENV_FILE" ]]; then
+  FIRST_DEPLOY=true
   if [[ -f "$ENV_EXAMPLE" ]]; then
+    log "No se encontró ${ENV_FILE}. Autogenerando a partir de ${ENV_EXAMPLE}..."
     cp "$ENV_EXAMPLE" "$ENV_FILE"
-    die "Se creó ${ENV_FILE} desde ${ENV_EXAMPLE}. Editá los valores marcados con REEMPLAZAR y volvé a ejecutar."
+
+    if [[ "$ENVIRONMENT" == "prod" ]]; then
+      RAND_SECRET=$(generate_secret 50)
+      RAND_DB_PASS=$(generate_secret 24)
+      RAND_KC_ADMIN=$(generate_secret 16)
+
+      replace_env_var "SECRET_KEY" "$RAND_SECRET" "$ENV_FILE"
+      replace_env_var "DB_PASSWORD" "$RAND_DB_PASS" "$ENV_FILE"
+      replace_env_var "KEYCLOAK_ADMIN_PASSWORD" "$RAND_KC_ADMIN" "$ENV_FILE"
+      ok "${ENV_FILE} generado con SECRET_KEY, DB_PASSWORD y KEYCLOAK_ADMIN_PASSWORD aleatorios"
+    else
+      # En desarrollo, asegurar un SECRET_KEY aleatorio
+      RAND_SECRET=$(generate_secret 50)
+      replace_env_var "SECRET_KEY" "$RAND_SECRET" "$ENV_FILE"
+      ok "${ENV_FILE} autogenerado a partir de ${ENV_EXAMPLE}"
+    fi
+  else
+    die "Falta el archivo ${ENV_FILE} y tampoco existe la plantilla ${ENV_EXAMPLE}."
   fi
-  die "Falta el archivo ${ENV_FILE}. Creá uno a partir de ${ENV_EXAMPLE}."
 fi
 
 # Proteger permisos del archivo de entorno
@@ -196,13 +288,10 @@ set +a
 # Validar variables adicionales en producción
 if [[ "$ENVIRONMENT" == "prod" ]]; then
   : "${SECRET_KEY:?Falta SECRET_KEY en ${ENV_FILE}}"
-  if [[ "$SECRET_KEY" == *"REEMPLAZAR"* ]] || [[ "$SECRET_KEY" == *"insecure"* ]]; then
-    warn "SECRET_KEY parece ser un valor placeholder. Cambialo para producción real."
-  fi
 fi
 
 # Construir el comando base de Docker Compose
-DC=(docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE")
+DC=("${DC_BASE[@]}" -f "$COMPOSE_FILE" --env-file "$ENV_FILE")
 
 ok "Usando ${COMPOSE_FILE} con ${ENV_FILE}"
 log "DB_NAME=${DB_NAME}, DB_USER=${DB_USER} (password oculta)"
@@ -223,8 +312,8 @@ fi
 log "Construyendo imágenes (--pull)..."
 "${DC[@]}" build --pull
 
-# Levantar primero la infra de datos (DB + Redis si aplica)
-log "Levantando infraestructura de datos..."
+# Levantar primero la infraestructura de datos (DB + Redis si aplica)
+log "Levantando infraestructura de base de datos..."
 INFRA_SERVICES=("$SVC_DB")
 if $HAS_REDIS; then
   INFRA_SERVICES+=("$SVC_REDIS")
@@ -260,7 +349,7 @@ if [[ "$ENVIRONMENT" == "prod" ]] && ! $RESET_DB; then
   BACKUP_FILE="${BACKUP_DIR}/${DB_NAME}_$(date +%Y%m%d_%H%M%S).sql.gz"
   log "Creando backup en ${BACKUP_FILE}..."
   if "${DC[@]}" exec -T "$SVC_DB" pg_dump -U "$DB_USER" "$DB_NAME" 2>/dev/null | gzip > "$BACKUP_FILE"; then
-    BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+    BACKUP_SIZE=$(du -h "$BACKUP_FILE" 2>/dev/null | cut -f1 || echo "OK")
     ok "Backup creado (${BACKUP_SIZE})"
   else
     warn "No se pudo crear backup (¿primer despliegue?). Continuando..."
@@ -282,35 +371,34 @@ log "Levantando todos los servicios..."
 ok "Servicios levantados"
 
 # ======================== 6/7 POBLACIÓN DE DATOS ============================ #
-step "6/7" "Población de la base de datos"
+step "6/7" "Población de la base de datos (Seed)"
 
-if $DO_SEED || $RESET_DB; then
-  # ===========================================================================
-  # NOTA: Actualmente no existen fixtures ni un management command 'seed' en el
-  # repositorio. Cuando se creen, descomentar el bloque correspondiente:
-  #
-  # Opción A — Fixtures JSON (respetar orden de dependencias):
-  #   "${DC[@]}" exec -T "$SVC_WEB" python manage.py loaddata \
-  #     monedas/fixtures/monedas.json \
-  #     clientes/fixtures/clientes.json \
-  #     cotizaciones/fixtures/cotizaciones.json \
-  #     pagos/fixtures/metodos_pago.json
-  #
-  # Opción B — Management command:
-  #   "${DC[@]}" exec -T -e SKIP_TESTS=1 "$SVC_WEB" python manage.py seed --idempotent
-  #
-  # Orden de dependencias (por ForeignKeys):
-  #   1. monedas (Moneda, DenominacionMoneda)
-  #   2. clientes (Cliente, MedioDePago → pagos.MetodoPagoSistema)
-  #   3. cotizaciones (Cotizacion → Moneda, Operacion → Cliente + Moneda)
-  #   4. pagos (ComprobanteSIPAP → Operacion, TicketTransaccion → Operacion)
-  #   5. usuarios (PerfilUsuario → auth.User)
-  # ===========================================================================
-  warn "No se encontraron fixtures ni comando 'seed' en el repositorio."
-  warn "Cuando existan, editá la sección 6/7 de este script."
-  warn "Los usuarios demo se crean automáticamente en Keycloak vía realm-export.json."
+# Determinar si se ejecuta el seed:
+# 1. Solicitud explícita (--seed o --reset-db)
+# 2. Primer despliegue (se acaba de crear el .env)
+# 3. La base de datos no contiene monedas cargadas aún
+RUN_SEED=false
+if $DO_SEED || $RESET_DB || $FIRST_DEPLOY; then
+  RUN_SEED=true
 else
-  log "Se omite la población de datos (usá --seed para poblar la base)"
+  # Verificación rápida de existencia de datos iniciales
+  MONEDAS_EXISTENTES=$("${DC[@]}" exec -T -e SKIP_TESTS=1 "$SVC_WEB" python -c \
+    "import django; django.setup(); from monedas.models import Moneda; print(Moneda.objects.filter(activa=True).count())" 2>/dev/null || echo "0")
+  if [[ "$MONEDAS_EXISTENTES" =~ ^[0-9]+$ ]] && [[ "$MONEDAS_EXISTENTES" -eq 0 ]]; then
+    log "Base de datos vacía detectada. Activando seed automático..."
+    RUN_SEED=true
+  fi
+fi
+
+if $RUN_SEED; then
+  log "Ejecutando comando seed idempotente (monedas, cortes, métodos de pago, cotizaciones, clientes)..."
+  if "${DC[@]}" exec -T -e SKIP_TESTS=1 "$SVC_WEB" python manage.py seed --idempotent 2>&1; then
+    ok "Datos iniciales cargados y verificados exitosamente"
+  else
+    warn "El comando seed reportó advertencias o falló. Continuando con el despliegue..."
+  fi
+else
+  log "Se omite la población de datos (la base de datos ya cuenta con registros; usá --seed para forzar verificación)"
 fi
 
 # ======================== 7/7 ESTÁTICOS Y HEALTH CHECK ====================== #
@@ -327,11 +415,11 @@ if [[ "$ENVIRONMENT" == "prod" ]]; then
   "${DC[@]}" exec -T -e SKIP_TESTS=1 "$SVC_WEB" python manage.py check --deploy 2>&1 || true
 fi
 
-# Health check HTTP con reintentos
-log "Verificando que la aplicación responda en ${HEALTH_URL}..."
+# Health check HTTP con reintentos (SIN -L para evaluar el código directo devuelto por Django/Nginx)
+log "Verificando que la aplicación responda en ${HEALTH_URL} (sin redirección externa)..."
 APP_OK=false
 for i in $(seq 1 "$HEALTH_RETRIES"); do
-  HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 5 "$HEALTH_URL" 2>/dev/null || echo "000")
+  HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$HEALTH_URL" 2>/dev/null || echo "000")
   if [[ "$HTTP_CODE" =~ ^(200|301|302|401|403)$ ]]; then
     APP_OK=true
     break
@@ -357,7 +445,7 @@ echo ""
 echo "${C_GRN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
 echo "${C_GRN}✔ Despliegue de '${ENVIRONMENT}' completado exitosamente${C_RESET}"
 if [[ -d ".git" ]]; then
-  echo "${C_GRN}  Commit: $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)${C_RESET}"
+  echo "${C_GRN}  Commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'local') — $(git log -1 --pretty=%s 2>/dev/null || echo '')${C_RESET}"
 fi
 echo "${C_GRN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
 echo ""

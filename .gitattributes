@@ -1,0 +1,31 @@
+# ==============================================================================
+# Git Attributes - Global Exchange
+# Forzar LF en scripts de shell y archivos de configuración
+# ==============================================================================
+
+# Comportamiento automático por defecto para archivos de texto
+* text=auto
+
+# Scripts de Bash / Shell SIEMPRE con LF (incluso en checkout de Windows)
+*.sh text eol=lf
+prod.sh text eol=lf
+
+# Dockerfiles y Compose
+Dockerfile* text eol=lf
+docker-compose*.yml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Python y configuración
+*.py text eol=lf
+*.json text eol=lf
+*.conf text eol=lf
+*.env* text eol=lf
+.env.example text eol=lf
+.env.prod.example text eol=lf
+
+# Archivos estáticos y plantillas
+*.html text
+*.css text
+*.js text
+*.md text
