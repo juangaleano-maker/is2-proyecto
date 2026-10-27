@@ -100,6 +100,13 @@ replace_env_var() {
   fi
 }
 
+# Extraer valor de variable desde archivo .env de forma segura sin evaluarlo como script bash
+get_env_val() {
+  local key="$1"
+  local file="$2"
+  grep -E "^${key}=" "$file" 2>/dev/null | head -n 1 | cut -d'=' -f2- | sed -e 's/^[[:space:]]*["'"'"']//' -e 's/["'"'"'][[:space:]]*$//'
+}
+
 # Trap: muestra la línea que falló
 cleanup() {
   local exit_code=$?
@@ -274,11 +281,10 @@ fi
 # Proteger permisos del archivo de entorno
 chmod 600 "$ENV_FILE" 2>/dev/null || true
 
-# Cargar variables del .env (sin imprimir secretos)
-set -a
-# shellcheck source=/dev/null
-source "$ENV_FILE"
-set +a
+# Cargar variables del .env de forma segura sin evaluarlo como script bash
+DB_NAME="${DB_NAME:-$(get_env_val "DB_NAME" "$ENV_FILE")}"
+DB_USER="${DB_USER:-$(get_env_val "DB_USER" "$ENV_FILE")}"
+DB_PASSWORD="${DB_PASSWORD:-$(get_env_val "DB_PASSWORD" "$ENV_FILE")}"
 
 # Validar variables obligatorias (DB)
 : "${DB_NAME:?Falta DB_NAME en ${ENV_FILE}}"
@@ -287,6 +293,7 @@ set +a
 
 # Validar variables adicionales en producción
 if [[ "$ENVIRONMENT" == "prod" ]]; then
+  SECRET_KEY="${SECRET_KEY:-$(get_env_val "SECRET_KEY" "$ENV_FILE")}"
   : "${SECRET_KEY:?Falta SECRET_KEY en ${ENV_FILE}}"
 fi
 
