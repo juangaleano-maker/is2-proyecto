@@ -23,9 +23,24 @@ from django.views.decorators.http import require_POST
 from authentication.decorators import rol_requerido
 from cotizaciones.models import Operacion
 
-from .forms import ComprobanteSIPAPForm, RechazarComprobanteSIPAPForm
-from .models import ComprobanteSIPAP, StripeEventoProcesado, TicketTransaccion
-from .services import SIPAPPasarela, StripePasarela, TicketService
+from .forms import (
+    AnularFacturaForm,
+    ComprobanteSIPAPForm,
+    RechazarComprobanteSIPAPForm,
+)
+from .models import (
+    ComprobanteSIPAP,
+    FacturaElectronica,
+    StripeEventoProcesado,
+    TicketTransaccion,
+)
+from .services import (
+    FacturaService,
+    SIPAPPasarela,
+    StripePasarela,
+    TicketService,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -557,4 +572,183 @@ def simular_pago_stripe(request, operacion_id):
         f"✅ [Solo Desarrollo] Webhook checkout.session.completed simulado con éxito para operación #{operacion.id}."
     )
     return redirect("operacion_detalle", operacion_id=operacion.id)
+
+
+# =============================================================================
+# IS2-63: Facturación Electrónica (RF33, RF34, RNF37)
+# =============================================================================
+
+@login_required
+def detalle_factura(request, factura_id):
+    """
+    Muestra los detalles tributarios y fiscales de la Factura Electrónica (KUDE).
+
+    Accesible por el personal administrativo / caja y por el usuario que registró
+    la operación.
+    """
+    factura = get_object_or_404(
+        FacturaElectronica.objects.select_related(
+            "operacion__cliente",
+            "operacion__moneda",
+            "operacion__registrado_por",
+            "ticket",
+            "anulada_por",
+        ),
+        id=factura_id,
+    )
+
+    operacion = factura.operacion
+    roles = set(getattr(request, "roles", [])) | set(
+        request.user.groups.values_list("name", flat=True)
+    )
+    roles_gestion = {"admin", "supervisor", "operador", "empleado"}
+    es_personal = bool(roles.intersection(roles_gestion)) or request.user.is_staff
+
+    if not es_personal and operacion.registrado_por != request.user:
+        messages.error(request, "No tenés permiso para ver esta factura electrónica.")
+        return redirect("menu")
+
+    # Separar CDC en bloques de 4 para lectura humana
+    cdc_formateado = ""
+    if factura.cdc:
+        cdc_formateado = " ".join(
+            factura.cdc[i : i + 4] for i in range(0, len(factura.cdc), 4)
+        )
+
+    anular_form = AnularFacturaForm() if (factura.es_anulable and es_personal) else None
+
+    return render(
+        request,
+        "pagos/factura_detalle.html",
+        {
+            "factura": factura,
+            "operacion": operacion,
+            "cdc_formateado": cdc_formateado,
+            "es_personal": es_personal,
+            "anular_form": anular_form,
+        },
+    )
+
+
+@login_required
+def detalle_factura_operacion(request, operacion_id):
+    """
+    Acceso directo a la Factura Electrónica a partir del ID de la Operación.
+    Si la operación está PAGADA y no tenía factura aún (creada antes del módulo),
+    la emite automáticamente al presionar el botón.
+    """
+    operacion = get_object_or_404(Operacion, id=operacion_id)
+
+    try:
+        factura = operacion.factura_electronica
+        return redirect("pagos:detalle_factura", factura_id=factura.id)
+    except FacturaElectronica.DoesNotExist:
+        if operacion.estado == Operacion.EstadoOperacion.PAGADA:
+            try:
+                ticket = getattr(operacion, "ticket", None)
+                factura = FacturaService.emitir_factura(operacion=operacion, ticket=ticket)
+                return redirect("pagos:detalle_factura", factura_id=factura.id)
+            except Exception as exc:
+                logger.error(
+                    "Error al generar factura para operación #%s: %s",
+                    operacion.id,
+                    exc,
+                    exc_info=True,
+                )
+
+        messages.warning(
+            request,
+            f"La operación #{operacion.id} no posee aún una Factura Electrónica asociada.",
+        )
+        return redirect("operacion_detalle", operacion_id=operacion.id)
+
+
+
+@login_required
+@require_POST
+def anular_factura_view(request, factura_id):
+    """
+    Endpoint para anular una Factura Electrónica en estado EMITIDA (RF34).
+
+    Requiere rol de administración/cajero (admin, supervisor u operador)
+    y motivo justificado de al menos 10 caracteres.
+    """
+    factura = get_object_or_404(FacturaElectronica, id=factura_id)
+
+    roles = set(getattr(request, "roles", [])) | set(
+        request.user.groups.values_list("name", flat=True)
+    )
+    roles_autorizados = {"admin", "supervisor", "operador"}
+    if not bool(roles.intersection(roles_autorizados)) and not request.user.is_staff:
+        messages.error(request, "No tenés permisos para anular facturas electrónicas.")
+        return redirect("pagos:detalle_factura", factura_id=factura.id)
+
+    form = AnularFacturaForm(request.POST)
+    if not form.is_valid():
+        errores = " ".join([err for sublist in form.errors.values() for err in sublist])
+        messages.error(request, f"Error al anular: {errores}")
+        return redirect("pagos:detalle_factura", factura_id=factura.id)
+
+    motivo = form.cleaned_data["motivo"]
+    resultado = FacturaService.anular_factura(
+        factura=factura,
+        usuario=request.user,
+        motivo=motivo,
+    )
+
+    if resultado["exito"]:
+        messages.success(
+            request,
+            f"✅ Factura {factura.numero_factura} anulada exitosamente.",
+        )
+    else:
+        messages.error(request, f"❌ No se pudo anular la factura: {resultado.get('error')}")
+
+    return redirect("pagos:detalle_factura", factura_id=factura.id)
+
+
+@login_required
+def kude_factura(request, factura_id):
+    """
+    Vista de impresión oficial en formato KUDE (Kuatia Documento Electrónico).
+    Apta para imprimir directamente (Ctrl+P / Guardar como PDF).
+    """
+    factura = get_object_or_404(
+        FacturaElectronica.objects.select_related(
+            "operacion__cliente",
+            "operacion__moneda",
+            "operacion__registrado_por",
+            "ticket",
+            "anulada_por",
+        ),
+        id=factura_id,
+    )
+
+    operacion = factura.operacion
+    roles = set(getattr(request, "roles", [])) | set(
+        request.user.groups.values_list("name", flat=True)
+    )
+    roles_gestion = {"admin", "supervisor", "operador", "empleado"}
+    es_personal = bool(roles.intersection(roles_gestion)) or request.user.is_staff
+
+    if not es_personal and operacion.registrado_por != request.user:
+        messages.error(request, "No tenés permiso para acceder a esta factura.")
+        return redirect("menu")
+
+    cdc_formateado = ""
+    if factura.cdc:
+        cdc_formateado = " ".join(
+            factura.cdc[i : i + 4] for i in range(0, len(factura.cdc), 4)
+        )
+
+    return render(
+        request,
+        "pagos/factura_kude_print.html",
+        {
+            "factura": factura,
+            "operacion": operacion,
+            "cdc_formateado": cdc_formateado,
+        },
+    )
+
 

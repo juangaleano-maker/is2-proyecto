@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KUDE - {{ factura.numero_factura }}</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        body {
+            background-color: #f8fafc;
+            color: #0f172a;
+            padding: 24px;
+        }
+        .page {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 2px solid #0f172a;
+            padding: 24px;
+        }
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+        .header-table td {
+            vertical-align: top;
+            padding: 8px;
+        }
+        .box-border {
+            border: 1px solid #0f172a;
+            padding: 10px;
+        }
+        .title-main {
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .doc-title {
+            font-size: 15px;
+            font-weight: bold;
+            text-align: center;
+            background: #e2e8f0;
+            padding: 4px;
+            margin-bottom: 6px;
+        }
+        .cdc-text {
+            font-family: monospace;
+            font-size: 11px;
+            font-weight: bold;
+            text-align: center;
+            word-break: break-all;
+            background: #f1f5f9;
+            padding: 6px;
+            border: 1px dashed #64748b;
+            margin: 8px 0;
+        }
+        .qr-placeholder {
+            width: 90px;
+            height: 90px;
+            border: 2px solid #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            text-align: center;
+            background: #ffffff;
+            margin: 0 auto;
+            font-weight: bold;
+        }
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            font-size: 12px;
+        }
+        .info-table td {
+            border: 1px solid #0f172a;
+            padding: 6px 10px;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            font-size: 12px;
+        }
+        .items-table th, .items-table td {
+            border: 1px solid #0f172a;
+            padding: 8px;
+        }
+        .items-table th {
+            background-color: #f1f5f9;
+            text-align: left;
+            font-weight: bold;
+        }
+        .status-stamp {
+            display: inline-block;
+            padding: 4px 10px;
+            font-weight: bold;
+            font-size: 11px;
+            border: 1px solid;
+            text-transform: uppercase;
+        }
+        .stamp-emitida {
+            color: #065f46;
+            border-color: #065f46;
+            background: #ecfdf5;
+        }
+        .stamp-anulada {
+            color: #991b1b;
+            border-color: #991b1b;
+            background: #fef2f2;
+        }
+        .btn-print-bar {
+            max-width: 800px;
+            margin: 0 auto 16px auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-print {
+            background: #0284c7;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            .page {
+                border: 1px solid #000;
+                max-width: 100%;
+            }
+            .btn-print-bar {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="btn-print-bar">
+    <a href="{% url 'pagos:detalle_factura' factura.id %}" style="color: #0284c7; text-decoration: none; font-weight: bold; font-size: 14px;">
+        ← Volver al Detalle
+    </a>
+    <button onclick="window.print()" class="btn-print">
+        🖨️ Imprimir / Guardar como PDF
+    </button>
+</div>
+
+<div class="page">
+    <table class="header-table">
+        <tr>
+            <!-- Datos del Emisor -->
+            <td style="width: 55%;" class="box-border">
+                <div class="title-main">GLOBAL EXCHANGE S.A.</div>
+                <div style="font-size: 11px; color: #334155; margin-top: 4px;">
+                    CASA DE CAMBIO Y SERVICIOS FINANCIEROS<br>
+                    Casa Central: Avda. Aviadores del Chaco 2050 — Asunción, Paraguay<br>
+                    Teléfono: (021) 5887000 | Email: gabogonzalez.py@fpuna.edu.py<br>
+                    Actividad: Actividades de programación informática (62010)<br>
+                    <strong>RUC: 2595733-3</strong>
+                </div>
+            </td>
+
+            <!-- Timbrado y Factura -->
+            <td style="width: 45%;" class="box-border">
+                <div class="doc-title">KUATIA — FACTURA ELECTRÓNICA</div>
+                <div style="font-size: 11px; line-height: 1.4;">
+                    <strong>TIMBRADO Nº:</strong> 02595733<br>
+                    <strong>Vigencia:</strong> Desde 27/03/2025<br>
+                    <strong>Establecimiento:</strong> 001 | <strong>P. Exp:</strong> 003<br>
+                    <strong>RUC Emisor:</strong> 2595733-3<br>
+                    <div style="font-size: 14px; font-weight: bold; margin-top: 4px; color: #0f172a;">
+                        FACTURA Nº {{ factura.numero_factura }}
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- CDC y Código QR Simulado -->
+    <div class="box-border" style="margin-bottom: 16px;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="vertical-align: middle; padding-right: 14px;">
+                    <div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: #475569;">
+                        Código de Control del Documento Electrónico (CDC):
+                    </div>
+                    <div class="cdc-text">
+                        {{ cdc_formateado|default:"NO EMITIDO" }}
+                    </div>
+                    <div style="font-size: 10.5px; color: #64748b;">
+                        Consulte la validez de este Documento Electrónico con el CDC en: <strong>https://ekuatia.set.gov.py/consultas</strong>
+                    </div>
+                </td>
+                <td style="width: 100px; text-align: center; vertical-align: middle;">
+                    <div class="qr-placeholder">
+                        QR SIFEN<br>e-Kuatia<br>Simulado
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Datos del Receptor -->
+    <table class="info-table">
+        <tr>
+            <td style="width: 65%;">
+                <strong>Fecha y Hora de Emisión:</strong> {{ factura.fecha_emision|date:"d/m/Y H:i:s" }}<br>
+                <strong>Nombre / Razón Social:</strong> {{ factura.cliente_nombre }}<br>
+                <strong>RUC / Documento Identidad:</strong> {{ factura.cliente_documento }}
+            </td>
+            <td style="width: 35%;">
+                <strong>Condición de Venta:</strong> {{ factura.get_condicion_venta_display }}<br>
+                <strong>Operación Nº:</strong> #{{ operacion.id }} ({{ operacion.get_tipo_display }})<br>
+                <strong>Estado:</strong> 
+                <span class="status-stamp stamp-{{ factura.estado|lower }}">{{ factura.get_estado_display }}</span>
+            </td>
+        </tr>
+    </table>
+
+    {% if factura.estado == 'ANULADA' %}
+    <div style="background: #fef2f2; border: 2px dashed #dc2626; padding: 10px; margin-bottom: 16px; font-size: 12px; color: #991b1b;">
+        <strong>DOCUMENTO FISCAL ANULADO:</strong> {{ factura.motivo_anulacion }} 
+        (Anulado el {{ factura.fecha_procesado|date:"d/m/Y H:i:s" }} por {{ factura.anulada_por.username|default:"Sistema" }})
+    </div>
+    {% endif %}
+
+    <!-- Detalle de Ítems -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 10%; text-align: center;">Cant.</th>
+                <th style="width: 45%;">Descripción</th>
+                <th style="width: 15%; text-align: right;">Precio Unit. (Gs.)</th>
+                <th style="width: 15%; text-align: right;">Exentas / 5%</th>
+                <th style="width: 15%; text-align: right;">Gravadas 10% (Gs.)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="text-align: center;">1</td>
+                <td>
+                    <strong>Servicio de intermediación y cambio de divisas</strong><br>
+                    <span style="font-size: 11px; color: #475569;">
+                        {{ operacion.get_tipo_display }} de {{ factura.monto|floatformat:2 }} {{ factura.moneda_siglas }} (Tasa: {{ factura.tasa_aplicada|floatformat:0 }})
+                    </span>
+                </td>
+                <td style="text-align: right;">{{ factura.total_liquidado|floatformat:0 }}</td>
+                <td style="text-align: right;">0</td>
+                <td style="text-align: right; font-weight: bold;">{{ factura.total_liquidado|floatformat:0 }}</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="4" style="text-align: right; font-weight: bold;">SUBTOTAL:</td>
+                <td style="text-align: right; font-weight: bold;">Gs. {{ factura.total_liquidado|floatformat:0 }}</td>
+            </tr>
+            <tr>
+                <td colspan="4" style="text-align: right; font-weight: bold; font-size: 13px;">TOTAL A PAGAR (Gs.):</td>
+                <td style="text-align: right; font-weight: bold; font-size: 13px;">Gs. {{ factura.total_liquidado|floatformat:0 }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <!-- Liquidación del IVA (Fórmula SIFEN) -->
+    <table class="info-table">
+        <tr>
+            <td colspan="3" style="background: #f1f5f9; font-weight: bold; text-transform: uppercase;">
+                LIQUIDACIÓN DEL IMPUESTO AL VALOR AGREGADO (IVA)
+            </td>
+        </tr>
+        <tr>
+            <td style="width: 33%;">
+                <strong>IVA 5%:</strong> Gs. 0
+            </td>
+            <td style="width: 33%;">
+                <strong>IVA 10%:</strong> Gs. {{ factura.iva_liquidado|floatformat:0 }}
+            </td>
+            <td style="width: 34%;">
+                <strong>TOTAL IVA:</strong> Gs. {{ factura.iva_liquidado|floatformat:0 }}
+            </td>
+        </tr>
+        <tr>
+            <td colspan="3" style="font-size: 11px; color: #475569;">
+                Base Imponible Gravada (10%): Gs. {{ factura.base_imponible|floatformat:0 }} | 
+                Total Liquidado: Gs. {{ factura.total_liquidado|floatformat:0 }}
+            </td>
+        </tr>
+    </table>
+
+    <div style="font-size: 10px; color: #64748b; text-align: center; margin-top: 10px;">
+        KUDE emitido conforme a la Resolución General Nº 150/2021 de la Subsecretaría de Estado de Tributación (SET / DNIT) — Sistema Integrado de Facturación Electrónica Nacional (SIFEN).
+    </div>
+</div>
+
+</body>
+</html>

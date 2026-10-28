@@ -238,3 +238,62 @@ def registrar_movimiento_caja_operacion(sender, instance, created, **kwargs):
         f"[IS2-61] Movimiento de caja registrado: {tipo_local} Gs. {monto_local} | {tipo_divisa} {monto_divisa} {moneda_str} "
         f"en '{sesion_activa.nombre_caja}' para Operación #{instance.id}"
     )
+
+
+# ==============================================================================
+# IS2-63: Generación automática de Factura Electrónica al confirmar pago (RF33)
+# ==============================================================================
+
+@receiver(post_save, sender=Operacion)
+def emitir_factura_electronica(sender, instance, created, **kwargs):
+    """
+    Genera automáticamente la Factura Electrónica cuando una Operación pasa
+    al estado PAGADA (IS2-63 / RF33).
+
+    - Llamado después de ``registrar_movimiento_caja_operacion`` gracias al
+      orden de registro de signals (mismo sender, decorador @receiver en orden).
+    - Idempotente: si ya existe una FacturaElectronica para la operación, no
+      crea una nueva (delegado al FacturaService).
+    - Intenta obtener el TicketTransaccion ya creado para vincularlo.
+    - Captura cualquier excepción para no bloquear el flujo de pago.
+    """
+    if instance.estado != Operacion.EstadoOperacion.PAGADA:
+        return
+
+    # Verificar si ya existe la factura (evitar doble disparo)
+    try:
+        from pagos.models import FacturaElectronica
+        _ = instance.factura_electronica
+        return  # Ya existe
+    except Exception:
+        pass
+
+    try:
+        from pagos.services.factura_service import FacturaService
+        from pagos.models import TicketTransaccion
+
+        # Intentar vincular el ticket ya generado
+        ticket = None
+        try:
+            ticket = instance.ticket
+        except TicketTransaccion.DoesNotExist:
+            pass
+
+        factura = FacturaService.emitir_factura(
+            operacion=instance,
+            ticket=ticket,
+        )
+        logger.info(
+            "[IS2-63] Factura electrónica %s (%s) generada automáticamente "
+            "para Operación #%s.",
+            factura.numero_factura,
+            factura.get_estado_display(),
+            instance.id,
+        )
+    except Exception as exc:
+        logger.error(
+            "[IS2-63] Error al generar factura electrónica para Operación #%s: %s",
+            instance.id,
+            exc,
+            exc_info=True,
+        )

@@ -305,9 +305,12 @@
                         <strong>Pago Confirmado:</strong> Esta transacción cuenta con su comprobante auditado y ticket oficial de transacción emitido.
                     </div>
                 </div>
-                <div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <a href="{% url 'pagos:detalle_ticket' operacion.id %}" class="btn" style="background-color: #059669; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
                         🧾 Ver Ticket Oficial
+                    </a>
+                    <a href="{% url 'pagos:detalle_factura_operacion' operacion.id %}" class="btn" style="background-color: #0284c7; color: white; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">
+                        ⚡ Factura Electrónica
                     </a>
                 </div>
             </div>
@@ -458,6 +461,9 @@
                     {% if operacion.estado == 'PAGADA' %}
                     <a href="{% url 'pagos:detalle_ticket' operacion.id %}" class="btn" style="background-color: #065f46; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
                         🧾 Ver Ticket
+                    </a>
+                    <a href="{% url 'pagos:detalle_factura_operacion' operacion.id %}" class="btn" style="background-color: #0284c7; color: white; padding: 9px 18px; border-radius: 6px; text-decoration: none; font-size: 13.5px; font-weight: 600;">
+                        ⚡ Factura Electrónica
                     </a>
                     {% elif operacion.estado == 'PENDIENTE' %}
                         {% if operacion.tipo == 'COMPRA' and not operacion.stripe_payment_intent_id %}
