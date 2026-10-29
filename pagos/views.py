@@ -41,6 +41,7 @@ from .services import (
     TicketService,
 )
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -572,14 +573,15 @@ def simular_pago_stripe(request, operacion_id):
     )
     return redirect("operacion_detalle", operacion_id=operacion.id)
 
+
 # =============================================================================
-# IS2-63 e IS2-64: Facturación Electrónica y Consulta Web
+# IS2-63: Facturación Electrónica (RF33, RF34, RNF37)
 # =============================================================================
 
 @login_required
 def detalle_factura(request, factura_id):
     """
-    Muestra los detalles tributarios y fiscales de la Factura Electrónica (IS2-64).
+    Muestra los detalles tributarios y fiscales de la Factura Electrónica (KUDE).
 
     Accesible por el personal administrativo / caja y por el usuario que registró
     la operación.
@@ -632,7 +634,8 @@ def detalle_factura(request, factura_id):
 def detalle_factura_operacion(request, operacion_id):
     """
     Acceso directo a la Factura Electrónica a partir del ID de la Operación.
-    Si la operación está PAGADA y no tenía factura aún, la emite automáticamente al presionar el botón.
+    Si la operación está PAGADA y no tenía factura aún (creada antes del módulo),
+    la emite automáticamente al presionar el botón.
     """
     operacion = get_object_or_404(Operacion, id=operacion_id)
 
@@ -658,6 +661,7 @@ def detalle_factura_operacion(request, operacion_id):
             f"La operación #{operacion.id} no posee aún una Factura Electrónica asociada.",
         )
         return redirect("operacion_detalle", operacion_id=operacion.id)
+
 
 
 @login_required
@@ -701,3 +705,50 @@ def anular_factura_view(request, factura_id):
         messages.error(request, f"❌ No se pudo anular la factura: {resultado.get('error')}")
 
     return redirect("pagos:detalle_factura", factura_id=factura.id)
+
+
+@login_required
+def kude_factura(request, factura_id):
+    """
+    Vista de impresión oficial en formato KUDE (Kuatia Documento Electrónico).
+    Apta para imprimir directamente (Ctrl+P / Guardar como PDF).
+    """
+    factura = get_object_or_404(
+        FacturaElectronica.objects.select_related(
+            "operacion__cliente",
+            "operacion__moneda",
+            "operacion__registrado_por",
+            "ticket",
+            "anulada_por",
+        ),
+        id=factura_id,
+    )
+
+    operacion = factura.operacion
+    roles = set(getattr(request, "roles", [])) | set(
+        request.user.groups.values_list("name", flat=True)
+    )
+    roles_gestion = {"admin", "supervisor", "operador", "empleado"}
+    es_personal = bool(roles.intersection(roles_gestion)) or request.user.is_staff
+
+    if not es_personal and operacion.registrado_por != request.user:
+        messages.error(request, "No tenés permiso para acceder a esta factura.")
+        return redirect("menu")
+
+    cdc_formateado = ""
+    if factura.cdc:
+        cdc_formateado = " ".join(
+            factura.cdc[i : i + 4] for i in range(0, len(factura.cdc), 4)
+        )
+
+    return render(
+        request,
+        "pagos/factura_kude_print.html",
+        {
+            "factura": factura,
+            "operacion": operacion,
+            "cdc_formateado": cdc_formateado,
+        },
+    )
+
+

@@ -405,6 +405,9 @@
                 </div>
 
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <a href="{% url 'pagos:kude_factura' factura.id %}" target="_blank" class="btn-action btn-primary">
+                        🖨️ Imprimir / Guardar KUDE
+                    </a>
 
                     {% if factura.es_anulable and es_personal and anular_form %}
                     <button type="button" onclick="abrirModalAnulacion()" class="btn-action btn-danger">

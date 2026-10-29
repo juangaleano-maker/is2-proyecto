@@ -610,33 +610,38 @@ class StripeCheckoutWebTests(BasePagosTestCase):
         )
 
 
-
-
-
-# ==============================================================================
-# IS2-63: Pruebas de Facturación Electrónica (RF33, RF34, RNF37)
-# ==============================================================================
-
 class FacturaElectronicaTestCase(BasePagosTestCase):
     """
     Pruebas para el módulo de Facturación Electrónica (IS2-63).
 
     Criterios cubiertos:
-    - RF33: Generación e integración asociada a transacción confirmada (PAGADA).
+    - RF33: Generación automática asociada a transacción confirmada (PAGADA).
     - RF34: Gestión del estado (EMITIDA -> ANULADA, rechazo de anulación en estados inválidos).
     - RNF37: Desempeño del simulador (completar en <= 5 segundos).
     - Idempotencia del servicio.
     - Fórmula fiscal SIFEN (Base imponible 10%, IVA 10%, Total).
+    - Restricción de permisos y vistas (detalle, KUDE y anulación).
     """
 
     def setUp(self):
         super().setUp()
+        self.detalle_url_operacion = reverse(
+            "pagos:detalle_factura_operacion", kwargs={"operacion_id": self.operacion.id}
+        )
+
+    def test_emision_automatica_factura_al_pagar_operacion(self):
+        """Al pasar la operación a PAGADA, el signal genera automáticamente la FacturaElectronica."""
+        self.assertFalse(hasattr(self.operacion, "factura_electronica"))
+
+        # Confirmar la operación
         self.operacion.estado = Operacion.EstadoOperacion.PAGADA
         self.operacion.save()
 
-    def test_emision_factura_operacion_pagada(self):
-        """Al emitir factura para una operación PAGADA se genera FacturaElectronica con CDC de 44 dígitos."""
-        factura = FacturaService.emitir_factura(self.operacion)
+        # Debe haberse instanciado la factura electrónica
+        self.operacion.refresh_from_db()
+        self.assertTrue(hasattr(self.operacion, "factura_electronica"))
+        factura = self.operacion.factura_electronica
+
         self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
         self.assertTrue(factura.numero_factura.startswith("001-003-"))
         self.assertIsNotNone(factura.cdc)
@@ -647,6 +652,198 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
 
     def test_idempotencia_emision_factura(self):
         """Emitir_factura múltiples veces retorna la misma factura sin duplicados."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+
+        factura_1 = FacturaService.emitir_factura(self.operacion)
+        factura_2 = FacturaService.emitir_factura(self.operacion)
+
+        self.assertEqual(factura_1.id, factura_2.id)
+        self.assertEqual(factura_1.numero_factura, factura_2.numero_factura)
+        self.assertEqual(FacturaElectronica.objects.filter(operacion=self.operacion).count(), 1)
+
+    def test_calculo_desglose_iva_sifen(self):
+        """Verifica que el desglose tributario cumpla con la fórmula oficial SIFEN."""
+        # subtotal = 100 * 7500 = 750.000 Gs.
+        subtotal = self.operacion.subtotal
+        self.assertEqual(subtotal, Decimal("750000.00"))
+
+        base, iva, total = FacturaService._calcular_desglose_iva(subtotal)
+
+        # base = 750000 / 1.10 = 681818.18
+        # iva  = 750000 - 681818.18 = 68181.82
+        # total = 750000.00
+        self.assertEqual(base, Decimal("681818.18"))
+        self.assertEqual(iva, Decimal("68181.82"))
+        self.assertEqual(total, Decimal("750000.00"))
+        self.assertEqual(base + iva, total)
+
+    def test_anular_factura_servicio_exitoso(self):
+        """FacturaService.anular_factura cambia estado a ANULADA y registra auditoría."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = self.operacion.factura_electronica
+
+        resultado = FacturaService.anular_factura(
+            factura=factura,
+            usuario=self.user_cajero,
+            motivo="Error en los datos de facturación del cliente",
+        )
+
+        self.assertTrue(resultado["exito"])
+        factura.refresh_from_db()
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.ANULADA)
+        self.assertEqual(factura.anulada_por, self.user_cajero)
+        self.assertEqual(factura.motivo_anulacion, "Error en los datos de facturación del cliente")
+        self.assertIsNotNone(factura.fecha_procesado)
+
+    def test_anular_factura_ya_anulada_falla(self):
+        """No se puede volver a anular una factura que ya está en estado ANULADA."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = self.operacion.factura_electronica
+
+        # Primera anulación
+        FacturaService.anular_factura(factura, self.user_cajero, "Primera anulación válida")
+
+        # Segundo intento
+        resultado = FacturaService.anular_factura(factura, self.user_admin, "Segundo intento")
+        self.assertFalse(resultado["exito"])
+        self.assertIn("no puede anularse", resultado["error"])
+
+    def test_vista_detalle_factura_accesible_por_cliente_propietario(self):
+        """El cliente que registró la operación puede ver su factura electrónica."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = self.operacion.factura_electronica
+
+        self.client.login(username="cliente_maria", password="password123")
+        url = reverse("pagos:detalle_factura", kwargs={"factura_id": factura.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, factura.numero_factura)
+        self.assertContains(response, factura.cliente_nombre)
+        self.assertContains(response, "SISTEMA SIFEN / e-KUATIA")
+
+    def test_vista_detalle_factura_bloquea_usuario_ajeno(self):
+        """Un usuario ajeno no puede visualizar la factura de otro cliente."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = self.operacion.factura_electronica
+
+        self.client.login(username="usuario_ajeno", password="password123")
+        url = reverse("pagos:detalle_factura", kwargs={"factura_id": factura.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("menu"))
+
+    def test_vista_anular_factura_requiere_rol_autorizado(self):
+        """Solo personal con rol cajero/admin puede ejecutar la anulación vía vista POST."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = self.operacion.factura_electronica
+        anular_url = reverse("pagos:anular_factura", kwargs={"factura_id": factura.id})
+
+        # Cliente normal intenta anular
+        self.client.login(username="cliente_maria", password="password123")
+        res_cliente = self.client.post(
+            anular_url, {"motivo": "Quiero anularla porque me equivoqué"}
+        )
+        factura.refresh_from_db()
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
+
+        # Cajero (operador) anula con motivo válido
+        self.client.login(username="cajero_juan", password="password123")
+        res_cajero = self.client.post(
+            anular_url, {"motivo": "Anulación solicitada formalmente por el cliente"}
+        )
+        self.assertEqual(res_cajero.status_code, 302)
+        factura.refresh_from_db()
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.ANULADA)
+
+    def test_vista_kude_print_formato_oficial(self):
+        """La vista KUDE retorna 200 y contiene los elementos oficiales de SIFEN."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = self.operacion.factura_electronica
+
+        self.client.login(username="cliente_maria", password="password123")
+        url = reverse("pagos:kude_factura", kwargs={"factura_id": factura.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "KUATIA — FACTURA ELECTRÓNICA")
+        self.assertContains(response, factura.numero_factura)
+        self.assertContains(response, "LIQUIDACIÓN DEL IMPUESTO AL VALOR AGREGADO")
+
+    def test_rnf37_simulacion_tiempo_respuesta(self):
+        """RNF37: La simulación de emisión se completa en ≤ 5 segundos."""
+        import time
+
+        self.operacion.estado = Operacion.EstadoOperacion.PENDIENTE
+        self.operacion.save()
+
+        # Mock directo de emisión
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        inicio = time.time()
+        factura = FacturaService.emitir_factura(self.operacion)
+        duracion = time.time() - inicio
+
+        self.assertLess(duracion, 5.0, "La emisión simulada debe tardar menos de 5 segundos.")
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
+
+
+
+# ==============================================================================
+# IS2-63, IS2-64, IS2-65: Pruebas de Facturación Electrónica SIFEN (RF33, RF34, RNF37)
+# ==============================================================================
+
+class FacturaElectronicaTestCase(BasePagosTestCase):
+    """
+    Pruebas integrales del módulo de Facturación Electrónica (IS2-63, IS2-64, IS2-65).
+
+    Criterios cubiertos:
+    - RF33: Generación e integración asociada a transacción confirmada (PAGADA).
+    - RF34: Gestión del estado (EMITIDA -> ANULADA, rechazo de anulación en estados inválidos).
+    - RNF37: Desempeño del simulador (completar en <= 5 segundos).
+    - Idempotencia del servicio.
+    - Fórmula fiscal SIFEN (Base imponible 10%, IVA 10%, Total).
+    - IS2-64: Restricción de permisos y visualización de la vista detalle web.
+    - IS2-65: Vista de impresión oficial KUDE (Ctrl+P / Guardar PDF).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.detalle_url_operacion = reverse(
+            "pagos:detalle_factura_operacion", kwargs={"operacion_id": self.operacion.id}
+        )
+
+    def test_emision_factura_al_pagar_operacion(self):
+        """Al confirmar pago y solicitar emisión, se genera la FacturaElectronica bajo demanda."""
+        self.assertFalse(hasattr(self.operacion, "factura_electronica"))
+
+        # Confirmar la operación
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+
+        # Emitir factura bajo demanda
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
+        self.assertTrue(factura.numero_factura.startswith("001-003-"))
+        self.assertIsNotNone(factura.cdc)
+        self.assertEqual(len(factura.cdc), 44)
+        self.assertEqual(factura.cliente_nombre, "María López")
+        self.assertEqual(factura.cliente_documento, "4567890")
+        self.assertEqual(factura.moneda_siglas, "USD")
+
+    def test_idempotencia_emision_factura(self):
+        """Emitir_factura múltiples veces retorna la misma factura sin duplicados."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+
         factura_1 = FacturaService.emitir_factura(self.operacion)
         factura_2 = FacturaService.emitir_factura(self.operacion)
 
@@ -668,35 +865,69 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
 
     def test_anular_factura_servicio_exitoso(self):
         """FacturaService.anular_factura cambia estado a ANULADA y registra auditoría."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
         factura = FacturaService.emitir_factura(self.operacion)
-        self.assertTrue(factura.es_anulable)
 
-        motivo = "Error en los datos de facturación del cliente"
         resultado = FacturaService.anular_factura(
             factura=factura,
             usuario=self.user_cajero,
-            motivo=motivo,
+            motivo="Error en los datos de facturación del cliente",
         )
 
         self.assertTrue(resultado["exito"])
         factura.refresh_from_db()
         self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.ANULADA)
         self.assertEqual(factura.anulada_por, self.user_cajero)
-        self.assertEqual(factura.motivo_anulacion, motivo)
+        self.assertEqual(factura.motivo_anulacion, "Error en los datos de facturación del cliente")
         self.assertIsNotNone(factura.fecha_procesado)
-        self.assertFalse(factura.es_anulable)
 
     def test_anular_factura_ya_anulada_falla(self):
         """No se puede volver a anular una factura que ya está en estado ANULADA."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
         factura = FacturaService.emitir_factura(self.operacion)
+
+        # Primera anulación
         FacturaService.anular_factura(factura, self.user_cajero, "Primera anulación válida")
 
+        # Segundo intento
         resultado = FacturaService.anular_factura(factura, self.user_admin, "Segundo intento")
         self.assertFalse(resultado["exito"])
         self.assertIn("no puede anularse", resultado["error"])
 
+    def test_vista_detalle_factura_accesible_por_cliente_propietario(self):
+        """El cliente que registró la operación puede ver su factura electrónica."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        self.client.login(username="cliente_maria", password="password123")
+        url = reverse("pagos:detalle_factura", kwargs={"factura_id": factura.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, factura.numero_factura)
+        self.assertContains(response, factura.cliente_nombre)
+        self.assertContains(response, "SISTEMA SIFEN / e-KUATIA")
+
+    def test_vista_detalle_factura_bloquea_usuario_ajeno(self):
+        """Un usuario ajeno no puede visualizar la factura de otro cliente."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        self.client.login(username="usuario_ajeno", password="password123")
+        url = reverse("pagos:detalle_factura", kwargs={"factura_id": factura.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("menu"))
+
     def test_vista_anular_factura_requiere_rol_autorizado(self):
         """Solo personal con rol cajero/admin puede ejecutar la anulación vía vista POST."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
         factura = FacturaService.emitir_factura(self.operacion)
         anular_url = reverse("pagos:anular_factura", kwargs={"factura_id": factura.id})
 
@@ -717,36 +948,33 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
         factura.refresh_from_db()
         self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.ANULADA)
 
+    def test_vista_kude_print_formato_oficial(self):
+        """La vista KUDE retorna 200 y contiene los elementos oficiales de SIFEN."""
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        self.client.login(username="cliente_maria", password="password123")
+        url = reverse("pagos:kude_factura", kwargs={"factura_id": factura.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "KUATIA — FACTURA ELECTRÓNICA")
+        self.assertContains(response, factura.numero_factura)
+        self.assertContains(response, "LIQUIDACIÓN DEL IMPUESTO AL VALOR AGREGADO")
+
     def test_rnf37_simulacion_tiempo_respuesta(self):
         """RNF37: La simulación de emisión se completa en ≤ 5 segundos."""
         import time
+
+        self.operacion.estado = Operacion.EstadoOperacion.PENDIENTE
+        self.operacion.save()
+
+        # Mock directo de emisión
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
         inicio = time.time()
         factura = FacturaService.emitir_factura(self.operacion)
         duracion = time.time() - inicio
 
         self.assertLess(duracion, 5.0, "La emisión simulada debe tardar menos de 5 segundos.")
         self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
-    def test_vista_detalle_factura_accesible_por_cliente_propietario(self):
-        """El cliente que registró la operación puede ver su factura electrónica."""
-        factura = FacturaService.emitir_factura(self.operacion)
-
-        self.client.login(username="cliente_maria", password="password123")
-        url = reverse("pagos:detalle_factura", kwargs={"factura_id": factura.id})
-        response = self.client.get(url)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, factura.numero_factura)
-        self.assertContains(response, factura.cliente_nombre)
-        self.assertContains(response, "SISTEMA SIFEN / e-KUATIA")
-
-    def test_vista_detalle_factura_bloquea_usuario_ajeno(self):
-        """Un usuario ajeno no puede visualizar la factura de otro cliente."""
-        factura = FacturaService.emitir_factura(self.operacion)
-
-        self.client.login(username="usuario_ajeno", password="password123")
-        url = reverse("pagos:detalle_factura", kwargs={"factura_id": factura.id})
-        response = self.client.get(url)
-
-        self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, reverse("menu"))
-

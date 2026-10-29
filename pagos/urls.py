@@ -47,7 +47,8 @@ urlpatterns = [
         views.simular_pago_stripe,
         name="simular_pago_stripe",
     ),
-    # Facturación Electrónica (IS2-63 e IS2-64)
+
+    # Facturación Electrónica (IS2-63)
     path(
         "factura/<int:operacion_id>/",
         views.detalle_factura_operacion,
@@ -62,5 +63,10 @@ urlpatterns = [
         "factura/<int:factura_id>/anular/",
         views.anular_factura_view,
         name="anular_factura",
+    ),
+    path(
+        "factura/<int:factura_id>/kude/",
+        views.kude_factura,
+        name="kude_factura",
     ),
 ]
