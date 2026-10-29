@@ -47,11 +47,16 @@ urlpatterns = [
         views.simular_pago_stripe,
         name="simular_pago_stripe",
     ),
-    # Facturación Electrónica (IS2-63)
+    # Facturación Electrónica (IS2-63 e IS2-64)
     path(
         "factura/<int:operacion_id>/",
         views.detalle_factura_operacion,
         name="detalle_factura_operacion",
+    ),
+    path(
+        "factura/id/<int:factura_id>/",
+        views.detalle_factura,
+        name="detalle_factura",
     ),
     path(
         "factura/<int:factura_id>/anular/",

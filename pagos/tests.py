@@ -726,3 +726,27 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
 
         self.assertLess(duracion, 5.0, "La emisión simulada debe tardar menos de 5 segundos.")
         self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
+    def test_vista_detalle_factura_accesible_por_cliente_propietario(self):
+        """El cliente que registró la operación puede ver su factura electrónica."""
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        self.client.login(username="cliente_maria", password="password123")
+        url = reverse("pagos:detalle_factura", kwargs={"factura_id": factura.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, factura.numero_factura)
+        self.assertContains(response, factura.cliente_nombre)
+        self.assertContains(response, "SISTEMA SIFEN / e-KUATIA")
+
+    def test_vista_detalle_factura_bloquea_usuario_ajeno(self):
+        """Un usuario ajeno no puede visualizar la factura de otro cliente."""
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        self.client.login(username="usuario_ajeno", password="password123")
+        url = reverse("pagos:detalle_factura", kwargs={"factura_id": factura.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("menu"))
+

@@ -572,29 +572,79 @@ def simular_pago_stripe(request, operacion_id):
     )
     return redirect("operacion_detalle", operacion_id=operacion.id)
 
-
-
 # =============================================================================
-# IS2-63: Facturación Electrónica (RF33, RF34, RNF37)
+# IS2-63 e IS2-64: Facturación Electrónica y Consulta Web
 # =============================================================================
+
+@login_required
+def detalle_factura(request, factura_id):
+    """
+    Muestra los detalles tributarios y fiscales de la Factura Electrónica (IS2-64).
+
+    Accesible por el personal administrativo / caja y por el usuario que registró
+    la operación.
+    """
+    factura = get_object_or_404(
+        FacturaElectronica.objects.select_related(
+            "operacion__cliente",
+            "operacion__moneda",
+            "operacion__registrado_por",
+            "ticket",
+            "anulada_por",
+        ),
+        id=factura_id,
+    )
+
+    operacion = factura.operacion
+    roles = set(getattr(request, "roles", [])) | set(
+        request.user.groups.values_list("name", flat=True)
+    )
+    roles_gestion = {"admin", "supervisor", "operador", "empleado"}
+    es_personal = bool(roles.intersection(roles_gestion)) or request.user.is_staff
+
+    if not es_personal and operacion.registrado_por != request.user:
+        messages.error(request, "No tenés permiso para ver esta factura electrónica.")
+        return redirect("menu")
+
+    # Separar CDC en bloques de 4 para lectura humana
+    cdc_formateado = ""
+    if factura.cdc:
+        cdc_formateado = " ".join(
+            factura.cdc[i : i + 4] for i in range(0, len(factura.cdc), 4)
+        )
+
+    anular_form = AnularFacturaForm() if (factura.es_anulable and es_personal) else None
+
+    return render(
+        request,
+        "pagos/factura_detalle.html",
+        {
+            "factura": factura,
+            "operacion": operacion,
+            "cdc_formateado": cdc_formateado,
+            "es_personal": es_personal,
+            "anular_form": anular_form,
+        },
+    )
+
 
 @login_required
 def detalle_factura_operacion(request, operacion_id):
     """
     Acceso directo a la Factura Electrónica a partir del ID de la Operación.
-    Si la operación está PAGADA y no tenía factura aún, la emite bajo demanda.
+    Si la operación está PAGADA y no tenía factura aún, la emite automáticamente al presionar el botón.
     """
     operacion = get_object_or_404(Operacion, id=operacion_id)
 
     try:
         factura = operacion.factura_electronica
-        messages.info(request, f"Factura {factura.numero_factura} ({factura.get_estado_display()}) ya emitida.")
+        return redirect("pagos:detalle_factura", factura_id=factura.id)
     except FacturaElectronica.DoesNotExist:
         if operacion.estado == Operacion.EstadoOperacion.PAGADA:
             try:
                 ticket = getattr(operacion, "ticket", None)
                 factura = FacturaService.emitir_factura(operacion=operacion, ticket=ticket)
-                messages.success(request, f"✅ Factura {factura.numero_factura} emitida exitosamente.")
+                return redirect("pagos:detalle_factura", factura_id=factura.id)
             except Exception as exc:
                 logger.error(
                     "Error al generar factura para operación #%s: %s",
@@ -602,14 +652,12 @@ def detalle_factura_operacion(request, operacion_id):
                     exc,
                     exc_info=True,
                 )
-                messages.error(request, f"Error al generar factura: {exc}")
-        else:
-            messages.warning(
-                request,
-                f"La operación #{operacion.id} no posee aún una Factura Electrónica asociada.",
-            )
 
-    return redirect("operacion_detalle", operacion_id=operacion.id)
+        messages.warning(
+            request,
+            f"La operación #{operacion.id} no posee aún una Factura Electrónica asociada.",
+        )
+        return redirect("operacion_detalle", operacion_id=operacion.id)
 
 
 @login_required
@@ -629,13 +677,13 @@ def anular_factura_view(request, factura_id):
     roles_autorizados = {"admin", "supervisor", "operador"}
     if not bool(roles.intersection(roles_autorizados)) and not request.user.is_staff:
         messages.error(request, "No tenés permisos para anular facturas electrónicas.")
-        return redirect("operacion_detalle", operacion_id=factura.operacion.id)
+        return redirect("pagos:detalle_factura", factura_id=factura.id)
 
     form = AnularFacturaForm(request.POST)
     if not form.is_valid():
         errores = " ".join([err for sublist in form.errors.values() for err in sublist])
         messages.error(request, f"Error al anular: {errores}")
-        return redirect("operacion_detalle", operacion_id=factura.operacion.id)
+        return redirect("pagos:detalle_factura", factura_id=factura.id)
 
     motivo = form.cleaned_data["motivo"]
     resultado = FacturaService.anular_factura(
@@ -652,4 +700,4 @@ def anular_factura_view(request, factura_id):
     else:
         messages.error(request, f"❌ No se pudo anular la factura: {resultado.get('error')}")
 
-    return redirect("operacion_detalle", operacion_id=factura.operacion.id)
+    return redirect("pagos:detalle_factura", factura_id=factura.id)
