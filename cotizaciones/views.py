@@ -863,6 +863,23 @@ def detalle_operacion_view(request, operacion_id):
             messages.error(request, "No tienes permiso para consultar esta operación.")
             return redirect('menu')
 
+    # Sincronización automática al retornar de Stripe Checkout (?stripe=success)
+    if request.GET.get('stripe') == 'success' and operacion.estado == Operacion.EstadoOperacion.PENDIENTE:
+        try:
+            from pagos.services.stripe_service import _get_stripe
+            from pagos.views import _handle_pago_exitoso
+            stripe = _get_stripe()
+            ref = getattr(operacion, 'stripe_payment_intent_id', '') or ''
+            if ref and ref.startswith('cs_'):
+                session = stripe.checkout.Session.retrieve(ref)
+                if getattr(session, 'payment_status', None) == 'paid':
+                    _handle_pago_exitoso('checkout.session.completed', session.to_dict())
+                    operacion.refresh_from_db()
+                    messages.success(request, f'✅ ¡Pago con Stripe de la Operación #{operacion.id} confirmado exitosamente!')
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning('No se pudo autoverificar sesión Stripe para op #%s: %s', operacion.id, exc)
+
     return render(request, 'cotizaciones/operaciones/detalle.html', {
         'operacion': operacion,
         'es_personal': es_personal,

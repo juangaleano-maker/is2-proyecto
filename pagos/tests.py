@@ -33,8 +33,18 @@ from django.urls import reverse
 from clientes.models import Cliente
 from cotizaciones.models import Operacion
 from monedas.models import Moneda
-from pagos.models import ComprobanteSIPAP, StripeEventoProcesado, TicketTransaccion
-from pagos.services import SIPAPPasarela, StripePasarela, TicketService
+from pagos.models import (
+    ComprobanteSIPAP,
+    FacturaElectronica,
+    StripeEventoProcesado,
+    TicketTransaccion,
+)
+from pagos.services import (
+    FacturaService,
+    SIPAPPasarela,
+    StripePasarela,
+    TicketService,
+)
 
 User = get_user_model()
 
@@ -599,3 +609,120 @@ class StripeCheckoutWebTests(BasePagosTestCase):
             reverse("operacion_detalle", kwargs={"operacion_id": self.operacion.id}),
         )
 
+
+
+
+
+# ==============================================================================
+# IS2-63: Pruebas de Facturación Electrónica (RF33, RF34, RNF37)
+# ==============================================================================
+
+class FacturaElectronicaTestCase(BasePagosTestCase):
+    """
+    Pruebas para el módulo de Facturación Electrónica (IS2-63).
+
+    Criterios cubiertos:
+    - RF33: Generación e integración asociada a transacción confirmada (PAGADA).
+    - RF34: Gestión del estado (EMITIDA -> ANULADA, rechazo de anulación en estados inválidos).
+    - RNF37: Desempeño del simulador (completar en <= 5 segundos).
+    - Idempotencia del servicio.
+    - Fórmula fiscal SIFEN (Base imponible 10%, IVA 10%, Total).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+
+    def test_emision_factura_operacion_pagada(self):
+        """Al emitir factura para una operación PAGADA se genera FacturaElectronica con CDC de 44 dígitos."""
+        factura = FacturaService.emitir_factura(self.operacion)
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
+        self.assertTrue(factura.numero_factura.startswith("001-003-"))
+        self.assertIsNotNone(factura.cdc)
+        self.assertEqual(len(factura.cdc), 44)
+        self.assertEqual(factura.cliente_nombre, "María López")
+        self.assertEqual(factura.cliente_documento, "4567890")
+        self.assertEqual(factura.moneda_siglas, "USD")
+
+    def test_idempotencia_emision_factura(self):
+        """Emitir_factura múltiples veces retorna la misma factura sin duplicados."""
+        factura_1 = FacturaService.emitir_factura(self.operacion)
+        factura_2 = FacturaService.emitir_factura(self.operacion)
+
+        self.assertEqual(factura_1.id, factura_2.id)
+        self.assertEqual(factura_1.numero_factura, factura_2.numero_factura)
+        self.assertEqual(FacturaElectronica.objects.filter(operacion=self.operacion).count(), 1)
+
+    def test_calculo_desglose_iva_sifen(self):
+        """Verifica que el desglose tributario cumpla con la fórmula oficial SIFEN."""
+        subtotal = self.operacion.subtotal
+        self.assertEqual(subtotal, Decimal("750000.00"))
+
+        base, iva, total = FacturaService._calcular_desglose_iva(subtotal)
+
+        self.assertEqual(base, Decimal("681818.18"))
+        self.assertEqual(iva, Decimal("68181.82"))
+        self.assertEqual(total, Decimal("750000.00"))
+        self.assertEqual(base + iva, total)
+
+    def test_anular_factura_servicio_exitoso(self):
+        """FacturaService.anular_factura cambia estado a ANULADA y registra auditoría."""
+        factura = FacturaService.emitir_factura(self.operacion)
+        self.assertTrue(factura.es_anulable)
+
+        motivo = "Error en los datos de facturación del cliente"
+        resultado = FacturaService.anular_factura(
+            factura=factura,
+            usuario=self.user_cajero,
+            motivo=motivo,
+        )
+
+        self.assertTrue(resultado["exito"])
+        factura.refresh_from_db()
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.ANULADA)
+        self.assertEqual(factura.anulada_por, self.user_cajero)
+        self.assertEqual(factura.motivo_anulacion, motivo)
+        self.assertIsNotNone(factura.fecha_procesado)
+        self.assertFalse(factura.es_anulable)
+
+    def test_anular_factura_ya_anulada_falla(self):
+        """No se puede volver a anular una factura que ya está en estado ANULADA."""
+        factura = FacturaService.emitir_factura(self.operacion)
+        FacturaService.anular_factura(factura, self.user_cajero, "Primera anulación válida")
+
+        resultado = FacturaService.anular_factura(factura, self.user_admin, "Segundo intento")
+        self.assertFalse(resultado["exito"])
+        self.assertIn("no puede anularse", resultado["error"])
+
+    def test_vista_anular_factura_requiere_rol_autorizado(self):
+        """Solo personal con rol cajero/admin puede ejecutar la anulación vía vista POST."""
+        factura = FacturaService.emitir_factura(self.operacion)
+        anular_url = reverse("pagos:anular_factura", kwargs={"factura_id": factura.id})
+
+        # Cliente normal intenta anular
+        self.client.login(username="cliente_maria", password="password123")
+        res_cliente = self.client.post(
+            anular_url, {"motivo": "Quiero anularla porque me equivoqué"}
+        )
+        factura.refresh_from_db()
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
+
+        # Cajero (operador) anula con motivo válido
+        self.client.login(username="cajero_juan", password="password123")
+        res_cajero = self.client.post(
+            anular_url, {"motivo": "Anulación solicitada formalmente por el cliente"}
+        )
+        self.assertEqual(res_cajero.status_code, 302)
+        factura.refresh_from_db()
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.ANULADA)
+
+    def test_rnf37_simulacion_tiempo_respuesta(self):
+        """RNF37: La simulación de emisión se completa en ≤ 5 segundos."""
+        import time
+        inicio = time.time()
+        factura = FacturaService.emitir_factura(self.operacion)
+        duracion = time.time() - inicio
+
+        self.assertLess(duracion, 5.0, "La emisión simulada debe tardar menos de 5 segundos.")
+        self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)

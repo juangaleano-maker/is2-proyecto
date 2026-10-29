@@ -23,9 +23,23 @@ from django.views.decorators.http import require_POST
 from authentication.decorators import rol_requerido
 from cotizaciones.models import Operacion
 
-from .forms import ComprobanteSIPAPForm, RechazarComprobanteSIPAPForm
-from .models import ComprobanteSIPAP, StripeEventoProcesado, TicketTransaccion
-from .services import SIPAPPasarela, StripePasarela, TicketService
+from .forms import (
+    AnularFacturaForm,
+    ComprobanteSIPAPForm,
+    RechazarComprobanteSIPAPForm,
+)
+from .models import (
+    ComprobanteSIPAP,
+    FacturaElectronica,
+    StripeEventoProcesado,
+    TicketTransaccion,
+)
+from .services import (
+    FacturaService,
+    SIPAPPasarela,
+    StripePasarela,
+    TicketService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -558,3 +572,84 @@ def simular_pago_stripe(request, operacion_id):
     )
     return redirect("operacion_detalle", operacion_id=operacion.id)
 
+
+
+# =============================================================================
+# IS2-63: Facturación Electrónica (RF33, RF34, RNF37)
+# =============================================================================
+
+@login_required
+def detalle_factura_operacion(request, operacion_id):
+    """
+    Acceso directo a la Factura Electrónica a partir del ID de la Operación.
+    Si la operación está PAGADA y no tenía factura aún, la emite bajo demanda.
+    """
+    operacion = get_object_or_404(Operacion, id=operacion_id)
+
+    try:
+        factura = operacion.factura_electronica
+        messages.info(request, f"Factura {factura.numero_factura} ({factura.get_estado_display()}) ya emitida.")
+    except FacturaElectronica.DoesNotExist:
+        if operacion.estado == Operacion.EstadoOperacion.PAGADA:
+            try:
+                ticket = getattr(operacion, "ticket", None)
+                factura = FacturaService.emitir_factura(operacion=operacion, ticket=ticket)
+                messages.success(request, f"✅ Factura {factura.numero_factura} emitida exitosamente.")
+            except Exception as exc:
+                logger.error(
+                    "Error al generar factura para operación #%s: %s",
+                    operacion.id,
+                    exc,
+                    exc_info=True,
+                )
+                messages.error(request, f"Error al generar factura: {exc}")
+        else:
+            messages.warning(
+                request,
+                f"La operación #{operacion.id} no posee aún una Factura Electrónica asociada.",
+            )
+
+    return redirect("operacion_detalle", operacion_id=operacion.id)
+
+
+@login_required
+@require_POST
+def anular_factura_view(request, factura_id):
+    """
+    Endpoint para anular una Factura Electrónica en estado EMITIDA (RF34).
+
+    Requiere rol de administración/cajero (admin, supervisor u operador)
+    y motivo justificado de al menos 10 caracteres.
+    """
+    factura = get_object_or_404(FacturaElectronica, id=factura_id)
+
+    roles = set(getattr(request, "roles", [])) | set(
+        request.user.groups.values_list("name", flat=True)
+    )
+    roles_autorizados = {"admin", "supervisor", "operador"}
+    if not bool(roles.intersection(roles_autorizados)) and not request.user.is_staff:
+        messages.error(request, "No tenés permisos para anular facturas electrónicas.")
+        return redirect("operacion_detalle", operacion_id=factura.operacion.id)
+
+    form = AnularFacturaForm(request.POST)
+    if not form.is_valid():
+        errores = " ".join([err for sublist in form.errors.values() for err in sublist])
+        messages.error(request, f"Error al anular: {errores}")
+        return redirect("operacion_detalle", operacion_id=factura.operacion.id)
+
+    motivo = form.cleaned_data["motivo"]
+    resultado = FacturaService.anular_factura(
+        factura=factura,
+        usuario=request.user,
+        motivo=motivo,
+    )
+
+    if resultado["exito"]:
+        messages.success(
+            request,
+            f"✅ Factura {factura.numero_factura} anulada exitosamente.",
+        )
+    else:
+        messages.error(request, f"❌ No se pudo anular la factura: {resultado.get('error')}")
+
+    return redirect("operacion_detalle", operacion_id=factura.operacion.id)

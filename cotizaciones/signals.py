@@ -238,3 +238,18 @@ def registrar_movimiento_caja_operacion(sender, instance, created, **kwargs):
         f"[IS2-61] Movimiento de caja registrado: {tipo_local} Gs. {monto_local} | {tipo_divisa} {monto_divisa} {moneda_str} "
         f"en '{sesion_activa.nombre_caja}' para Operación #{instance.id}"
     )
+
+
+# ==============================================================================
+# IS2-63: Emision bajo demanda de Factura Electronica (RF33)
+# ==============================================================================
+
+@receiver(post_save, sender=Operacion)
+def emitir_factura_electronica(sender, instance, created, **kwargs):
+    """
+    Emision bajo demanda:
+    La Factura Electronica NO se genera automaticamente al confirmar el pago.
+    Se emite exclusivamente cuando el usuario presiona el boton
+    'Factura Electronica' en la interfaz.
+    """
+    return

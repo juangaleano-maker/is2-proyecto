@@ -85,3 +85,29 @@ class RechazarComprobanteSIPAPForm(forms.Form):
             "required": "Debe ingresar el motivo del rechazo.",
         },
     )
+
+
+class AnularFacturaForm(forms.Form):
+    """
+    Formulario para que un operador/admin ingrese el motivo de anulación
+    de una Factura Electrónica (IS2-63 / RF34).
+    """
+
+    motivo = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "class": "form-control",
+                "id": "id_motivo_anulacion",
+                "placeholder": "Indique detalladamente el motivo de la anulación (mín. 10 caracteres)...",
+            }
+        ),
+        label="Motivo de anulación",
+        min_length=10,
+        max_length=500,
+        error_messages={
+            "min_length": "El motivo de anulación debe tener al menos 10 caracteres.",
+            "required": "Debe ingresar el motivo de anulación.",
+        },
+    )
+
