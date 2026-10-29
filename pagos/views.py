@@ -321,7 +321,7 @@ def subir_comprobante_sipap(request, operacion_id):
 # SIPAP — Flujo del cajero / administrador
 # =============================================================================
 
-@rol_requerido("admin", "operador", "supervisor")
+@rol_requerido("cajero", "admin", "operador", "supervisor")
 def lista_comprobantes_pendientes(request):
     """
     Lista de comprobantes SIPAP en estado PENDIENTE para revisión del cajero.
@@ -340,7 +340,7 @@ def lista_comprobantes_pendientes(request):
     )
 
 
-@rol_requerido("admin", "operador", "supervisor")
+@rol_requerido("cajero", "admin", "operador", "supervisor")
 def revisar_comprobante_sipap(request, comprobante_id):
     """
     Vista del cajero/administrador para revisar un comprobante SIPAP.
@@ -444,7 +444,7 @@ def detalle_ticket(request, operacion_id):
     roles = set(getattr(request, "roles", [])) | set(
         request.user.groups.values_list("name", flat=True)
     )
-    roles_gestion = {"admin", "supervisor", "operador", "empleado"}
+    roles_gestion = {"admin", "supervisor", "operador", "empleado", "cajero"}
     es_personal = bool(roles.intersection(roles_gestion)) or request.user.is_staff
 
     if not es_personal and operacion.registrado_por != request.user:
@@ -756,7 +756,7 @@ def verificar_pago_stripe(request, operacion_id):
     roles = set(getattr(request, "roles", [])) | set(
         request.user.groups.values_list("name", flat=True)
     )
-    roles_gestion = {"admin", "supervisor", "operador", "empleado"}
+    roles_gestion = {"admin", "supervisor", "operador", "empleado", "cajero"}
     es_personal = bool(roles.intersection(roles_gestion)) or request.user.is_staff
 
     if not es_personal and operacion.registrado_por != request.user:

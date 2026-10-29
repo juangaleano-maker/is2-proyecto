@@ -47,6 +47,10 @@
       {
         "name": "analista_cambiario",
         "description": "Analista de cotizaciones cambiarias"
+      },
+      {
+        "name": "cajero",
+        "description": "Cajero físico — gestiona apertura/cierre de caja y procesa comprobantes SIPAP"
       }
     ]
   },
@@ -143,6 +147,24 @@
       ],
       "realmRoles": [
         "operador"
+      ]
+    },
+    {
+      "username": "cajero.demo",
+      "email": "cajero.demo@globalexchange.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Laura",
+      "lastName": "Méndez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Cajero123!",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "cajero"
       ]
     }
   ]
