@@ -137,6 +137,10 @@ Utilizando el script `prod.bat` (o `./prod.sh` en Linux):
 
 | Acción | Comando con Script | Comando Docker equivalente |
 | :--- | :--- | :--- |
+| **Levantar y actualizar (git pull + build + seed)** | `.\prod.bat up` | `git pull && docker compose -f docker-compose.prod.yml up -d --build` |
+| **Sincronizar código remoto** | `.\prod.bat pull` | `git pull origin <rama>` |
+| **Reconstruir producción tras cambios** | `.\prod.bat update` | `.\prod.bat pull && .\prod.bat up` |
+| **Poblar datos iniciales (Seed idempotente)** | `.\prod.bat seed` | `docker compose -f docker-compose.prod.yml exec web-prod python manage.py seed --idempotent` |
 | **Ver estado de contenedores** | `.\prod.bat status` | `docker compose -f docker-compose.prod.yml ps` |
 | **Ver logs en tiempo real** | `.\prod.bat logs` | `docker compose -f docker-compose.prod.yml logs -f` |
 | **Ver logs de Django (Gunicorn)** | `.\prod.bat web-logs` | `docker compose -f docker-compose.prod.yml logs -f web-prod` |

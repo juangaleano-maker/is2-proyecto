@@ -27,7 +27,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.NOTICE("🌱 Iniciando población de datos iniciales (Seed)..."))
+        self.stdout.write(self.style.NOTICE(">> Iniciando poblacion de datos iniciales (Seed)..."))
 
         with transaction.atomic():
             self._seed_monedas()
@@ -37,7 +37,7 @@ class Command(BaseCommand):
             self._seed_cotizaciones()
             self._seed_clientes()
 
-        self.stdout.write(self.style.SUCCESS("✨ Seed completado exitosamente."))
+        self.stdout.write(self.style.SUCCESS("[OK] Seed completado exitosamente."))
 
     def _seed_monedas(self):
         monedas_data = [
@@ -55,7 +55,7 @@ class Command(BaseCommand):
             )
             if created:
                 creadas += 1
-        self.stdout.write(f"  ✔ Monedas: {len(monedas_data)} disponibles ({creadas} nuevas creadas)")
+        self.stdout.write(f"  [OK] Monedas: {len(monedas_data)} disponibles ({creadas} nuevas creadas)")
 
     def _seed_denominaciones(self):
         denominaciones = {
@@ -77,7 +77,7 @@ class Command(BaseCommand):
                 )
                 if created:
                     creadas += 1
-        self.stdout.write(f"  ✔ Denominaciones de billetes verificadas ({creadas} nuevas)")
+        self.stdout.write(f"  [OK] Denominaciones de billetes verificadas ({creadas} nuevas)")
 
     def _seed_metodos_pago(self):
         metodos = [
@@ -131,7 +131,7 @@ class Command(BaseCommand):
             )
             if created:
                 creados += 1
-        self.stdout.write(f"  ✔ Métodos de pago del sistema: {len(metodos)} disponibles ({creados} nuevos)")
+        self.stdout.write(f"  [OK] Metodos de pago del sistema: {len(metodos)} disponibles ({creados} nuevos)")
 
     def _seed_cajas(self):
         cajas = [
@@ -151,7 +151,7 @@ class Command(BaseCommand):
             )
             if created:
                 creadas += 1
-        self.stdout.write(f"  ✔ Cajas de atención física: {len(cajas)} verificadas ({creadas} nuevas)")
+        self.stdout.write(f"  [OK] Cajas de atencion fisica: {len(cajas)} verificadas ({creadas} nuevas)")
 
     def _seed_cotizaciones(self):
         pyg = Moneda.objects.filter(siglas="PYG").first()
@@ -184,7 +184,7 @@ class Command(BaseCommand):
                     activo=True,
                 )
                 creadas += 1
-        self.stdout.write(f"  ✔ Cotizaciones cambiarias verificadas ({creadas} nuevas)")
+        self.stdout.write(f"  [OK] Cotizaciones cambiarias verificadas ({creadas} nuevas)")
 
     def _seed_clientes(self):
         metodos_activos = list(MetodoPagoSistema.objects.filter(activo=True))
@@ -230,4 +230,4 @@ class Command(BaseCommand):
                 creados += 1
                 if metodos_activos:
                     cliente.metodos_pago_sistema.set(metodos_activos)
-        self.stdout.write(f"  ✔ Clientes demo: {len(clientes_data)} verificados ({creados} nuevos)")
+        self.stdout.write(f"  [OK] Clientes demo: {len(clientes_data)} verificados ({creados} nuevos)")

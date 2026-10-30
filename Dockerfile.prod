@@ -3,6 +3,7 @@ FROM python:3.12-slim
 # Evitar archivos .pyc y buffer en stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=utf-8
 ENV DJANGO_SETTINGS_MODULE=global_exchange.settings
 
 WORKDIR /app
@@ -33,4 +34,4 @@ USER django
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn global_exchange.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60"]
+CMD ["sh", "-c", "python manage.py collectstatic --noinput && python manage.py migrate && python manage.py seed --idempotent && gunicorn global_exchange.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60"]

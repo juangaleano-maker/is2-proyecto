@@ -3,18 +3,18 @@
 # test_auto_ip.sh — Despliegue en 1 SOLO PASO con Autodetección de IP
 # =============================================================================
 # Este script:
+#   0. Sincroniza el repositorio con la rama develop (git pull automático).
 #   1. Detecta automáticamente la IP de la máquina (LAN / Wi-Fi o Cloud VPS).
 #   2. Configura las variables en .env.prod (Django ALLOWED_HOSTS, CSRF y Keycloak).
 #   3. Construye y levanta toda la pila de Docker de producción.
-#   4. Aplica migraciones y ejecuta los seeds de datos iniciales (incluyendo
-#      los nuevos módulos: Facturación Electrónica, Métodos de Pago, Cajas).
+#   4. Aplica migraciones y ejecuta el seed idempotente de datos iniciales
+#      (monedas, denominaciones, cajas, métodos de pago, cotizaciones, clientes).
 #   5. Muestra los enlaces finales listos para ingresar desde cualquier dispositivo.
 #
-# Cambios incluidos (merge develop + feature/is2-65):
-#   - IS2-63: Módulo de Facturación Electrónica (FacturaElectronica, SIFEN/KUDE)
-#   - IS2-64: Visualización web de Facturas Electrónicas
-#   - IS2-65: Descarga/exportación de Facturas Electrónicas en PDF imprimible
-#   - Denominaciones de monedas (billetes), seeds de cajas y métodos de pago
+# Uso:
+#   ./scripts/test_auto_ip.sh              # despliegue completo con git pull
+#   ./scripts/test_auto_ip.sh --no-pull    # usar código local sin git pull
+#   HOST_IP=192.168.1.50 ./scripts/test_auto_ip.sh  # forzar IP específica
 # =============================================================================
 
 set -Eeuo pipefail
@@ -37,9 +37,56 @@ cd "$REPO_ROOT" || die "No se pudo cambiar al directorio raíz del repositorio"
 COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.prod"
 ENV_EXAMPLE=".env.prod.example"
-
-# Nombre del contenedor web de producción
 WEB_CONTAINER="web-prod"
+
+# Parsear flags
+DO_PULL=true
+for arg in "$@"; do
+  case "$arg" in
+    --no-pull) DO_PULL=false ;;
+    *) die "Opción desconocida: $arg" ;;
+  esac
+done
+
+# -----------------------------------------------------------------------------
+# 0. SINCRONIZACIÓN CON EL REPOSITORIO REMOTO (git pull)
+# -----------------------------------------------------------------------------
+step "0/5" "Sincronizando repositorio con la última versión remota"
+
+if [[ -d ".git" ]]; then
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "develop")
+  LOCAL_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "desconocido")
+
+  if $DO_PULL; then
+    log "Rama activa: ${C_GRN}${CURRENT_BRANCH}${C_RESET}"
+    log "Commit local antes del pull: ${LOCAL_COMMIT:0:8}"
+
+    # Traer metadatos remotos para poder comparar antes del pull
+    git fetch origin "$CURRENT_BRANCH" 2>/dev/null \
+      && log "Fetch completado." \
+      || warn "No se pudo hacer fetch. Se continuará con la versión local."
+
+    REMOTE_COMMIT=$(git rev-parse "origin/${CURRENT_BRANCH}" 2>/dev/null || echo "")
+
+    if [[ -n "$REMOTE_COMMIT" && "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]]; then
+      COMMITS_BEHIND=$(git rev-list --count HEAD.."origin/${CURRENT_BRANCH}" 2>/dev/null || echo "?")
+      warn "El repositorio local está ${C_YEL}${COMMITS_BEHIND} commit(s) desactualizado(s)${C_RESET} respecto a origin/${CURRENT_BRANCH}."
+      log "Actualizando con git pull --ff-only origin ${CURRENT_BRANCH}..."
+      git pull --ff-only origin "$CURRENT_BRANCH" 2>/dev/null \
+        || { warn "No se pudo hacer pull --ff-only (puede haber cambios locales sin commitear). Usando código actual."; }
+    else
+      ok "El repositorio ya está actualizado con origin/${CURRENT_BRANCH}."
+    fi
+
+    NEW_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "desconocido")
+    ok "Commit activo: ${NEW_COMMIT:0:8} — $(git log -1 --pretty=%s 2>/dev/null || echo '')"
+  else
+    warn "--no-pull: se usa el código local tal como está."
+    ok "Commit local: ${LOCAL_COMMIT:0:8} — $(git log -1 --pretty=%s 2>/dev/null || echo '')"
+  fi
+else
+  warn "No se encontró directorio .git. Se usa el código local sin sincronizar."
+fi
 
 # -----------------------------------------------------------------------------
 # 1. VERIFICAR DOCKER
@@ -60,7 +107,6 @@ else
   die "Docker no está instalado en este sistema."
 fi
 
-# Docker Compose base command
 DC_BASE=()
 if "${DOCKER_CMD[@]}" compose version >/dev/null 2>&1; then
   DC_BASE=("${DOCKER_CMD[@]}" "compose")
@@ -79,15 +125,9 @@ step "2/5" "Autodetección de la dirección IP del servidor"
 detect_ip() {
   local ip=""
 
-  # Prioridad 1: Override manual si el usuario pasó HOST_IP o SERVER_IP
-  if [[ -n "${HOST_IP:-}" ]]; then
-    echo "$HOST_IP"
-    return
-  fi
-  if [[ -n "${SERVER_IP:-}" ]]; then
-    echo "$SERVER_IP"
-    return
-  fi
+  # Prioridad 1: Override manual
+  if [[ -n "${HOST_IP:-}" ]]; then echo "$HOST_IP"; return; fi
+  if [[ -n "${SERVER_IP:-}" ]]; then echo "$SERVER_IP"; return; fi
 
   # Prioridad 2: IP local de la interfaz de red principal (LAN / Wi-Fi / Bridged)
   ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7}')
@@ -95,11 +135,10 @@ detect_ip() {
     ip=$(hostname -I 2>/dev/null | awk '{print $1}')
   fi
 
-  # Prioridad 3: IP pública si es un VPS en la nube (Oracle Cloud, etc.)
+  # Prioridad 3: IP pública si es un VPS en la nube
   local public_ip=""
   public_ip=$(curl -s --max-time 2 -4 ifconfig.me 2>/dev/null || curl -s --max-time 2 -4 icanhazip.com 2>/dev/null || true)
   if [[ "$public_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    # Si la IP local es interna de NAT VirtualBox o se pide usar IP pública:
     if [[ -z "$ip" || "$ip" == 10.0.2.* || "${USE_PUBLIC_IP:-false}" == "true" ]]; then
       echo "$public_ip"
       return
@@ -142,11 +181,11 @@ set_or_replace_env() {
   fi
 }
 
-set_or_replace_env "ALLOWED_HOSTS" "localhost,127.0.0.1,${IP_DETECTADA},*" "$ENV_FILE"
+set_or_replace_env "ALLOWED_HOSTS"        "localhost,127.0.0.1,${IP_DETECTADA},*"                                   "$ENV_FILE"
 set_or_replace_env "CSRF_TRUSTED_ORIGINS" "http://localhost,http://${IP_DETECTADA},http://${IP_DETECTADA}:8080,http://127.0.0.1" "$ENV_FILE"
-set_or_replace_env "APP_BASE_URL" "http://${IP_DETECTADA}" "$ENV_FILE"
-set_or_replace_env "KEYCLOAK_BASE_URL" "http://${IP_DETECTADA}:8080" "$ENV_FILE"
-set_or_replace_env "KEYCLOAK_HOSTNAME" "${IP_DETECTADA}" "$ENV_FILE"
+set_or_replace_env "APP_BASE_URL"         "http://${IP_DETECTADA}"                                                  "$ENV_FILE"
+set_or_replace_env "KEYCLOAK_BASE_URL"    "http://${IP_DETECTADA}:8080"                                             "$ENV_FILE"
+set_or_replace_env "KEYCLOAK_HOSTNAME"    "${IP_DETECTADA}"                                                         "$ENV_FILE"
 
 ok "Variables de red actualizadas en ${ENV_FILE}:"
 grep -E '^(ALLOWED_HOSTS|CSRF_TRUSTED_ORIGINS|APP_BASE_URL|KEYCLOAK_BASE_URL|KEYCLOAK_HOSTNAME)=' "$ENV_FILE" | while read -r line; do
@@ -161,41 +200,30 @@ step "4/5" "Levantando servicios de producción con Docker Compose"
 log "Ejecutando: docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --build"
 "${DC_BASE[@]}" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
 
-# Refrescar Nginx para evitar 502 Bad Gateway por caché de DNS interna
 log "Refrescando proxy inverso (nginx-prod)..."
 "${DC_BASE[@]}" -f "$COMPOSE_FILE" restart nginx-prod >/dev/null 2>&1 || true
 
 echo ""
 ok "Todos los contenedores fueron iniciados exitosamente."
-
-# Estado de contenedores
 echo ""
 "${DC_BASE[@]}" -f "$COMPOSE_FILE" ps
 
 # -----------------------------------------------------------------------------
-# 5. MIGRACIONES Y SEEDS DE DATOS INICIALES
+# 5. MIGRACIONES Y SEED IDEMPOTENTE
 # -----------------------------------------------------------------------------
-step "5/5" "Aplicando migraciones y datos iniciales (seeds)"
+step "5/5" "Aplicando migraciones y datos iniciales (seed idempotente)"
 
 log "Esperando que el contenedor ${WEB_CONTAINER} esté listo..."
 sleep 5
 
-# Migraciones de base de datos
-log "Ejecutando: manage.py migrate"
-"${DC_BASE[@]}" -f "$COMPOSE_FILE" exec "$WEB_CONTAINER" python manage.py migrate --noinput
+log "Ejecutando: manage.py migrate --noinput"
+"${DC_BASE[@]}" -f "$COMPOSE_FILE" exec -T "$WEB_CONTAINER" python manage.py migrate --noinput
 ok "Migraciones aplicadas correctamente."
 
-# Seed: Métodos de pago del sistema (IS2-52 + IS2-55)
-log "Ejecutando seed de métodos de pago del sistema..."
-"${DC_BASE[@]}" -f "$COMPOSE_FILE" exec "$WEB_CONTAINER" python manage.py seed_metodos_pago 2>/dev/null \
-  && ok "Seed de métodos de pago completado." \
-  || warn "seed_metodos_pago no disponible o ya ejecutado. Continuando..."
-
-# Seed: Cajas y cotizaciones iniciales (IS2-60/IS2-61)
-log "Ejecutando seed de cajas y cotizaciones..."
-"${DC_BASE[@]}" -f "$COMPOSE_FILE" exec "$WEB_CONTAINER" python manage.py seed 2>/dev/null \
-  && ok "Seed de cajas y cotizaciones completado." \
-  || warn "seed no disponible o ya ejecutado. Continuando..."
+log "Ejecutando seed idempotente (monedas, denominaciones, cajas, métodos de pago, cotizaciones, clientes)..."
+"${DC_BASE[@]}" -f "$COMPOSE_FILE" exec -T "$WEB_CONTAINER" python manage.py seed --idempotent \
+  && ok "Seed de datos iniciales completado." \
+  || warn "El seed reportó advertencias. Continuando..."
 
 ok "Base de datos inicializada con todos los datos necesarios."
 
@@ -204,20 +232,23 @@ ok "Base de datos inicializada con todos los datos necesarios."
 # -----------------------------------------------------------------------------
 echo ""
 echo "${C_CYN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
-echo "${C_GRN}  🎉 ¡DESPLIEGUE COMPLETADO EN 1 SOLO PASO!${C_RESET}"
+echo "${C_GRN}  DESPLIEGUE COMPLETADO EN 1 SOLO PASO!${C_RESET}"
+if [[ -d ".git" ]]; then
+  echo "  Commit desplegado: $(git rev-parse --short HEAD 2>/dev/null || echo 'local') — $(git log -1 --pretty=%s 2>/dev/null || echo '')"
+fi
 echo "${C_CYN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${C_RESET}"
 echo "  Los dispositivos pueden conectarse directamente a:"
 echo ""
-echo "  🌐 ${C_BLU}Global Exchange Web:${C_RESET}     http://${IP_DETECTADA}"
-echo "  🔑 ${C_BLU}Keycloak SSO Admin:${C_RESET}      http://${IP_DETECTADA}:8080"
+echo "  ${C_BLU}Global Exchange Web:${C_RESET}     http://${IP_DETECTADA}"
+echo "  ${C_BLU}Keycloak SSO Admin:${C_RESET}      http://${IP_DETECTADA}:8080"
 echo ""
-echo "  Módulos activos en esta versión:"
+echo "  Modulos activos en esta version:"
 echo "    ${C_GRN}✔${C_RESET} Cotizaciones y Tasas de Cambio"
-echo "    ${C_GRN}✔${C_RESET} Gestión de Cajas (apertura / cierre / movimientos)"
+echo "    ${C_GRN}✔${C_RESET} Gestion de Cajas (apertura / cierre / movimientos)"
 echo "    ${C_GRN}✔${C_RESET} Operaciones (compra / venta de divisas)"
-echo "    ${C_GRN}✔${C_RESET} Pagos: Stripe, SIPAP, Tickets de Transacción"
-echo "    ${C_GRN}✔${C_RESET} Facturación Electrónica SIFEN/e-KUATIA (IS2-63/64/65)"
-echo "    ${C_GRN}✔${C_RESET} Gestión de Clientes y Métodos de Pago"
+echo "    ${C_GRN}✔${C_RESET} Pagos: Stripe, SIPAP, Tickets de Transaccion"
+echo "    ${C_GRN}✔${C_RESET} Facturacion Electronica SIFEN/e-KUATIA (IS2-63/64/65)"
+echo "    ${C_GRN}✔${C_RESET} Gestion de Clientes y Metodos de Pago"
 echo "    ${C_GRN}✔${C_RESET} Denominaciones de Monedas (billetes)"
 echo ""
 echo "  Usuarios preconfigurados:"
