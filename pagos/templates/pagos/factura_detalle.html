@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Factura Electrónica {{ factura.numero_factura }} | Global Exchange{% endblock %}
+
+{% block extra_head %}
+<style>
+    .factura-container {
+        max-width: 820px;
+        margin: 30px auto 60px auto;
+        padding: 0 16px;
+    }
+    .factura-card {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        box-shadow: 0 14px 34px -10px rgba(15, 23, 42, 0.1);
+        overflow: hidden;
+    }
+    .factura-header {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        color: white;
+        padding: 28px 34px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        border-bottom: 4px solid #0284c7;
+    }
+    .sifen-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(2, 132, 199, 0.25);
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 12.5px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #7dd3fc;
+    }
+    .factura-body {
+        padding: 34px;
+    }
+    .cdc-banner {
+        background: #f8fafc;
+        border: 1px dashed #94a3b8;
+        border-radius: 10px;
+        padding: 14px 18px;
+        margin-bottom: 26px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .cdc-code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 13.5px;
+        font-weight: 700;
+        color: #0f172a;
+        letter-spacing: 0.8px;
+        word-break: break-all;
+    }
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 12.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .status-emitida {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+    .status-anulada {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+    .status-pendiente {
+        background: #fffbeb;
+        color: #92400e;
+        border: 1px solid #fde68a;
+    }
+    .status-rechazada {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+    }
+    .section-title {
+        font-size: 12.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 12px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-bottom: 26px;
+    }
+    .info-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 14px;
+    }
+    .info-label {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
+    .info-val {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: #1e293b;
+    }
+    .financial-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 26px;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+    .financial-table th {
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 12.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 12px 14px;
+        text-align: left;
+    }
+    .financial-table td {
+        padding: 14px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 14px;
+        color: #1e293b;
+    }
+    .financial-table tfoot td {
+        background: #f8fafc;
+        font-weight: 700;
+        border-top: 2px solid #cbd5e1;
+    }
+    .anulacion-alert {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-left: 5px solid #dc2626;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 26px;
+        color: #991b1b;
+    }
+    .actions-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding-top: 20px;
+        border-top: 1px solid #e2e8f0;
+    }
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 16px;
+        border-radius: 6px;
+        font-size: 13.5px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.15s ease-in-out;
+    }
+    .btn-secondary {
+        background-color: #f1f5f9;
+        color: #1e293b;
+        border-color: #cbd5e1;
+    }
+    .btn-secondary:hover {
+        background-color: #e2e8f0;
+    }
+    .btn-primary {
+        background-color: #0284c7;
+        color: #ffffff;
+    }
+    .btn-primary:hover {
+        background-color: #0369a1;
+    }
+    .btn-danger {
+        background-color: #dc2626;
+        color: #ffffff;
+    }
+    .btn-danger:hover {
+        background-color: #b91c1c;
+    }
+    .modal-backdrop {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(15, 23, 42, 0.6);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+    }
+    .modal-backdrop.show {
+        display: flex;
+    }
+    .modal-box {
+        background: white;
+        border-radius: 12px;
+        max-width: 520px;
+        width: 100%;
+        padding: 24px;
+        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="factura-container">
+    <div class="factura-card">
+        <!-- Encabezado Tributario Oficial -->
+        <div class="factura-header">
+            <div>
+                <div class="sifen-badge">
+                    <span>⚡</span> SISTEMA SIFEN / e-KUATIA {% if factura.es_simulada %}(SIMULADO){% else %}(EN LÍNEA){% endif %}
+                </div>
+                <h1 style="margin: 10px 0 4px 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">
+                    Factura Electrónica
+                </h1>
+                <div style="font-size: 14px; opacity: 0.9;">
+                    Nº {{ factura.numero_factura }}
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span class="status-pill status-{{ factura.estado|lower }}">
+                    {% if factura.estado == 'EMITIDA' %}● EMITIDA / APROBADA
+                    {% elif factura.estado == 'ANULADA' %}✖ ANULADA
+                    {% elif factura.estado == 'PENDIENTE' %}⏳ PENDIENTE
+                    {% else %}⚠️ {{ factura.get_estado_display }}
+                    {% endif %}
+                </span>
+                <div style="font-size: 12px; color: #94a3b8; margin-top: 6px;">
+                    Condición: <strong>{{ factura.get_condicion_venta_display }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="factura-body">
+            <!-- CDC (Código de Control) -->
+            <div class="cdc-banner">
+                <div style="flex: 1; min-width: 250px;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 4px;">
+                        Código de Control Electrónico (CDC — 44 dígitos)
+                    </div>
+                    <div class="cdc-code" id="cdc-val">
+                        {% if factura.cdc %}{{ cdc_formateado }}{% else %}<em>Pendiente de asignación por SIFEN</em>{% endif %}
+                    </div>
+                </div>
+                {% if factura.cdc %}
+                <button type="button" onclick="copiarCDC()" class="btn-action btn-secondary" style="padding: 6px 12px; font-size: 12px;" title="Copiar CDC">
+                    📋 <span id="copiar-btn-txt">Copiar</span>
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Alerta si está anulada -->
+            {% if factura.estado == 'ANULADA' %}
+            <div class="anulacion-alert">
+                <div style="font-weight: 800; font-size: 14.5px; margin-bottom: 4px;">
+                    🚫 Factura Electrónica Anulada
+                </div>
+                <div style="font-size: 13.5px; line-height: 1.5;">
+                    <strong>Motivo de anulación:</strong> {{ factura.motivo_anulacion }}
+                </div>
+                <div style="font-size: 12px; margin-top: 8px; opacity: 0.85;">
+                    Anulada por: <strong>{{ factura.anulada_por.username|default:"Sistema" }}</strong> | Fecha: {{ factura.fecha_procesado|date:"d/m/Y H:i:s" }}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Sección Emisor & Receptor -->
+            <div class="section-title">
+                🏢 Datos del Emisor y Receptor
+            </div>
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-label">Emisor (Casa de Cambio)</div>
+                    <div class="info-val">GLOBAL EXCHANGE S.A.</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">RUC: 2595733-3 | Timbrado: 02595733 (Est: 001 - P.Exp: 003)</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Receptor / Cliente</div>
+                    <div class="info-val">{{ factura.cliente_nombre }}</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                        Doc: {{ factura.cliente_documento }}
+                        {% if factura.cliente_email %}| {{ factura.cliente_email }}{% endif %}
+                    </div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Fecha y Hora de Emisión</div>
+                    <div class="info-val">{{ factura.fecha_emision|date:"d/m/Y H:i:s" }}</div>
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                        Operación vinculada: <a href="{% url 'operacion_detalle' operacion.id %}" style="color: #0284c7; text-decoration: none; font-weight: 700;">#{{ operacion.id }}</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Desglose Tributario (Fórmula SIFEN) -->
+            <div class="section-title">
+                📊 Desglose de Liquidación Fiscal (SIFEN / e-Kuatia)
+            </div>
+            <table class="financial-table">
+                <thead>
+                    <tr>
+                        <th>Descripción</th>
+                        <th style="text-align: right;">Cantidad / Tasa</th>
+                        <th style="text-align: right;">Base Imponible (10%)</th>
+                        <th style="text-align: right;">IVA Liquidado (10%)</th>
+                        <th style="text-align: right;">Total Liquidado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <strong>Operación de Cambio de Divisas</strong>
+                            <div style="font-size: 12px; color: #64748b;">
+                                {{ operacion.get_tipo_display }} de {{ factura.monto|floatformat:2 }} {{ factura.moneda_siglas }}
+                            </div>
+                        </td>
+                        <td style="text-align: right; font-weight: 600;">
+                            {{ factura.monto|floatformat:2 }} × {{ factura.tasa_aplicada|floatformat:0 }}
+                        </td>
+                        <td style="text-align: right; font-family: monospace; font-size: 14.5px;">
+                            Gs. {{ factura.base_imponible|floatformat:0 }}
+                        </td>
+                        <td style="text-align: right; font-family: monospace; font-size: 14.5px; color: #0284c7; font-weight: 700;">
+                            Gs. {{ factura.iva_liquidado|floatformat:0 }}
+                        </td>
+                        <td style="text-align: right; font-family: monospace; font-size: 15px; font-weight: 800; color: #065f46;">
+                            Gs. {{ factura.total_liquidado|floatformat:0 }}
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2" style="text-align: right; text-transform: uppercase; font-size: 12px; color: #64748b;">
+                            Totales en Guaraníes:
+                        </td>
+                        <td style="text-align: right; font-family: monospace; font-size: 14px;">
+                            Gs. {{ factura.base_imponible|floatformat:0 }}
+                        </td>
+                        <td style="text-align: right; font-family: monospace; font-size: 14px; color: #0284c7;">
+                            Gs. {{ factura.iva_liquidado|floatformat:0 }}
+                        </td>
+                        <td style="text-align: right; font-family: monospace; font-size: 16px; color: #065f46;">
+                            Gs. {{ factura.total_liquidado|floatformat:0 }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <!-- Metadatos de la simulación -->
+            <div style="background: #f8fafc; border-radius: 8px; padding: 12px 16px; margin-bottom: 26px; font-size: 12.5px; color: #64748b; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    {% if factura.es_simulada %}🛡️ <strong>Simulación e-Kuatia:</strong> Cumple con especificación técnica SIFEN v150.{% else %}✅ <strong>Factura Segura ESI:</strong> Aprobado y registrado electrónicamente en ambiente SIFEN v150.{% endif %}
+                </div>
+                <div>
+                    {% if factura.ticket %}
+                    <a href="{% url 'pagos:detalle_ticket' operacion.id %}" style="color: #059669; font-weight: 700; text-decoration: none;">
+                        🧾 Ver Ticket de Transacción #{{ factura.ticket.numero_ticket }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Barra de Acciones -->
+            <div class="actions-bar">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <a href="{% url 'operacion_detalle' operacion.id %}" class="btn-action btn-secondary">
+                        ← Volver a la Operación
+                    </a>
+                    <a href="{% url 'operaciones_lista' %}" class="btn-action btn-secondary">
+                        📋 Lista de Operaciones
+                    </a>
+                </div>
+
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <a href="{% url 'pagos:kude_factura' factura.id %}" target="_blank" class="btn-action btn-primary">
+                        🖨️ Imprimir / Guardar KUDE
+                    </a>
+
+                    {% if factura.es_anulable and es_personal and anular_form %}
+                    <button type="button" onclick="abrirModalAnulacion()" class="btn-action btn-danger">
+                        🚫 Anular Factura
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Confirmación de Anulación (RF34) -->
+{% if factura.es_anulable and es_personal and anular_form %}
+<div id="modalAnulacion" class="modal-backdrop">
+    <div class="modal-box">
+        <h3 style="margin-top: 0; color: #991b1b; display: flex; align-items: center; gap: 8px; font-size: 18px;">
+            ⚠️ Anular Factura Electrónica
+        </h3>
+        <p style="font-size: 13.5px; color: #475569; line-height: 1.5;">
+            Estás a punto de anular la factura <strong>{{ factura.numero_factura }}</strong> (CDC: {{ factura.cdc|truncatechars:18 }}).
+            Esta acción es irreversible y quedará registrada en la auditoría fiscal.
+        </p>
+
+        <form method="POST" action="{% url 'pagos:anular_factura' factura.id %}">
+            {% csrf_token %}
+            <div style="margin-bottom: 16px;">
+                <label for="id_motivo_anulacion" style="display: block; font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">
+                    Motivo justificado de la anulación (mínimo 10 caracteres):
+                </label>
+                {{ anular_form.motivo }}
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="cerrarModalAnulacion()" class="btn-action btn-secondary">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn-action btn-danger">
+                    Confirmar Anulación
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function copiarCDC() {
+    const raw = "{{ factura.cdc }}";
+    if (!raw) return;
+    navigator.clipboard.writeText(raw).then(() => {
+        const btnTxt = document.getElementById("copiar-btn-txt");
+        if (btnTxt) {
+            btnTxt.innerText = "¡Copiado!";
+            setTimeout(() => { btnTxt.innerText = "Copiar"; }, 2000);
+        }
+    });
+}
+
+function abrirModalAnulacion() {
+    const m = document.getElementById("modalAnulacion");
+    if (m) m.classList.add("show");
+}
+
+function cerrarModalAnulacion() {
+    const m = document.getElementById("modalAnulacion");
+    if (m) m.classList.remove("show");
+}
+</script>
+{% endblock %}

@@ -888,14 +888,32 @@ def detalle_operacion_view(request, operacion_id):
             messages.error(request, "No tienes permiso para consultar esta operación.")
             return redirect('menu')
 
-    # Auto-verificación de pagos Stripe si la operación está pendiente o retorna con parámetro stripe
+
+    # Sincronización / Auto-verificación de pagos Stripe
     stripe_param = request.GET.get('stripe', '').strip().lower()
     if stripe_param == 'cancelled':
         if operacion.estado != Operacion.EstadoOperacion.PAGADA and operacion.estado != Operacion.EstadoOperacion.PAGO_FALLIDO:
             operacion.estado = Operacion.EstadoOperacion.PAGO_FALLIDO
             operacion.save(update_fields=['estado'])
             messages.warning(request, "⚠️ El pago en Stripe fue cancelado o rechazado por la plataforma. Podés reintentar cuando lo desees.")
+    elif stripe_param == 'success' and operacion.estado == Operacion.EstadoOperacion.PENDIENTE:
+        # Sincronización automática al retornar de Stripe Checkout (?stripe=success)
+        try:
+            from pagos.services.stripe_service import _get_stripe
+            from pagos.views import _handle_pago_exitoso
+            stripe = _get_stripe()
+            ref = getattr(operacion, 'stripe_payment_intent_id', '') or ''
+            if ref and ref.startswith('cs_'):
+                session = stripe.checkout.Session.retrieve(ref)
+                if getattr(session, 'payment_status', None) == 'paid':
+                    _handle_pago_exitoso('checkout.session.completed', session.to_dict())
+                    operacion.refresh_from_db()
+                    messages.success(request, f'✅ ¡Pago con Stripe de la Operación #{operacion.id} confirmado exitosamente!')
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning('No se pudo autoverificar sesión Stripe para op #%s: %s', operacion.id, exc)
     elif operacion.estado in (Operacion.EstadoOperacion.PENDIENTE, Operacion.EstadoOperacion.PAGO_FALLIDO) and operacion.stripe_payment_intent_id and operacion.stripe_payment_intent_id.startswith('cs_'):
+        # Auto-verificación pasiva si la operación está pendiente y tiene sesión de checkout
         try:
             from pagos.services import StripePasarela
             res = StripePasarela.consultar_checkout_session(operacion.stripe_payment_intent_id)

@@ -6,7 +6,15 @@
 #   1. Detecta automáticamente la IP de la máquina (LAN / Wi-Fi o Cloud VPS).
 #   2. Configura las variables en .env.prod (Django ALLOWED_HOSTS, CSRF y Keycloak).
 #   3. Construye y levanta toda la pila de Docker de producción.
-#   4. Muestra los enlaces finales listos para ingresar desde cualquier dispositivo.
+#   4. Aplica migraciones y ejecuta los seeds de datos iniciales (incluyendo
+#      los nuevos módulos: Facturación Electrónica, Métodos de Pago, Cajas).
+#   5. Muestra los enlaces finales listos para ingresar desde cualquier dispositivo.
+#
+# Cambios incluidos (merge develop + feature/is2-65):
+#   - IS2-63: Módulo de Facturación Electrónica (FacturaElectronica, SIFEN/KUDE)
+#   - IS2-64: Visualización web de Facturas Electrónicas
+#   - IS2-65: Descarga/exportación de Facturas Electrónicas en PDF imprimible
+#   - Denominaciones de monedas (billetes), seeds de cajas y métodos de pago
 # =============================================================================
 
 set -Eeuo pipefail
@@ -30,10 +38,13 @@ COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.prod"
 ENV_EXAMPLE=".env.prod.example"
 
+# Nombre del contenedor web de producción
+WEB_CONTAINER="web-prod"
+
 # -----------------------------------------------------------------------------
 # 1. VERIFICAR DOCKER
 # -----------------------------------------------------------------------------
-step "1/4" "Verificando motor de Docker"
+step "1/5" "Verificando motor de Docker"
 
 DOCKER_CMD=()
 if command -v docker >/dev/null 2>&1; then
@@ -63,7 +74,7 @@ ok "Docker y Docker Compose operativos."
 # -----------------------------------------------------------------------------
 # 2. AUTODETECCIÓN DE IP
 # -----------------------------------------------------------------------------
-step "2/4" "Autodetección de la dirección IP del servidor"
+step "2/5" "Autodetección de la dirección IP del servidor"
 
 detect_ip() {
   local ip=""
@@ -104,7 +115,7 @@ ok "IP detectada automáticamente: ${C_GRN}${IP_DETECTADA}${C_RESET}"
 # -----------------------------------------------------------------------------
 # 3. CONFIGURAR .env.prod CON LA IP DETECTADA
 # -----------------------------------------------------------------------------
-step "3/4" "Configurando variables de producción (${ENV_FILE})"
+step "3/5" "Configurando variables de producción (${ENV_FILE})"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   if [[ -f "$ENV_EXAMPLE" ]]; then
@@ -145,10 +156,10 @@ done
 # -----------------------------------------------------------------------------
 # 4. LEVANTAR DOCKER COMPOSE EN UN SOLO PASO
 # -----------------------------------------------------------------------------
-step "4/4" "Levantando servicios de producción con Docker Compose"
+step "4/5" "Levantando servicios de producción con Docker Compose"
 
-log "Ejecutando: docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d"
-"${DC_BASE[@]}" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+log "Ejecutando: docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d --build"
+"${DC_BASE[@]}" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --build
 
 # Refrescar Nginx para evitar 502 Bad Gateway por caché de DNS interna
 log "Refrescando proxy inverso (nginx-prod)..."
@@ -162,6 +173,33 @@ echo ""
 "${DC_BASE[@]}" -f "$COMPOSE_FILE" ps
 
 # -----------------------------------------------------------------------------
+# 5. MIGRACIONES Y SEEDS DE DATOS INICIALES
+# -----------------------------------------------------------------------------
+step "5/5" "Aplicando migraciones y datos iniciales (seeds)"
+
+log "Esperando que el contenedor ${WEB_CONTAINER} esté listo..."
+sleep 5
+
+# Migraciones de base de datos
+log "Ejecutando: manage.py migrate"
+"${DC_BASE[@]}" -f "$COMPOSE_FILE" exec "$WEB_CONTAINER" python manage.py migrate --noinput
+ok "Migraciones aplicadas correctamente."
+
+# Seed: Métodos de pago del sistema (IS2-52 + IS2-55)
+log "Ejecutando seed de métodos de pago del sistema..."
+"${DC_BASE[@]}" -f "$COMPOSE_FILE" exec "$WEB_CONTAINER" python manage.py seed_metodos_pago 2>/dev/null \
+  && ok "Seed de métodos de pago completado." \
+  || warn "seed_metodos_pago no disponible o ya ejecutado. Continuando..."
+
+# Seed: Cajas y cotizaciones iniciales (IS2-60/IS2-61)
+log "Ejecutando seed de cajas y cotizaciones..."
+"${DC_BASE[@]}" -f "$COMPOSE_FILE" exec "$WEB_CONTAINER" python manage.py seed 2>/dev/null \
+  && ok "Seed de cajas y cotizaciones completado." \
+  || warn "seed no disponible o ya ejecutado. Continuando..."
+
+ok "Base de datos inicializada con todos los datos necesarios."
+
+# -----------------------------------------------------------------------------
 # RESUMEN FINAL DE ACCESO
 # -----------------------------------------------------------------------------
 echo ""
@@ -172,6 +210,15 @@ echo "  Los dispositivos pueden conectarse directamente a:"
 echo ""
 echo "  🌐 ${C_BLU}Global Exchange Web:${C_RESET}     http://${IP_DETECTADA}"
 echo "  🔑 ${C_BLU}Keycloak SSO Admin:${C_RESET}      http://${IP_DETECTADA}:8080"
+echo ""
+echo "  Módulos activos en esta versión:"
+echo "    ${C_GRN}✔${C_RESET} Cotizaciones y Tasas de Cambio"
+echo "    ${C_GRN}✔${C_RESET} Gestión de Cajas (apertura / cierre / movimientos)"
+echo "    ${C_GRN}✔${C_RESET} Operaciones (compra / venta de divisas)"
+echo "    ${C_GRN}✔${C_RESET} Pagos: Stripe, SIPAP, Tickets de Transacción"
+echo "    ${C_GRN}✔${C_RESET} Facturación Electrónica SIFEN/e-KUATIA (IS2-63/64/65)"
+echo "    ${C_GRN}✔${C_RESET} Gestión de Clientes y Métodos de Pago"
+echo "    ${C_GRN}✔${C_RESET} Denominaciones de Monedas (billetes)"
 echo ""
 echo "  Usuarios preconfigurados:"
 echo "    - Admin:    admin.demo    /  Admin123!"

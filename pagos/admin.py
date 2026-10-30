@@ -2,7 +2,13 @@
 
 from django.contrib import admin
 
-from .models import ComprobanteSIPAP, MetodoPagoSistema, StripeEventoProcesado, TicketTransaccion
+from .models import (
+    ComprobanteSIPAP,
+    FacturaElectronica,
+    MetodoPagoSistema,
+    StripeEventoProcesado,
+    TicketTransaccion,
+)
 
 
 @admin.register(MetodoPagoSistema)
@@ -103,6 +109,66 @@ class TicketTransaccionAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(FacturaElectronica)
+class FacturaElectronicaAdmin(admin.ModelAdmin):
+    """
+    Administración y auditoría de Facturas Electrónicas (IS2-63 / RF33, RF34).
+    Solo lectura para preservar la trazabilidad fiscal.
+    """
+
+    list_display = (
+        "numero_factura",
+        "cdc_corto",
+        "operacion",
+        "cliente_nombre",
+        "total_liquidado",
+        "estado",
+        "fecha_emision",
+    )
+    list_filter = ("estado", "condicion_venta", "moneda_siglas", "fecha_emision")
+    search_fields = (
+        "numero_factura",
+        "cdc",
+        "cliente_nombre",
+        "cliente_documento",
+        "operacion__id",
+    )
+    readonly_fields = (
+        "numero_factura",
+        "cdc",
+        "operacion",
+        "ticket",
+        "estado",
+        "condicion_venta",
+        "cliente_nombre",
+        "cliente_documento",
+        "cliente_email",
+        "moneda_siglas",
+        "monto",
+        "tasa_aplicada",
+        "base_imponible",
+        "iva_liquidado",
+        "total_liquidado",
+        "fecha_emision",
+        "fecha_procesado",
+        "motivo_anulacion",
+        "anulada_por",
+        "respuesta_simulador",
+    )
+
+    def cdc_corto(self, obj):
+        if obj.cdc:
+            return f"{obj.cdc[:10]}...{obj.cdc[-6:]}"
+        return "-"
+    cdc_corto.short_description = "CDC"
+
+    def has_add_permission(self, request):
         return False
 
     def has_delete_permission(self, request, obj=None):
