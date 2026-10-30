@@ -163,6 +163,24 @@ if [[ ! -f "$ENV_FILE" ]]; then
   else
     die "No existe ${ENV_FILE} ni tampoco ${ENV_EXAMPLE}."
   fi
+else
+  # Si ya existe .env.prod, sincronizar variables nuevas que estén en .env.prod.example
+  if [[ -f "$ENV_EXAMPLE" ]]; then
+    log "Sincronizando variables nuevas de ${ENV_EXAMPLE} en ${ENV_FILE}..."
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      # Ignorar comentarios o líneas en blanco
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ -z "${line// }" ]] && continue
+      if [[ "$line" =~ ^([A-Za-z0-9_]+)=(.*)$ ]]; then
+        var_name="${BASH_REMATCH[1]}"
+        var_val="${BASH_REMATCH[2]}"
+        if ! grep -q "^${var_name}=" "$ENV_FILE" 2>/dev/null; then
+          log "  + Agregando variable faltante a ${ENV_FILE}: ${var_name}"
+          echo "${var_name}=${var_val}" >> "$ENV_FILE"
+        fi
+      fi
+    done < "$ENV_EXAMPLE"
+  fi
 fi
 
 set_or_replace_env() {
