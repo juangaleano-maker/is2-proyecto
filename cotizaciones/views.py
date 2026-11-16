@@ -2034,3 +2034,226 @@ def cierre_caja_view(request):
         'arqueo_items': arqueo_items,
     })
 
+
+# ==============================================================================
+# REPORTE DE TRANSACCIONES Y GANANCIAS (IS2-66)
+# ==============================================================================
+
+@rol_requerido('admin', 'supervisor', 'operador')
+def reporte_transacciones(request):
+    """
+    Reporte de transacciones y ganancias por período (IS2-66).
+    Permite filtrar por rango de fechas, tipo de operación y moneda.
+    Solo accesible para admin, supervisor y operador.
+    """
+    from monedas.models import Moneda
+    from django.db.models import Sum, Count, Q
+    from decimal import Decimal
+
+    monedas = Moneda.objects.filter(activa=True).order_by('siglas')
+
+    # Filtros del request
+    fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+    tipo_filtro = request.GET.get('tipo', '').strip().upper()
+    moneda_filtro = request.GET.get('moneda', '').strip()
+    estado_filtro = request.GET.get('estado', 'PAGADA').strip().upper()
+
+    # QuerySet base con solo operaciones completadas (por defecto PAGADA)
+    operaciones = Operacion.objects.select_related(
+        'cliente', 'moneda', 'registrado_por'
+    ).order_by('-fecha')
+
+    if estado_filtro and estado_filtro in Operacion.EstadoOperacion.values:
+        operaciones = operaciones.filter(estado=estado_filtro)
+    else:
+        operaciones = operaciones.filter(estado=Operacion.EstadoOperacion.PAGADA)
+        estado_filtro = 'PAGADA'
+
+    if fecha_desde_str:
+        try:
+            f_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            operaciones = operaciones.filter(fecha__date__gte=f_desde)
+        except ValueError:
+            pass
+
+    if fecha_hasta_str:
+        try:
+            f_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+            operaciones = operaciones.filter(fecha__date__lte=f_hasta)
+        except ValueError:
+            pass
+
+    if tipo_filtro and tipo_filtro in Operacion.TipoOperacion.values:
+        operaciones = operaciones.filter(tipo=tipo_filtro)
+
+    if moneda_filtro:
+        operaciones = operaciones.filter(moneda_id=moneda_filtro)
+
+    # Totales y métricas
+    totales = operaciones.aggregate(
+        total_comisiones=Sum('comision'),
+        total_operaciones=Count('id'),
+        total_compras=Count('id', filter=Q(tipo='COMPRA')),
+        total_ventas=Count('id', filter=Q(tipo='VENTA')),
+        comisiones_compras=Sum('comision', filter=Q(tipo='COMPRA')),
+        comisiones_ventas=Sum('comision', filter=Q(tipo='VENTA')),
+    )
+
+    total_comisiones = totales['total_comisiones'] or Decimal('0.00')
+    total_operaciones = totales['total_operaciones'] or 0
+    total_compras = totales['total_compras'] or 0
+    total_ventas = totales['total_ventas'] or 0
+    comisiones_compras = totales['comisiones_compras'] or Decimal('0.00')
+    comisiones_ventas = totales['comisiones_ventas'] or Decimal('0.00')
+
+    return render(request, 'cotizaciones/reporte_transacciones.html', {
+        'operaciones': operaciones,
+        'monedas': monedas,
+        'fecha_desde': fecha_desde_str,
+        'fecha_hasta': fecha_hasta_str,
+        'tipo_filtro': tipo_filtro,
+        'moneda_filtro': moneda_filtro,
+        'estado_filtro': estado_filtro,
+        'estados': Operacion.EstadoOperacion.choices,
+        'tipos': Operacion.TipoOperacion.choices,
+        'total_comisiones': total_comisiones,
+        'total_operaciones': total_operaciones,
+        'total_compras': total_compras,
+        'total_ventas': total_ventas,
+        'comisiones_compras': comisiones_compras,
+        'comisiones_ventas': comisiones_ventas,
+    })
+
+
+@rol_requerido('admin', 'supervisor', 'operador')
+def descargar_reporte_transacciones(request):
+    """
+    Descarga el reporte de transacciones y ganancias en formato CSV (IS2-66).
+    """
+    from monedas.models import Moneda
+    from decimal import Decimal
+
+    fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+    tipo_filtro = request.GET.get('tipo', '').strip().upper()
+    moneda_filtro = request.GET.get('moneda', '').strip()
+    estado_filtro = request.GET.get('estado', 'PAGADA').strip().upper()
+
+    operaciones = Operacion.objects.select_related(
+        'cliente', 'moneda', 'registrado_por'
+    ).order_by('-fecha')
+
+    if estado_filtro and estado_filtro in Operacion.EstadoOperacion.values:
+        operaciones = operaciones.filter(estado=estado_filtro)
+    else:
+        operaciones = operaciones.filter(estado=Operacion.EstadoOperacion.PAGADA)
+
+    if fecha_desde_str:
+        try:
+            f_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            operaciones = operaciones.filter(fecha__date__gte=f_desde)
+        except ValueError:
+            pass
+
+    if fecha_hasta_str:
+        try:
+            f_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+            operaciones = operaciones.filter(fecha__date__lte=f_hasta)
+        except ValueError:
+            pass
+
+    if tipo_filtro and tipo_filtro in Operacion.TipoOperacion.values:
+        operaciones = operaciones.filter(tipo=tipo_filtro)
+
+    if moneda_filtro:
+        operaciones = operaciones.filter(moneda_id=moneda_filtro)
+
+    filename_parts = ['reporte_transacciones']
+    if fecha_desde_str:
+        filename_parts.append(f'desde_{fecha_desde_str}')
+    if fecha_hasta_str:
+        filename_parts.append(f'hasta_{fecha_hasta_str}')
+    filename = '_'.join(filename_parts) + '.csv'
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'ID', 'Fecha', 'Hora', 'Cliente', 'Documento', 'Tipo',
+        'Moneda', 'Monto', 'Tasa Aplicada', 'Subtotal', 'Comisión',
+        'Total Neto', 'Estado', 'Canal', 'Registrado por'
+    ])
+
+    for op in operaciones:
+        writer.writerow([
+            op.id,
+            op.fecha.strftime('%d/%m/%Y'),
+            op.fecha.strftime('%H:%M:%S'),
+            str(op.cliente),
+            op.cliente.documento if hasattr(op.cliente, 'documento') else '',
+            op.get_tipo_display(),
+            op.moneda.siglas,
+            str(op.monto),
+            str(op.tasa_aplicada),
+            str(op.subtotal),
+            str(op.comision),
+            str(op.total_neto),
+            op.get_estado_display(),
+            op.get_canal_display() if hasattr(op, 'get_canal_display') else '',
+            op.registrado_por.get_full_name() or op.registrado_por.username if op.registrado_por else '',
+        ])
+
+    return response
+
+
+# ==============================================================================
+# TABLERO DE CONTROL DE GANANCIAS (IS2-67)
+# ==============================================================================
+
+@rol_requerido('admin')
+def tablero_ganancias_view(request):
+    """
+    Tablero de Control de Ganancias (IS2-67).
+    Muestra indicadores clave de ganancias acumuladas (comisiones):
+    - Total de ganancias acumuladas (comisiones).
+    - Comparativas por período: día, semana y mes.
+    - Desglose de ganancias por tipo de operación (compras vs. ventas) y por moneda.
+    - Actualización directa de datos al recargar la página.
+    Acceso exclusivo para usuarios con rol admin.
+    """
+    from .services import obtener_metricas_tablero_ganancias
+
+    metricas = obtener_metricas_tablero_ganancias()
+
+    # Serializar datos JSON para los gráficos
+    chart_series_json = json.dumps([
+        {
+            'fecha': item['fecha'],
+            'fecha_iso': item['fecha_iso'],
+            'ganancias': float(item['ganancias']),
+            'compras': float(item['compras']),
+            'ventas': float(item['ventas']),
+            'operaciones': item['operaciones'],
+        }
+        for item in metricas['serie_temporal']
+    ])
+
+    tipo_operacion_json = json.dumps({
+        'compras_comision': float(metricas['tipo_operacion']['compras_comision']),
+        'compras_count': metricas['tipo_operacion']['compras_count'],
+        'compras_pct': metricas['tipo_operacion']['compras_pct'],
+        'ventas_comision': float(metricas['tipo_operacion']['ventas_comision']),
+        'ventas_count': metricas['tipo_operacion']['ventas_count'],
+        'ventas_pct': metricas['tipo_operacion']['ventas_pct'],
+    })
+
+    return render(request, 'cotizaciones/tablero_ganancias.html', {
+        'metricas': metricas,
+        'chart_series_json': chart_series_json,
+        'tipo_operacion_json': tipo_operacion_json,
+    })
+
+
+

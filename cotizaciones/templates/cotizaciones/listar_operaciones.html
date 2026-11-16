@@ -6,7 +6,15 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Historial de Operaciones</h2>
-        <a href="{% url 'comprar_moneda' %}" class="btn btn-primary">➕ Nueva Compra</a>
+        <div class="d-flex gap-2 align-items-center">
+            {% if 'admin' in request.roles or 'supervisor' in request.roles or 'operador' in request.roles %}
+            <a href="{% url 'reporte_transacciones' %}" class="btn btn-outline-info">📊 Reporte Financiero</a>
+            {% endif %}
+            {% if 'admin' in request.roles %}
+            <a href="{% url 'tablero_ganancias' %}" class="btn btn-outline-success">📈 Tablero de Ganancias</a>
+            {% endif %}
+            <a href="{% url 'comprar_moneda' %}" class="btn btn-primary">➕ Nueva Compra</a>
+        </div>
     </div>
     <hr>
     

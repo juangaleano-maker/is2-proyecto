@@ -162,6 +162,19 @@
     <a href="{% url 'monedas:consultar' %}" class="nav-item-custom">
         <i class="bi bi-cash-stack"></i> Denominaciones (RF38)
     </a>
+    {% if 'admin' in request.roles %}
+    <a href="{% url 'tablero_ganancias' %}" class="nav-item-custom">
+        <i class="bi bi-speedometer2"></i> Tablero Ganancias
+    </a>
+    {% endif %}
+    {% if 'admin' in request.roles or 'supervisor' in request.roles or 'operador' in request.roles %}
+    <a href="{% url 'reporte_transacciones' %}" class="nav-item-custom">
+        <i class="bi bi-file-earmark-bar-graph"></i> Reporte Transacciones
+    </a>
+    {% endif %}
+    <a href="{% url 'menu' %}" class="nav-item-custom" style="margin-top: auto;">
+        <i class="bi bi-arrow-left-circle"></i> Volver al Menú
+    </a>
 </div>
 
 
