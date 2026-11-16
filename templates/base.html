@@ -38,6 +38,13 @@
                 </a>
             </li>
             {% endif %}
+            {% if 'admin' in request.roles %}
+            <li>
+                <a href="{% url 'tablero_ganancias' %}" class="nav-link" style="color: #38bdf8; font-weight: 600;">
+                    <span>📈</span> Tablero
+                </a>
+            </li>
+            {% endif %}
             {% if request.session.cliente_activo_nombre %}
             <li style="display: flex; align-items: center; padding: 0 8px;">
                 <span style="background: rgba(255,255,255,0.15); color: #ffffff; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">

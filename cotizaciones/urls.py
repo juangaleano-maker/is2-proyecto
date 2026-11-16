@@ -65,5 +65,8 @@ urlpatterns = [
     # Reporte de transacciones y ganancias (IS2-66)
     path('reportes/transacciones/', views.reporte_transacciones, name='reporte_transacciones'),
     path('reportes/transacciones/descargar/', views.descargar_reporte_transacciones, name='descargar_reporte_transacciones'),
+
+    # Tablero de control de ganancias (IS2-67)
+    path('tablero-ganancias/', views.tablero_ganancias_view, name='tablero_ganancias'),
 ]
 

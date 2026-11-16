@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero de Control de Ganancias | Global Exchange</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        body { background: #0f172a; min-height: 100vh; color: #cbd5e1; margin: 0; }
+
+        /* Sidebar */
+        .sidebar {
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            width: 260px;
+            position: fixed;
+            top: 0; left: 0;
+            padding: 24px 0;
+            border-right: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .sidebar-brand { padding: 0 24px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 16px; }
+        .sidebar-brand h5 { color: #f8fafc; font-weight: 700; font-size: 1rem; margin: 0; }
+        .sidebar-brand span { color: #38bdf8; font-size: 0.75rem; font-weight: 500; }
+        .nav-item-custom {
+            padding: 10px 24px;
+            display: flex; align-items: center; gap: 10px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem; font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-item-custom:hover, .nav-item-custom.active {
+            color: #f8fafc;
+            background: rgba(56, 189, 248, 0.1);
+            border-left: 3px solid #38bdf8;
+        }
+
+        /* Main layout */
+        .main-content { margin-left: 260px; padding: 32px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+        .topbar h1 { color: #f8fafc; font-size: 1.5rem; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 10px; }
+        .topbar p { color: #64748b; font-size: 0.875rem; margin: 4px 0 0; }
+        
+        .badge-admin {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 5px 12px; border-radius: 20px;
+            font-size: 0.75rem; font-weight: 700;
+        }
+        .btn-reload {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #cbd5e1;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-reload:hover { background: #334155; color: #fff; }
+
+        /* Tarjeta Hero: Total Ganancias Acumuladas */
+        .hero-banner {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 14px;
+            padding: 24px 28px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.6);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .hero-left h6 {
+            color: #10b981; font-size: 0.8rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 6px 0;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .hero-val {
+            font-size: 2.2rem; font-weight: 800; color: #f8fafc; line-height: 1.1; margin-bottom: 4px;
+        }
+        .hero-sub { color: #94a3b8; font-size: 0.875rem; }
+
+        /* Metric cards grid */
+        .metric-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 20px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .metric-card:hover { transform: translateY(-2px); border-color: rgba(56, 189, 248, 0.3); }
+        .metric-card-header {
+            display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;
+        }
+        .metric-icon-box {
+            width: 44px; height: 44px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem;
+        }
+        .metric-label-title {
+            color: #94a3b8; font-size: 0.75rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px 0;
+        }
+        .metric-large-val {
+            font-size: 1.6rem; font-weight: 800; color: #f8fafc; line-height: 1.2; margin-bottom: 4px;
+        }
+        .metric-subinfo {
+            color: #64748b; font-size: 0.8rem; display: flex; align-items: center; justify-content: space-between;
+            padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 8px;
+        }
+
+        /* Panel cards */
+        .panel-card {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        .panel-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .panel-card-header h6 {
+            color: #f8fafc; font-weight: 700; margin: 0; font-size: 0.95rem;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .panel-body-padded { padding: 20px; }
+
+        /* Tables */
+        .table-dark-custom { color: #cbd5e1; }
+        .table-dark-custom th {
+            background: rgba(15, 23, 42, 0.8);
+            color: #64748b; font-size: 0.75rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 12px 16px;
+        }
+        .table-dark-custom td {
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            padding: 14px 16px;
+            vertical-align: middle;
+            font-size: 0.875rem;
+        }
+        .table-dark-custom tbody tr:hover { background: rgba(56,189,248,0.03); }
+
+        /* Progress bars */
+        .progress-dark {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .progress-bar-custom {
+            height: 100%; border-radius: 8px;
+            background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+        }
+
+        /* Type breakdown pill */
+        .breakdown-box {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .breakdown-box:hover { border-color: rgba(56,189,248,0.3); transform: translateX(2px); }
+        .badge-op-compra { color: #38bdf8; background: rgba(56,189,248,0.12); padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; }
+        .badge-op-venta { color: #c084fc; background: rgba(192,132,252,0.12); padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.75rem; }
+
+        .chart-box {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="sidebar-brand">
+        <h5>💱 Global Exchange</h5>
+        <span>Administración</span>
+    </div>
+    <a href="{% url 'tablero_ganancias' %}" class="nav-item-custom active">
+        <i class="bi bi-speedometer2"></i> Tablero de Ganancias
+    </a>
+    <a href="{% url 'reporte_transacciones' %}" class="nav-item-custom">
+        <i class="bi bi-graph-up-arrow"></i> Reporte Transacciones
+    </a>
+    <a href="{% url 'operaciones_lista' %}" class="nav-item-custom">
+        <i class="bi bi-list-columns-reverse"></i> Operaciones
+    </a>
+    <a href="{% url 'menu' %}" class="nav-item-custom" style="margin-top: auto;">
+        <i class="bi bi-arrow-left-circle"></i> Volver al Menú
+    </a>
+</div>
+
+<!-- Main content -->
+<div class="main-content">
+    
+    <!-- Topbar -->
+    <div class="topbar">
+        <div>
+            <h1><i class="bi bi-speedometer2 text-success"></i>Tablero de Control de Ganancias</h1>
+            <p>Métricas consolidadas de ganancias (comisiones) y rendimiento financiero del negocio</p>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <span class="badge-admin">
+                <i class="bi bi-shield-check me-1"></i> Rol Administrador
+            </span>
+            <button type="button" class="btn-reload" onclick="window.location.reload();" title="Actualizar datos al recargar">
+                <i class="bi bi-arrow-clockwise"></i> Recargar
+            </button>
+        </div>
+    </div>
+
+    <!-- CRITERIO 1: TOTAL DE GANANCIAS ACUMULADAS (COMISIONES) -->
+    <div class="hero-banner">
+        <div class="hero-left">
+            <h6><i class="bi bi-cash-coin"></i> Total de Ganancias Acumuladas (Comisiones)</h6>
+            <div class="hero-val">
+                Gs. {{ metricas.total.ganancias|floatformat:0 }}
+            </div>
+            <div class="hero-sub">
+                Comisiones generadas en un total de <strong>{{ metricas.total.operaciones }}</strong> operaciones pagadas
+            </div>
+        </div>
+        <div class="text-end">
+            <a href="{% url 'reporte_transacciones' %}" class="btn btn-outline-light btn-sm" style="font-size: 0.8rem; font-weight: 600;">
+                <i class="bi bi-file-earmark-text me-1"></i> Ver Reporte Detallado
+            </a>
+        </div>
+    </div>
+
+    <!-- CRITERIO 2: COMPARATIVAS POR PERÍODO (DÍA, SEMANA Y MES) -->
+    <div class="row g-3 mb-4">
+        <!-- DÍA -->
+        <div class="col-md-4">
+            <div class="metric-card">
+                <div>
+                    <div class="metric-card-header">
+                        <div>
+                            <div class="metric-label-title">Período: Día (Hoy)</div>
+                            <div class="metric-large-val" style="color: #38bdf8;">
+                                Gs. {{ metricas.dia.ganancias|floatformat:0 }}
+                            </div>
+                        </div>
+                        <div class="metric-icon-box" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                            <i class="bi bi-calendar-event"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-subinfo">
+                    <span><strong>{{ metricas.dia.operaciones }}</strong> operaciones</span>
+                    <span>
+                        {% if metricas.dia.variacion_pct > 0 %}
+                            <span class="text-success fw-bold"><i class="bi bi-arrow-up"></i>+{{ metricas.dia.variacion_pct }}%</span>
+                        {% elif metricas.dia.variacion_pct < 0 %}
+                            <span class="text-danger fw-bold"><i class="bi bi-arrow-down"></i>{{ metricas.dia.variacion_pct }}%</span>
+                        {% else %}
+                            <span class="text-muted">0.0%</span>
+                        {% endif %} vs. ayer (Gs. {{ metricas.dia.ganancias_ayer|floatformat:0 }})
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEMANA -->
+        <div class="col-md-4">
+            <div class="metric-card">
+                <div>
+                    <div class="metric-card-header">
+                        <div>
+                            <div class="metric-label-title">Período: Esta Semana</div>
+                            <div class="metric-large-val" style="color: #10b981;">
+                                Gs. {{ metricas.semana.ganancias|floatformat:0 }}
+                            </div>
+                        </div>
+                        <div class="metric-icon-box" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                            <i class="bi bi-calendar-week"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-subinfo">
+                    <span><strong>{{ metricas.semana.operaciones }}</strong> operaciones</span>
+                    <span>
+                        {% if metricas.semana.variacion_pct > 0 %}
+                            <span class="text-success fw-bold"><i class="bi bi-arrow-up"></i>+{{ metricas.semana.variacion_pct }}%</span>
+                        {% elif metricas.semana.variacion_pct < 0 %}
+                            <span class="text-danger fw-bold"><i class="bi bi-arrow-down"></i>{{ metricas.semana.variacion_pct }}%</span>
+                        {% else %}
+                            <span class="text-muted">0.0%</span>
+                        {% endif %} vs. sem. anterior
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MES -->
+        <div class="col-md-4">
+            <div class="metric-card">
+                <div>
+                    <div class="metric-card-header">
+                        <div>
+                            <div class="metric-label-title">Período: Este Mes</div>
+                            <div class="metric-large-val" style="color: #c084fc;">
+                                Gs. {{ metricas.mes.ganancias|floatformat:0 }}
+                            </div>
+                        </div>
+                        <div class="metric-icon-box" style="background: rgba(192, 132, 252, 0.15); color: #c084fc;">
+                            <i class="bi bi-calendar-month"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-subinfo">
+                    <span><strong>{{ metricas.mes.operaciones }}</strong> operaciones</span>
+                    <span>
+                        {% if metricas.mes.variacion_pct > 0 %}
+                            <span class="text-success fw-bold"><i class="bi bi-arrow-up"></i>+{{ metricas.mes.variacion_pct }}%</span>
+                        {% elif metricas.mes.variacion_pct < 0 %}
+                            <span class="text-danger fw-bold"><i class="bi bi-arrow-down"></i>{{ metricas.mes.variacion_pct }}%</span>
+                        {% else %}
+                            <span class="text-muted">0.0%</span>
+                        {% endif %} vs. mes anterior
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CRITERIO 3: DESGLOSE DE GANANCIAS POR TIPO (COMPRAS VS. VENTAS) Y EVOLUCIÓN -->
+    <div class="row g-4 mb-4">
+        <!-- Gráfico de Evolución -->
+        <div class="col-lg-8">
+            <div class="panel-card h-100 mb-0">
+                <div class="panel-card-header">
+                    <h6><i class="bi bi-graph-up text-info"></i> Evolución de Ganancias Diarias</h6>
+                    <span class="text-muted" style="font-size: 0.75rem;">Últimos 14 días</span>
+                </div>
+                <div class="panel-body-padded">
+                    <div class="chart-box">
+                        <canvas id="chartEvolucion"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Desglose por Tipo de Operación: Compras vs. Ventas -->
+        <div class="col-lg-4">
+            <div class="panel-card h-100 mb-0">
+                <div class="panel-card-header">
+                    <h6><i class="bi bi-pie-chart-fill text-warning"></i> Desglose por Tipo de Operación</h6>
+                    <span class="text-muted" style="font-size: 0.75rem;">Compras vs. Ventas</span>
+                </div>
+                <div class="panel-body-padded">
+                    <div style="height: 140px; position: relative; margin-bottom: 16px;">
+                        <canvas id="chartTipo"></canvas>
+                    </div>
+
+                    <!-- Compras -->
+                    <a href="{% url 'reporte_transacciones' %}?tipo=COMPRA" class="breakdown-box" title="Ver compras en el reporte">
+                        <div>
+                            <span class="badge-op-compra mb-1 d-inline-block">
+                                <i class="bi bi-arrow-down-circle"></i> COMPRAS
+                            </span>
+                            <div style="font-size: 0.75rem; color: #64748b;">
+                                {{ metricas.tipo_operacion.compras_count }} transacciones
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div style="font-weight: 700; color: #38bdf8; font-size: 0.95rem;">
+                                Gs. {{ metricas.tipo_operacion.compras_comision|floatformat:0 }}
+                            </div>
+                            <div style="font-size: 0.75rem; color: #94a3b8;">
+                                {{ metricas.tipo_operacion.compras_pct }}% del total
+                            </div>
+                        </div>
+                    </a>
+
+                    <!-- Ventas -->
+                    <a href="{% url 'reporte_transacciones' %}?tipo=VENTA" class="breakdown-box mb-0" title="Ver ventas en el reporte">
+                        <div>
+                            <span class="badge-op-venta mb-1 d-inline-block">
+                                <i class="bi bi-arrow-up-circle"></i> VENTAS
+                            </span>
+                            <div style="font-size: 0.75rem; color: #64748b;">
+                                {{ metricas.tipo_operacion.ventas_count }} transacciones
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div style="font-weight: 700; color: #c084fc; font-size: 0.95rem;">
+                                Gs. {{ metricas.tipo_operacion.ventas_comision|floatformat:0 }}
+                            </div>
+                            <div style="font-size: 0.75rem; color: #94a3b8;">
+                                {{ metricas.tipo_operacion.ventas_pct }}% del total
+                            </div>
+                        </div>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CRITERIO 3: DESGLOSE DE GANANCIAS POR MONEDA -->
+    <div class="panel-card mb-4">
+        <div class="panel-card-header">
+            <h6><i class="bi bi-coin text-success"></i> Desglose de Ganancias por Moneda</h6>
+            <a href="{% url 'reporte_transacciones' %}" class="btn btn-sm btn-outline-info" style="font-size: 0.75rem;">
+                <i class="bi bi-file-earmark-text"></i> Ver en Reporte
+            </a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-dark-custom mb-0">
+                <thead>
+                    <tr>
+                        <th>Moneda</th>
+                        <th>Ganancias (Comisiones)</th>
+                        <th>Participación</th>
+                        <th>Operaciones</th>
+                        <th>Compras / Ventas</th>
+                        <th>Volumen Operado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in metricas.desglose_monedas %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'reporte_transacciones' %}?moneda={{ m.moneda_id }}" class="text-decoration-none" title="Ver transacciones de {{ m.siglas }}">
+                                <strong style="color: #38bdf8; font-size: 0.95rem;">{{ m.siglas }}</strong>
+                                <div style="color: #64748b; font-size: 0.75rem;">{{ m.nombre }}</div>
+                            </a>
+                        </td>
+                        <td>
+                            <div style="color: #10b981; font-weight: 700; font-size: 0.95rem;">
+                                Gs. {{ m.total_comisiones|floatformat:0 }}
+                            </div>
+                        </td>
+                        <td style="min-width: 140px;">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress-dark flex-grow-1">
+                                    <div class="progress-bar-custom" style="width: {{ m.porcentaje }}%;"></div>
+                                </div>
+                                <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">{{ m.porcentaje }}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-dark border border-secondary" style="font-size: 0.8rem;">
+                                {{ m.total_ops }} ops
+                            </span>
+                        </td>
+                        <td style="font-size: 0.8rem;">
+                            <span class="text-info">{{ m.total_compras }} compras</span> &bull; 
+                            <span style="color: #c084fc;">{{ m.total_ventas }} ventas</span>
+                        </td>
+                        <td style="font-weight: 600; font-size: 0.85rem;">
+                            {{ m.volumen_divisa|floatformat:2 }} <span style="color: #64748b; font-size: 0.75rem;">{{ m.siglas }}</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                            Aún no hay operaciones registradas con ganancias para desglosar por moneda.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Datos para Chart.js -->
+<script id="data-series" type="application/json">{{ chart_series_json|safe }}</script>
+<script id="data-tipo" type="application/json">{{ tipo_operacion_json|safe }}</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // 1. Gráfico de Evolución
+        const series = JSON.parse(document.getElementById('data-series').textContent || '[]');
+        const ctxEvolucion = document.getElementById('chartEvolucion').getContext('2d');
+        new Chart(ctxEvolucion, {
+            type: 'bar',
+            data: {
+                labels: series.map(s => s.fecha),
+                datasets: [
+                    {
+                        type: 'line',
+                        label: 'Ganancias Totales (Gs.)',
+                        data: series.map(s => s.ganancias),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3,
+                    },
+                    {
+                        type: 'bar',
+                        label: 'Comisión Compras',
+                        data: series.map(s => s.compras),
+                        backgroundColor: 'rgba(56, 189, 248, 0.65)',
+                        borderRadius: 4,
+                    },
+                    {
+                        type: 'bar',
+                        label: 'Comisión Ventas',
+                        data: series.map(s => s.ventas),
+                        backgroundColor: 'rgba(192, 132, 252, 0.65)',
+                        borderRadius: 4,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ctx.dataset.label + ': Gs. ' + Number(ctx.parsed.y).toLocaleString('es-PY')
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#64748b', font: { size: 11 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: {
+                            color: '#64748b',
+                            callback: v => 'Gs. ' + Number(v).toLocaleString('es-PY')
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Gráfico Donut Compras vs. Ventas
+        const tipo = JSON.parse(document.getElementById('data-tipo').textContent || '{}');
+        const ctxTipo = document.getElementById('chartTipo').getContext('2d');
+        const tieneData = (tipo.compras_comision > 0 || tipo.ventas_comision > 0);
+        new Chart(ctxTipo, {
+            type: 'doughnut',
+            data: {
+                labels: ['Compras', 'Ventas'],
+                datasets: [{
+                    data: tieneData ? [tipo.compras_comision, tipo.ventas_comision] : [1, 1],
+                    backgroundColor: tieneData ? ['#38bdf8', '#c084fc'] : ['#334155', '#1e293b'],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: tieneData,
+                        callbacks: {
+                            label: ctx => ctx.label + ': Gs. ' + Number(ctx.raw).toLocaleString('es-PY')
+                        }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

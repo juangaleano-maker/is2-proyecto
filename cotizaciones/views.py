@@ -2207,3 +2207,53 @@ def descargar_reporte_transacciones(request):
 
     return response
 
+
+# ==============================================================================
+# TABLERO DE CONTROL DE GANANCIAS (IS2-67)
+# ==============================================================================
+
+@rol_requerido('admin')
+def tablero_ganancias_view(request):
+    """
+    Tablero de Control de Ganancias (IS2-67).
+    Muestra indicadores clave de ganancias acumuladas (comisiones):
+    - Total de ganancias acumuladas (comisiones).
+    - Comparativas por período: día, semana y mes.
+    - Desglose de ganancias por tipo de operación (compras vs. ventas) y por moneda.
+    - Actualización directa de datos al recargar la página.
+    Acceso exclusivo para usuarios con rol admin.
+    """
+    from .services import obtener_metricas_tablero_ganancias
+
+    metricas = obtener_metricas_tablero_ganancias()
+
+    # Serializar datos JSON para los gráficos
+    chart_series_json = json.dumps([
+        {
+            'fecha': item['fecha'],
+            'fecha_iso': item['fecha_iso'],
+            'ganancias': float(item['ganancias']),
+            'compras': float(item['compras']),
+            'ventas': float(item['ventas']),
+            'operaciones': item['operaciones'],
+        }
+        for item in metricas['serie_temporal']
+    ])
+
+    tipo_operacion_json = json.dumps({
+        'compras_comision': float(metricas['tipo_operacion']['compras_comision']),
+        'compras_count': metricas['tipo_operacion']['compras_count'],
+        'compras_pct': metricas['tipo_operacion']['compras_pct'],
+        'ventas_comision': float(metricas['tipo_operacion']['ventas_comision']),
+        'ventas_count': metricas['tipo_operacion']['ventas_count'],
+        'ventas_pct': metricas['tipo_operacion']['ventas_pct'],
+    })
+
+    return render(request, 'cotizaciones/tablero_ganancias.html', {
+        'metricas': metricas,
+        'chart_series_json': chart_series_json,
+        'tipo_operacion_json': tipo_operacion_json,
+    })
+
+
+

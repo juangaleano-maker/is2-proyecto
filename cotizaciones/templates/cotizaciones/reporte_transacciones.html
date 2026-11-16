@@ -174,6 +174,11 @@
         <h5>💱 Global Exchange</h5>
         <span>Reportes</span>
     </div>
+    {% if 'admin' in request.roles %}
+    <a href="{% url 'tablero_ganancias' %}" class="nav-item-custom">
+        <i class="bi bi-speedometer2"></i> Tablero de Ganancias
+    </a>
+    {% endif %}
     <a href="{% url 'reporte_transacciones' %}" class="nav-item-custom active">
         <i class="bi bi-graph-up-arrow"></i> Reporte Transacciones
     </a>
@@ -191,6 +196,11 @@
             <p>Analiza comisiones y operaciones por período, moneda y tipo</p>
         </div>
         <div class="d-flex align-items-center gap-3">
+            {% if 'admin' in request.roles or 'supervisor' in request.roles %}
+            <a href="{% url 'tablero_ganancias' %}" class="btn btn-sm btn-outline-info" style="font-size: 0.8rem; font-weight: 600;">
+                <i class="bi bi-speedometer2"></i> Ver Tablero
+            </a>
+            {% endif %}
             <span class="badge-role"><i class="bi bi-shield-check"></i> Acceso Restringido</span>
         </div>
     </div>

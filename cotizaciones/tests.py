@@ -2260,5 +2260,158 @@ class CotizacionDesactivacionTests(TestCase):
         self.assertTrue(nueva.activo)
 
 
+class TableroControlGananciasTestCase(TestCase):
+    """
+    Pruebas unitarias para la Historia de Usuario IS2-67:
+    'Visualizar tablero de control de ganancias'.
+    """
+
+    def setUp(self):
+        # 1. Grupos y Roles
+        self.grupo_admin = Group.objects.create(name='admin')
+        self.grupo_supervisor = Group.objects.create(name='supervisor')
+        self.grupo_operador = Group.objects.create(name='operador')
+        self.grupo_cliente = Group.objects.create(name='cliente')
+
+        # 2. Usuarios
+        self.user_admin = User.objects.create_user(
+            username='admin_user', email='admin@exchange.com', password='password123'
+        )
+        self.user_admin.groups.add(self.grupo_admin)
+
+        self.user_supervisor = User.objects.create_user(
+            username='supervisor_user', email='sup@exchange.com', password='password123'
+        )
+        self.user_supervisor.groups.add(self.grupo_supervisor)
+
+        self.user_operador = User.objects.create_user(
+            username='operador_user', email='op@exchange.com', password='password123'
+        )
+        self.user_operador.groups.add(self.grupo_operador)
+
+        self.user_cliente = User.objects.create_user(
+            username='cliente_user', email='cli@exchange.com', password='password123'
+        )
+        self.user_cliente.groups.add(self.grupo_cliente)
+
+        # 3. Monedas y Cliente
+        self.usd = Moneda.objects.create(nombre='Dólar Estadounidense', siglas='USD', activa=True)
+        self.eur = Moneda.objects.create(nombre='Euro', siglas='EUR', activa=True)
+        self.cliente = Cliente.objects.create(
+            nombre='Carlos', apellido='Gómez', documento='4500123',
+            tipo_persona='FISICA', segmento='MINORISTA', email='carlos@gmail.com'
+        )
+
+        # URLs
+        self.url_tablero = reverse('tablero_ganancias')
+
+    def test_criterio_acceso_exclusivo_solo_admin(self):
+        """Criterio 5: Solo usuarios con rol admin pueden acceder al tablero de control."""
+        # Sin login -> redirige a login
+        resp_anon = self.client.get(self.url_tablero)
+        self.assertEqual(resp_anon.status_code, 302)
+
+        # Rol cliente -> 403 Forbidden
+        self.client.force_login(self.user_cliente)
+        resp_cli = self.client.get(self.url_tablero)
+        self.assertEqual(resp_cli.status_code, 403)
+
+        # Rol operador -> 403 Forbidden
+        self.client.force_login(self.user_operador)
+        resp_op = self.client.get(self.url_tablero)
+        self.assertEqual(resp_op.status_code, 403)
+
+        # Rol supervisor -> 403 Forbidden (solo admin según la HU)
+        self.client.force_login(self.user_supervisor)
+        resp_sup = self.client.get(self.url_tablero)
+        self.assertEqual(resp_sup.status_code, 403)
+
+        # Rol admin -> 200 OK
+        self.client.force_login(self.user_admin)
+        resp_adm = self.client.get(self.url_tablero)
+        self.assertEqual(resp_adm.status_code, 200)
+
+    def test_criterio_total_ganancias_acumuladas_y_por_periodo(self):
+        """Criterios 1 y 2: Total de ganancias acumuladas (comisiones) y comparativas por período (día, semana, mes)."""
+        # Crear operaciones PAGADAS
+        Operacion.objects.create(
+            cliente=self.cliente, moneda=self.usd, tipo='COMPRA',
+            monto=Decimal('100.00'), tasa_aplicada=Decimal('7500.00'), comision=Decimal('15000.00'),
+            estado=Operacion.EstadoOperacion.PAGADA, registrado_por=self.user_admin
+        )
+        Operacion.objects.create(
+            cliente=self.cliente, moneda=self.eur, tipo='VENTA',
+            monto=Decimal('50.00'), tasa_aplicada=Decimal('8200.00'), comision=Decimal('8000.00'),
+            estado=Operacion.EstadoOperacion.PAGADA, registrado_por=self.user_admin
+        )
+        # Operación PENDIENTE (no debe sumar a ganancias)
+        Operacion.objects.create(
+            cliente=self.cliente, moneda=self.usd, tipo='COMPRA',
+            monto=Decimal('200.00'), tasa_aplicada=Decimal('7500.00'), comision=Decimal('30000.00'),
+            estado=Operacion.EstadoOperacion.PENDIENTE, registrado_por=self.user_admin
+        )
+
+        from cotizaciones.services import obtener_metricas_tablero_ganancias
+        metricas = obtener_metricas_tablero_ganancias()
+
+        # Total acumulado y de hoy
+        self.assertEqual(metricas['total']['ganancias'], Decimal('23000.00'))
+        self.assertEqual(metricas['dia']['ganancias'], Decimal('23000.00'))
+        self.assertEqual(metricas['semana']['ganancias'], Decimal('23000.00'))
+        self.assertEqual(metricas['mes']['ganancias'], Decimal('23000.00'))
+        self.assertEqual(metricas['total']['operaciones'], 2)
+
+        self.client.force_login(self.user_admin)
+        resp = self.client.get(self.url_tablero)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '23000')
+
+    def test_criterio_desglose_por_tipo_y_por_moneda(self):
+        """Criterio 3: Desglose de ganancias por tipo de operación (compras vs ventas) y por moneda."""
+        Operacion.objects.create(
+            cliente=self.cliente, moneda=self.usd, tipo='COMPRA',
+            monto=Decimal('100.00'), tasa_aplicada=Decimal('7500.00'), comision=Decimal('20000.00'),
+            estado=Operacion.EstadoOperacion.PAGADA, registrado_por=self.user_admin
+        )
+        Operacion.objects.create(
+            cliente=self.cliente, moneda=self.eur, tipo='VENTA',
+            monto=Decimal('50.00'), tasa_aplicada=Decimal('8200.00'), comision=Decimal('10000.00'),
+            estado=Operacion.EstadoOperacion.PAGADA, registrado_por=self.user_admin
+        )
+
+        from cotizaciones.services import obtener_metricas_tablero_ganancias
+        metricas = obtener_metricas_tablero_ganancias()
+
+        # Desglose tipo
+        self.assertEqual(metricas['tipo_operacion']['compras_comision'], Decimal('20000.00'))
+        self.assertEqual(metricas['tipo_operacion']['ventas_comision'], Decimal('10000.00'))
+
+        # Desglose monedas
+        monedas_map = {m['siglas']: m for m in metricas['desglose_monedas']}
+        self.assertIn('USD', monedas_map)
+        self.assertIn('EUR', monedas_map)
+        self.assertEqual(monedas_map['USD']['total_comisiones'], Decimal('20000.00'))
+        self.assertEqual(monedas_map['EUR']['total_comisiones'], Decimal('10000.00'))
+
+    def test_criterio_actualizacion_al_recargar_pagina(self):
+        """Criterio 4: Los datos del tablero se actualizan al recargar la página."""
+        self.client.force_login(self.user_admin)
+        resp1 = self.client.get(self.url_tablero)
+        self.assertEqual(resp1.status_code, 200)
+
+        # Se registra una nueva operación pagada
+        Operacion.objects.create(
+            cliente=self.cliente, moneda=self.usd, tipo='COMPRA',
+            monto=Decimal('100.00'), tasa_aplicada=Decimal('7500.00'), comision=Decimal('50000.00'),
+            estado=Operacion.EstadoOperacion.PAGADA, registrado_por=self.user_admin
+        )
+
+        # Al recargar la página (nueva petición GET), refleja los datos actualizados
+        resp2 = self.client.get(self.url_tablero)
+        self.assertEqual(resp2.status_code, 200)
+        self.assertContains(resp2, '50000')
+
+
+
 
 
