@@ -406,8 +406,22 @@
 
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <a href="{% url 'pagos:kude_factura' factura.id %}" target="_blank" class="btn-action btn-primary">
-                        🖨️ Imprimir / Guardar KUDE
+                        🖨️ Ver / Imprimir KuDE
                     </a>
+
+                    <a href="{% url 'pagos:descargar_kude_pdf' factura.id %}" class="btn-action btn-secondary" style="border: 1px solid #0284c7; color: #0284c7;">
+                        📥 Descargar PDF Oficial
+                    </a>
+
+                    <a href="{% url 'pagos:descargar_xml' factura.id %}" class="btn-action btn-secondary" style="border: 1px solid #059669; color: #059669;">
+                        📄 Descargar XML
+                    </a>
+
+                    {% if factura.cdc and not factura.es_simulada %}
+                    <a href="{% url 'pagos:consultar_estado_sifen' factura.id %}" class="btn-action btn-secondary" style="border: 1px solid #7c3aed; color: #7c3aed;">
+                        🔍 Consultar Estado SIFEN
+                    </a>
+                    {% endif %}
 
                     {% if factura.es_anulable and es_personal and anular_form %}
                     <button type="button" onclick="abrirModalAnulacion()" class="btn-action btn-danger">

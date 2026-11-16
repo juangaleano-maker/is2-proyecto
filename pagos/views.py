@@ -1026,10 +1026,20 @@ def kude_factura(request, factura_id):
         return redirect("menu")
 
     cdc_formateado = ""
+    qr_url = ""
     if factura.cdc:
         cdc_formateado = " ".join(
             factura.cdc[i : i + 4] for i in range(0, len(factura.cdc), 4)
         )
+        qr_url = f"https://ekuatia.set.gov.py/consultas/qr?nVersion=150&Id={factura.cdc}"
+
+    total_en_letras = FacturaService.monto_a_letras(factura.total_liquidado)
+
+    from django.conf import settings
+    timbrado = getattr(settings, "FACTURA_SEGURA_TIMBRADO", "02595733")
+    fecha_timbrado = getattr(settings, "FACTURA_SEGURA_FECHA_TIMBRADO", "2025-03-27")
+    ruc_emisor = getattr(settings, "FACTURA_SEGURA_RUC_EMISOR", "2595733")
+    dv_emisor = getattr(settings, "FACTURA_SEGURA_DV_EMISOR", "3")
 
     return render(
         request,
@@ -1038,7 +1048,104 @@ def kude_factura(request, factura_id):
             "factura": factura,
             "operacion": operacion,
             "cdc_formateado": cdc_formateado,
+            "qr_url": qr_url,
+            "total_en_letras": total_en_letras,
+            "timbrado": timbrado,
+            "fecha_timbrado": fecha_timbrado,
+            "ruc_emisor": ruc_emisor,
+            "dv_emisor": dv_emisor,
         },
     )
+
+
+@login_required
+def descargar_kude_pdf_view(request, factura_id):
+    """
+    Descarga el KuDE en formato PDF oficial generado por Factura Segura (vía operation dwn_kude).
+    Si la factura es simulada o Factura Segura no devuelve el binario, redirige a la vista
+    de impresión oficial en formato KuDE.
+    """
+    factura = get_object_or_404(
+        FacturaElectronica.objects.select_related("operacion__registrado_por"),
+        id=factura_id,
+    )
+    roles = set(getattr(request, "roles", [])) | set(
+        request.user.groups.values_list("name", flat=True)
+    )
+    roles_gestion = {"admin", "supervisor", "operador", "empleado"}
+    es_personal = bool(roles.intersection(roles_gestion)) or request.user.is_staff
+
+    if not es_personal and factura.operacion.registrado_por != request.user:
+        messages.error(request, "No tenés permiso para acceder a esta factura.")
+        return redirect("menu")
+
+    pdf_bytes = FacturaService.descargar_kude_pdf(factura)
+    if pdf_bytes:
+        response = HttpResponse(pdf_bytes, content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="KuDE_{factura.numero_factura}.pdf"'
+        return response
+
+    messages.info(
+        request,
+        "La factura fue emitida en modo simulación o Factura Segura aún no dispone del archivo binario. "
+        "Se presenta la versión KuDE oficial imprimible/exportable a PDF.",
+    )
+    return redirect("pagos:kude_factura", factura_id=factura.id)
+
+
+@login_required
+def descargar_xml_view(request, factura_id):
+    """
+    Descarga el XML firmado oficial generado por Factura Segura (vía operation dwn_xml).
+    """
+    factura = get_object_or_404(
+        FacturaElectronica.objects.select_related("operacion__registrado_por"),
+        id=factura_id,
+    )
+    roles = set(getattr(request, "roles", [])) | set(
+        request.user.groups.values_list("name", flat=True)
+    )
+    roles_gestion = {"admin", "supervisor", "operador", "empleado"}
+    es_personal = bool(roles.intersection(roles_gestion)) or request.user.is_staff
+
+    if not es_personal and factura.operacion.registrado_por != request.user:
+        messages.error(request, "No tenés permiso para acceder a esta factura.")
+        return redirect("menu")
+
+    xml_text = FacturaService.descargar_xml(factura)
+    if xml_text:
+        response = HttpResponse(xml_text, content_type="application/xml; charset=utf-8")
+        response["Content-Disposition"] = f'attachment; filename="DE_{factura.numero_factura}.xml"'
+        return response
+
+    messages.warning(
+        request,
+        "No se pudo descargar el XML firmado de Factura Segura (documento simulado o sin conexión externa).",
+    )
+    return redirect("pagos:detalle_factura", factura_id=factura.id)
+
+
+@login_required
+def consultar_estado_sifen_view(request, factura_id):
+    """
+    Consulta en tiempo real el estado de aprobación tributaria en SIFEN a través de Factura Segura (get_estado_sifen).
+    """
+    factura = get_object_or_404(
+        FacturaElectronica.objects.select_related("operacion"),
+        id=factura_id,
+    )
+    resultado = FacturaService.consultar_estado_sifen(factura)
+    if resultado.get("exito"):
+        messages.success(
+            request,
+            f"Estado en SIFEN: {resultado.get('estado_sifen')} ({resultado.get('desc_sifen')})",
+        )
+    else:
+        messages.warning(
+            request,
+            f"Consulta SIFEN: {resultado.get('error')}",
+        )
+    return redirect("pagos:detalle_factura", factura_id=factura.id)
+
 
 

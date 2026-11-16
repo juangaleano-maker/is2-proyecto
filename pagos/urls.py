@@ -79,4 +79,19 @@ urlpatterns = [
         views.kude_factura,
         name="kude_factura",
     ),
+    path(
+        "factura/<int:factura_id>/descargar-pdf/",
+        views.descargar_kude_pdf_view,
+        name="descargar_kude_pdf",
+    ),
+    path(
+        "factura/<int:factura_id>/descargar-xml/",
+        views.descargar_xml_view,
+        name="descargar_xml",
+    ),
+    path(
+        "factura/<int:factura_id>/consultar-sifen/",
+        views.consultar_estado_sifen_view,
+        name="consultar_estado_sifen",
+    ),
 ]
