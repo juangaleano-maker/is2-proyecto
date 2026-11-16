@@ -200,6 +200,76 @@ class FacturaService:
         total = subtotal_gs.quantize(dos, rounding=ROUND_HALF_UP)
         return base, iva, total
 
+    @staticmethod
+    def monto_a_letras(monto: Any) -> str:
+        """
+        Convierte un monto numérico en Guaraníes a su representación textual en mayúsculas,
+        requerido por el estándar oficial KuDE de SIFEN / e-Kuatia.
+        Ej: 750000 -> "SETECIENTOS CINCUENTA MIL"
+        """
+        try:
+            numero = int(Decimal(str(monto)).to_integral_value(rounding=ROUND_HALF_UP))
+        except Exception:
+            return "CERO"
+
+        if numero <= 0:
+            return "CERO"
+        if numero == 100:
+            return "CIEN"
+
+        unidades = ["", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE"]
+        especiales = {
+            10: "DIEZ", 11: "ONCE", 12: "DOCE", 13: "TRECE", 14: "CATORCE", 15: "QUINCE",
+            16: "DIECISÉIS", 17: "DIECISIETE", 18: "DIECIOCHO", 19: "DIECINUEVE",
+            20: "VEINTE", 21: "VEINTIÚN", 22: "VEINTIDÓS", 23: "VEINTITRÉS", 24: "VEINTICUATRO",
+            25: "VEINTICINCO", 26: "VEINTISÉIS", 27: "VEINTISIETE", 28: "VEINTIOCHO", 29: "VEINTINUEVE"
+        }
+        decenas = ["", "DIEZ", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA"]
+        centenas = ["", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS", "OCHOCIENTOS", "NOVECIENTOS"]
+
+        def _seccion(num: int) -> str:
+            if num in especiales:
+                return especiales[num]
+            c = num // 100
+            d = (num % 100) // 10
+            u = num % 10
+            partes = []
+            if c > 0:
+                partes.append(centenas[c] if num != 100 else "CIEN")
+            du = num % 100
+            if du in especiales:
+                partes.append(especiales[du])
+            else:
+                if d > 0:
+                    if u > 0:
+                        partes.append(f"{decenas[d]} Y {unidades[u]}")
+                    else:
+                        partes.append(decenas[d])
+                elif u > 0:
+                    partes.append(unidades[u])
+            return " ".join(partes)
+
+        millones = numero // 1000000
+        resto_millones = numero % 1000000
+        miles = resto_millones // 1000
+        resto_miles = resto_millones % 1000
+
+        resultado = []
+        if millones > 0:
+            if millones == 1:
+                resultado.append("UN MILLÓN")
+            else:
+                resultado.append(f"{_seccion(millones)} MILLONES")
+        if miles > 0:
+            if miles == 1:
+                resultado.append("MIL")
+            else:
+                resultado.append(f"{_seccion(miles)} MIL")
+        if resto_miles > 0:
+            resultado.append(_seccion(resto_miles))
+
+        return " ".join(resultado).strip()
+
     # ------------------------------------------------------------------
     # Dispatcher: API Real Factura Segura vs Simulador Local
     # ------------------------------------------------------------------
@@ -297,12 +367,20 @@ class FacturaService:
         # Extraer correlativo de 7 dígitos del número de factura (ej: 001-003-0000326 -> 0000326)
         num_doc = factura.numero_factura.split("-")[-1]
 
-        # Cliente / Receptor
+        # Cliente / Receptor según especificación ESI Factura Segura
         cliente_doc = factura.cliente_documento.replace(".", "").strip()
         if "-" in cliente_doc:
             ruc_rec, dv_rec = cliente_doc.split("-")[:2]
+            nat_rec = "1"      # 1=Contribuyente
+            tip_id_rec = "0"
+            num_id_rec = "0"
         else:
-            ruc_rec, dv_rec = cliente_doc, "0"
+            ruc_rec, dv_rec = "", ""
+            nat_rec = "2"      # 2=No contribuyente
+            tip_id_rec = "1"   # 1=Cédula de Identidad (Manual SIFEN)
+            num_id_rec = cliente_doc
+
+        tipo_contrib = "1" if getattr(factura.operacion.cliente, "tipo_persona", "FISICA") == "FISICA" else "2"
 
         # Armado de JSON DE según especificación de Factura Segura
         monto_total_int = int(factura.total_liquidado)
@@ -344,16 +422,16 @@ class FacturaService:
                             "dDesActEco": "Actividades de programación informática"
                         }
                     ],
-                    "iNatRec": "1",
+                    "iNatRec": nat_rec,
                     "iTiOpe": "1",
                     "cPaisRec": "PRY",
-                    "iTiContRec": "1",
+                    "iTiContRec": tipo_contrib,
                     "dRucRec": ruc_rec,
                     "dDVRec": dv_rec,
-                    "iTipIDRec": "0",
-                    "dNumIDRec": "0",
+                    "iTipIDRec": tip_id_rec,
+                    "dNumIDRec": num_id_rec,
                     "dNomRec": factura.cliente_nombre,
-                    "dEmailRec": factura.cliente_email or "cliente@exchange.com",
+                    "dEmailRec": factura.cliente_email or "cliente@exchange.com.py",
                     "iIndPres": "1",
                     "iCondOpe": "1",
                     "gPaConEIni": [
@@ -496,6 +574,113 @@ class FacturaService:
             )
         except Exception as exc:
             logger.warning("Error al notificar sol_cancelacion a Factura Segura: %s", exc)
+
+    @classmethod
+    def descargar_kude_pdf(cls, factura: Any) -> Optional[bytes]:
+        """
+        Descarga el KuDE en PDF oficial generado por Factura Segura utilizando la operación dwn_kude (HTTP GET):
+        GET /misife00/v1/esi/dwn_kude/{dRucEm}/{CDC}
+        Header: Authentication-Token: <token>
+        """
+        if not factura.cdc or factura.es_simulada:
+            return None
+
+        token = cls._obtener_auth_token()
+        if not token:
+            return None
+
+        api_url = getattr(settings, "FACTURA_SEGURA_API_URL", "https://apitest.facturasegura.com.py").rstrip("/")
+        ruc_emisor = getattr(settings, "FACTURA_SEGURA_RUC_EMISOR", "2595733")
+        url = f"{api_url}/misife00/v1/esi/dwn_kude/{ruc_emisor}/{factura.cdc}"
+
+        try:
+            resp = requests.get(url, headers={"Authentication-Token": token}, timeout=15)
+            if resp.status_code == 200 and resp.content:
+                if resp.content.startswith(b"%PDF"):
+                    return resp.content
+                logger.warning("Respuesta de dwn_kude no es PDF binario: %s", resp.text[:200])
+        except Exception as exc:
+            logger.error("Error al descargar KuDE de Factura Segura: %s", exc)
+
+        return None
+
+    @classmethod
+    def descargar_xml(cls, factura: Any) -> Optional[str]:
+        """
+        Descarga el XML firmado generado por Factura Segura utilizando la operación dwn_xml (HTTP GET):
+        GET /misife00/v1/esi/dwn_xml/{dRucEm}/{CDC}
+        Header: Authentication-Token: <token>
+        """
+        if not factura.cdc or factura.es_simulada:
+            return None
+
+        token = cls._obtener_auth_token()
+        if not token:
+            return None
+
+        api_url = getattr(settings, "FACTURA_SEGURA_API_URL", "https://apitest.facturasegura.com.py").rstrip("/")
+        ruc_emisor = getattr(settings, "FACTURA_SEGURA_RUC_EMISOR", "2595733")
+        url = f"{api_url}/misife00/v1/esi/dwn_xml/{ruc_emisor}/{factura.cdc}"
+
+        try:
+            resp = requests.get(url, headers={"Authentication-Token": token}, timeout=15)
+            if resp.status_code == 200 and resp.text:
+                return resp.text
+        except Exception as exc:
+            logger.error("Error al descargar XML de Factura Segura: %s", exc)
+
+        return None
+
+    @classmethod
+    def consultar_estado_sifen(cls, factura: Any) -> dict:
+        """
+        Consulta el estado de la factura en el SIFEN a través de la operación get_estado_sifen:
+        POST /misife00/v1/esi
+        Body: {"operation": "get_estado_sifen", "params": {"CDC": "...", "dRucEm": "..."}}
+        """
+        if not factura.cdc or factura.es_simulada:
+            return {"exito": False, "error": "Factura simulada o sin CDC asignado."}
+
+        token = cls._obtener_auth_token()
+        if not token:
+            return {"exito": False, "error": "No se pudo obtener token de autenticación ESI."}
+
+        api_url = getattr(settings, "FACTURA_SEGURA_API_URL", "https://apitest.facturasegura.com.py").rstrip("/")
+        endpoint = f"{api_url}/misife00/v1/esi"
+        ruc_emisor = getattr(settings, "FACTURA_SEGURA_RUC_EMISOR", "2595733")
+
+        payload = {
+            "operation": "get_estado_sifen",
+            "params": {
+                "CDC": factura.cdc,
+                "dRucEm": ruc_emisor
+            }
+        }
+
+        try:
+            resp = requests.post(
+                endpoint,
+                json=payload,
+                headers={"Content-Type": "application/json", "Authentication-Token": token},
+                timeout=10,
+            )
+            data = resp.json()
+            if data.get("code") == 0 and data.get("results"):
+                res_obj = data["results"][0]
+                return {
+                    "exito": True,
+                    "estado_sifen": res_obj.get("estado_sifen"),
+                    "desc_sifen": res_obj.get("desc_sifen"),
+                    "fch_sifen": res_obj.get("fch_sifen"),
+                    "raw": res_obj
+                }
+            return {
+                "exito": False,
+                "error": data.get("description", "Error al consultar estado SIFEN")
+            }
+        except Exception as exc:
+            logger.error("Error al consultar estado SIFEN en Factura Segura: %s", exc)
+            return {"exito": False, "error": str(exc)}
 
     # ------------------------------------------------------------------
     # Simulador Local (Fallback Offline)

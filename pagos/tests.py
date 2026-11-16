@@ -823,6 +823,13 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
         factura.refresh_from_db()
         self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.ANULADA)
 
+    def test_monto_a_letras_formato_oficial(self):
+        """Conversión de importes numéricos a texto según requerimiento de KuDE."""
+        self.assertEqual(FacturaService.monto_a_letras(100000), "CIEN MIL")
+        self.assertEqual(FacturaService.monto_a_letras(Decimal("750000.00")), "SETECIENTOS CINCUENTA MIL")
+        self.assertEqual(FacturaService.monto_a_letras(1250000), "UN MILLÓN DOSCIENTOS CINCUENTA MIL")
+        self.assertEqual(FacturaService.monto_a_letras(0), "CERO")
+
     def test_vista_kude_print_formato_oficial(self):
         """La vista KUDE retorna 200 y contiene los elementos oficiales de SIFEN."""
         self.operacion.estado = Operacion.EstadoOperacion.PAGADA
@@ -837,6 +844,8 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
         self.assertContains(response, "KUATIA — FACTURA ELECTRÓNICA")
         self.assertContains(response, factura.numero_factura)
         self.assertContains(response, "LIQUIDACIÓN DEL IMPUESTO AL VALOR AGREGADO")
+        self.assertContains(response, "SON: GUARANÍES")
+        self.assertContains(response, "qrcode.min.js")
 
     def test_rnf37_simulacion_tiempo_respuesta(self):
         """RNF37: La simulación de emisión se completa en ≤ 5 segundos."""
@@ -853,6 +862,81 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
 
         self.assertLess(duracion, 5.0, "La emisión simulada debe tardar menos de 5 segundos.")
         self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
+
+    def test_descargar_kude_pdf_fallback_kude_print(self):
+        """Si la factura es simulada o no tiene PDF binario, redirige a la vista de impresión KuDE."""
+        from unittest.mock import patch
+
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        self.client.login(username="cliente_maria", password="password123")
+        url = reverse("pagos:descargar_kude_pdf", kwargs={"factura_id": factura.id})
+        response = self.client.get(url, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "KuDE de Factura Electrónica")
+
+    def test_descargar_kude_pdf_con_binario_api(self):
+        """Descarga directa del binario PDF oficial generado por Factura Segura."""
+        from unittest.mock import patch
+
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        pdf_fake = b"%PDF-1.4 Fake PDF Content for Testing KuDE Factura Segura"
+        with patch.object(FacturaService, "descargar_kude_pdf", return_value=pdf_fake):
+            self.client.login(username="cliente_maria", password="password123")
+            url = reverse("pagos:descargar_kude_pdf", kwargs={"factura_id": factura.id})
+            response = self.client.get(url)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response["Content-Type"], "application/pdf")
+            self.assertIn("attachment", response["Content-Disposition"])
+            self.assertEqual(response.content, pdf_fake)
+
+    def test_descargar_xml_firmado(self):
+        """Descarga del XML firmado del DE generado por Factura Segura."""
+        from unittest.mock import patch
+
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        xml_fake = "<rDE><dFecEmiDE>2026-11-15</dFecEmiDE></rDE>"
+        with patch.object(FacturaService, "descargar_xml", return_value=xml_fake):
+            self.client.login(username="cliente_maria", password="password123")
+            url = reverse("pagos:descargar_xml", kwargs={"factura_id": factura.id})
+            response = self.client.get(url)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("application/xml", response["Content-Type"])
+            self.assertEqual(response.content.decode("utf-8"), xml_fake)
+
+    def test_consultar_estado_sifen_view(self):
+        """Consulta del estado tributario en SIFEN a través de get_estado_sifen."""
+        from unittest.mock import patch
+
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        res_sifen = {
+            "exito": True,
+            "estado_sifen": "Aprobado",
+            "desc_sifen": "0260 - Aprobado",
+            "fch_sifen": "2026-11-15 20:00:00",
+        }
+        with patch.object(FacturaService, "consultar_estado_sifen", return_value=res_sifen):
+            self.client.login(username="cliente_maria", password="password123")
+            url = reverse("pagos:consultar_estado_sifen", kwargs={"factura_id": factura.id})
+            response = self.client.get(url, follow=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Estado en SIFEN: Aprobado")
+
 
 
 
@@ -1008,6 +1092,13 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
         factura.refresh_from_db()
         self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.ANULADA)
 
+    def test_monto_a_letras_formato_oficial(self):
+        """Conversión de importes numéricos a texto según requerimiento de KuDE."""
+        self.assertEqual(FacturaService.monto_a_letras(100000), "CIEN MIL")
+        self.assertEqual(FacturaService.monto_a_letras(Decimal("750000.00")), "SETECIENTOS CINCUENTA MIL")
+        self.assertEqual(FacturaService.monto_a_letras(1250000), "UN MILLÓN DOSCIENTOS CINCUENTA MIL")
+        self.assertEqual(FacturaService.monto_a_letras(0), "CERO")
+
     def test_vista_kude_print_formato_oficial(self):
         """La vista KUDE retorna 200 y contiene los elementos oficiales de SIFEN."""
         self.operacion.estado = Operacion.EstadoOperacion.PAGADA
@@ -1022,6 +1113,8 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
         self.assertContains(response, "KUATIA — FACTURA ELECTRÓNICA")
         self.assertContains(response, factura.numero_factura)
         self.assertContains(response, "LIQUIDACIÓN DEL IMPUESTO AL VALOR AGREGADO")
+        self.assertContains(response, "SON: GUARANÍES")
+        self.assertContains(response, "qrcode.min.js")
 
     def test_rnf37_simulacion_tiempo_respuesta(self):
         """RNF37: La simulación de emisión se completa en ≤ 5 segundos."""
@@ -1038,3 +1131,77 @@ class FacturaElectronicaTestCase(BasePagosTestCase):
 
         self.assertLess(duracion, 5.0, "La emisión simulada debe tardar menos de 5 segundos.")
         self.assertEqual(factura.estado, FacturaElectronica.EstadoFactura.EMITIDA)
+
+    def test_descargar_kude_pdf_fallback_kude_print(self):
+        """Si la factura es simulada o no tiene PDF binario, redirige a la vista de impresión KuDE."""
+        from unittest.mock import patch
+
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        self.client.login(username="cliente_maria", password="password123")
+        url = reverse("pagos:descargar_kude_pdf", kwargs={"factura_id": factura.id})
+        response = self.client.get(url, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "KuDE de Factura Electrónica")
+
+    def test_descargar_kude_pdf_con_binario_api(self):
+        """Descarga directa del binario PDF oficial generado por Factura Segura."""
+        from unittest.mock import patch
+
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        pdf_fake = b"%PDF-1.4 Fake PDF Content for Testing KuDE Factura Segura"
+        with patch.object(FacturaService, "descargar_kude_pdf", return_value=pdf_fake):
+            self.client.login(username="cliente_maria", password="password123")
+            url = reverse("pagos:descargar_kude_pdf", kwargs={"factura_id": factura.id})
+            response = self.client.get(url)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response["Content-Type"], "application/pdf")
+            self.assertIn("attachment", response["Content-Disposition"])
+            self.assertEqual(response.content, pdf_fake)
+
+    def test_descargar_xml_firmado(self):
+        """Descarga del XML firmado del DE generado por Factura Segura."""
+        from unittest.mock import patch
+
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        xml_fake = "<rDE><dFecEmiDE>2026-11-15</dFecEmiDE></rDE>"
+        with patch.object(FacturaService, "descargar_xml", return_value=xml_fake):
+            self.client.login(username="cliente_maria", password="password123")
+            url = reverse("pagos:descargar_xml", kwargs={"factura_id": factura.id})
+            response = self.client.get(url)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("application/xml", response["Content-Type"])
+            self.assertEqual(response.content.decode("utf-8"), xml_fake)
+
+    def test_consultar_estado_sifen_view(self):
+        """Consulta del estado tributario en SIFEN a través de get_estado_sifen."""
+        from unittest.mock import patch
+
+        self.operacion.estado = Operacion.EstadoOperacion.PAGADA
+        self.operacion.save()
+        factura = FacturaService.emitir_factura(self.operacion)
+
+        res_sifen = {
+            "exito": True,
+            "estado_sifen": "Aprobado",
+            "desc_sifen": "0260 - Aprobado",
+            "fch_sifen": "2026-11-15 20:00:00",
+        }
+        with patch.object(FacturaService, "consultar_estado_sifen", return_value=res_sifen):
+            self.client.login(username="cliente_maria", password="password123")
+            url = reverse("pagos:consultar_estado_sifen", kwargs={"factura_id": factura.id})
+            response = self.client.get(url, follow=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Estado en SIFEN: Aprobado")
