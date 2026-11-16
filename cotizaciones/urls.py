@@ -61,5 +61,9 @@ urlpatterns = [
     path('api/alertas/seguir-todas/', views.api_seguir_todas_las_monedas, name='api_seguir_todas_las_monedas'),
     path('api/notificaciones/', views.api_notificaciones, name='api_notificaciones'),
     path('api/notificaciones/marcar-leidas/', views.api_marcar_notificaciones_leidas, name='api_marcar_notificaciones_leidas'),
+
+    # Reporte de transacciones y ganancias (IS2-66)
+    path('reportes/transacciones/', views.reporte_transacciones, name='reporte_transacciones'),
+    path('reportes/transacciones/descargar/', views.descargar_reporte_transacciones, name='descargar_reporte_transacciones'),
 ]
 

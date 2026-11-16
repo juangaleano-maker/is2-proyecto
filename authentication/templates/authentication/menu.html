@@ -349,6 +349,25 @@
             </a>
         </div>
 
+        {% if es_admin %}
+        <!-- REPORTE DE TRANSACCIONES Y GANANCIAS (IS2-66) -->
+        <div style="background: linear-gradient(145deg, #0f172a, #1e293b); border: 1px solid #38bdf8; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                    <div style="font-size: 24px;">📊</div>
+                    <span style="background: #0ea5e9; color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px;">NUEVO</span>
+                </div>
+                <h4 style="color: #f8fafc; font-size: 16px; margin: 0 0 6px 0;">Reporte de Transacciones</h4>
+                <p style="color: #94a3b8; font-size: 13px; line-height: 1.4; margin-bottom: 12px;">
+                    Consulta y exporta el reporte de ganancias y comisiones por período, moneda y tipo de operación.
+                </p>
+            </div>
+            <a href="{% url 'reporte_transacciones' %}" style="display: block; text-align: center; padding: 9px; background: linear-gradient(135deg, #0ea5e9, #38bdf8); color: white; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 13px;">
+                📊 Ver Reporte
+            </a>
+        </div>
+        {% endif %}
+
         <!-- MEDIOS DE PAGO (admin) -->
         {% if tiene_cliente %}
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
