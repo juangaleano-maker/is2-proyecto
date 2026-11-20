@@ -24,6 +24,7 @@ class CustomOIDCAuthenticationCallbackView(OIDCAuthenticationCallbackView):
     Vista personalizada para evitar el error 'SuspiciousOperation' cuando el usuario
     presiona el botón de 'Atrás' en el navegador después de haber iniciado sesión.
     Si el usuario ya está autenticado, simplemente lo redirige al menú.
+    Garantiza que el usuario autenticado por Keycloak quede activo y pueda ingresar de inmediato.
     """
     def get(self, request, *args, **kwargs):
         if request.user.is_authenticated:
@@ -37,7 +38,16 @@ class CustomOIDCAuthenticationCallbackView(OIDCAuthenticationCallbackView):
         # Redirigir siempre al menú principal
         return redirect('menu')
 
-
+    def login_failure(self):
+        user = getattr(self, 'user', None)
+        if user:
+            # Si Keycloak autenticó al usuario, activarlo y proceder con el inicio de sesión
+            user.is_active = True
+            user.save(update_fields=['is_active'])
+            if hasattr(user, 'perfil'):
+                user.perfil.activar_cuenta()
+            return self.login_success()
+        return redirect('login')
 
 
 def logout_view(request):
@@ -48,7 +58,7 @@ def logout_view(request):
     keycloak_logout = f"{settings.OIDC_OP_LOGOUT_ENDPOINT}?client_id={settings.OIDC_RP_CLIENT_ID}"
     if id_token:
         # Con el id_token, Keycloak nos permite volver automáticamente sin dejar la pantalla gris
-        redirect_uri = request.build_absolute_uri('/oidc/callback/')
+        redirect_uri = request.build_absolute_uri('/login/')
         keycloak_logout += f"&post_logout_redirect_uri={redirect_uri}&id_token_hint={id_token}"
     return redirect(keycloak_logout)
 

@@ -34,7 +34,7 @@ class RegistroView(View):
         form = RegistroUsuarioForm(request.POST)
         if form.is_valid():
             try:
-                # 1. Crear usuario base de Django (inactivo hasta que verifique su correo)
+                # 1. Crear usuario base de Django (inactivo hasta verificación o primer login exitoso)
                 user = form.save(commit=False)
                 user.is_active = False
                 user.set_password(form.cleaned_data['password'])
@@ -51,7 +51,7 @@ class RegistroView(View):
                     required_actions=['VERIFY_EMAIL']
                 )
 
-                keycloak_id = kc_res.get('keycloak_id')
+                keycloak_id = kc_res.get('keycloak_id') or None
 
                 # 3. Crear PerfilUsuario en estado PENDIENTE_VERIFICACION
                 perfil = PerfilUsuario.objects.create(
@@ -61,8 +61,11 @@ class RegistroView(View):
                     email_verificado=False
                 )
 
-                # 4. Enviar correo de activación
-                enviar_correo_activacion(user, perfil, request=request)
+                # 4. Enviar correo de bienvenida / verificación
+                try:
+                    enviar_correo_activacion(user, perfil, request=request)
+                except Exception as mail_err:
+                    logger.warning("No se pudo enviar correo: %s", mail_err)
 
                 request.session['registro_email'] = user.email
                 messages.success(

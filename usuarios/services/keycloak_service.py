@@ -26,6 +26,7 @@ class KeycloakAdminService:
         self.admin_username = getattr(settings, 'KEYCLOAK_ADMIN_USERNAME', 'admin')
         self.admin_password = getattr(settings, 'KEYCLOAK_ADMIN_PASSWORD', 'admin')
         self.is_enabled = getattr(settings, 'KEYCLOAK_ENABLED', True)
+        self.client_id = getattr(settings, 'OIDC_RP_CLIENT_ID', 'django-app')
 
     def get_admin_token(self):
         """
@@ -137,10 +138,20 @@ class KeycloakAdminService:
                     'simulated': False
                 }
             elif response.status_code == 409:
+                keycloak_id = self.obtener_id_por_username(username, token=token)
+                if not keycloak_id:
+                    params = {'email': email, 'exact': 'true'}
+                    try:
+                        res = requests.get(users_url, headers=headers, params=params, timeout=5)
+                        if res.status_code == 200 and res.json():
+                            keycloak_id = res.json()[0].get('id')
+                    except Exception:
+                        pass
+                logger.info("Usuario %s ya existía en Keycloak, vinculado ID: %s", username, keycloak_id)
                 return {
-                    'success': False,
-                    'keycloak_id': None,
-                    'message': 'El usuario o correo electrónico ya existe en Keycloak.',
+                    'success': True,
+                    'keycloak_id': keycloak_id,
+                    'message': 'El usuario ya existía en Keycloak.',
                     'simulated': False
                 }
             else:
@@ -162,7 +173,7 @@ class KeycloakAdminService:
                 'simulated': True
             }
 
-    def enviar_correo_verificacion(self, keycloak_id):
+    def enviar_correo_verificacion(self, keycloak_id, redirect_uri=None):
         """
         Solicita a Keycloak que envíe el correo de verificación al usuario.
         Endpoint: PUT /admin/realms/{realm}/users/{id}/send-verify-email
@@ -180,9 +191,13 @@ class KeycloakAdminService:
         }
 
         url = f"{self.server_url}/admin/realms/{self.realm}/users/{keycloak_id}/send-verify-email"
+        params = {
+            'client_id': self.client_id or 'django-app',
+            'redirect_uri': redirect_uri or 'http://localhost:8000/login/'
+        }
 
         try:
-            response = requests.put(url, headers=headers, timeout=5)
+            response = requests.put(url, headers=headers, params=params, timeout=5)
             if response.status_code in (200, 204):
                 logger.info("Correo de verificación enviado por Keycloak al usuario %s", keycloak_id)
                 return {'success': True, 'message': 'Correo de verificación enviado por Keycloak.'}

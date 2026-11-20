@@ -26,19 +26,31 @@ class KeycloakOIDCBackend(OIDCAuthenticationBackend):
         return self.UserModel.objects.filter(email__iexact=email)
 
     def create_user(self, claims):
+        username = claims.get('preferred_username') or claims.get('email')
+        if self.UserModel.objects.filter(username=username).exists():
+            username = claims.get('email')
+
         user = self.UserModel.objects.create_user(
-            username=claims.get('email'),
+            username=username,
             email=claims.get('email'),
             first_name=claims.get('given_name', ''),
             last_name=claims.get('family_name', ''),
         )
+        user.is_active = True
+        user.save(update_fields=['is_active'])
+        if hasattr(user, 'perfil'):
+            user.perfil.activar_cuenta()
         self._sync_roles(user, claims)
         return user
 
     def update_user(self, user, claims):
         user.first_name = claims.get('given_name', user.first_name)
         user.last_name = claims.get('family_name', user.last_name)
+        if not user.is_active:
+            user.is_active = True
         user.save()
+        if hasattr(user, 'perfil') and not user.perfil.email_verificado:
+            user.perfil.activar_cuenta()
         self._sync_roles(user, claims)
         return user
 

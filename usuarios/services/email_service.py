@@ -68,12 +68,13 @@ def enviar_correo_activacion(user, perfil, request=None):
     except Exception as e:
         logger.error("Error al enviar correo de activación a %s: %s", user.email, e)
 
-    # Intento opcional de disparar también vía Keycloak Admin API
+    # Disparar el correo de verificación vía Keycloak (integrado a Gmail SMTP) con redirección directa a la app
     if perfil.keycloak_id and not perfil.keycloak_id.startswith('mock-'):
         try:
             kc_service = KeycloakAdminService()
-            kc_service.enviar_correo_verificacion(perfil.keycloak_id)
+            redirect_url = request.build_absolute_uri('/login/') if request else 'http://localhost:8000/login/'
+            kc_service.enviar_correo_verificacion(perfil.keycloak_id, redirect_uri=redirect_url)
         except Exception as e:
-            logger.debug("Aviso: No se ejecutó el trigger secundario de Keycloak: %s", e)
+            logger.warning("Aviso: no se pudo enviar correo de verificación vía Keycloak: %s", e)
 
     return verification_url
