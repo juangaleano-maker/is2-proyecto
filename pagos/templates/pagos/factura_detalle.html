@@ -344,20 +344,20 @@
                         <td>
                             <strong>Operación de Cambio de Divisas</strong>
                             <div style="font-size: 12px; color: #64748b;">
-                                {{ operacion.get_tipo_display }} de {{ factura.monto|floatformat:2 }} {{ factura.moneda_siglas }}
+                                {{ operacion.get_tipo_display }} de {{ factura.monto|punto_miles:2 }} {{ factura.moneda_siglas }}
                             </div>
                         </td>
                         <td style="text-align: right; font-weight: 600;">
-                            {{ factura.monto|floatformat:2 }} × {{ factura.tasa_aplicada|floatformat:0 }}
+                            {{ factura.monto|punto_miles:2 }} × {{ factura.tasa_aplicada|punto_miles:2 }}
                         </td>
                         <td style="text-align: right; font-family: monospace; font-size: 14.5px;">
-                            Gs. {{ factura.base_imponible|floatformat:0 }}
+                            Gs. {{ factura.base_imponible|guaranies }}
                         </td>
                         <td style="text-align: right; font-family: monospace; font-size: 14.5px; color: #0284c7; font-weight: 700;">
-                            Gs. {{ factura.iva_liquidado|floatformat:0 }}
+                            Gs. {{ factura.iva_liquidado|guaranies }}
                         </td>
                         <td style="text-align: right; font-family: monospace; font-size: 15px; font-weight: 800; color: #065f46;">
-                            Gs. {{ factura.total_liquidado|floatformat:0 }}
+                            Gs. {{ factura.total_liquidado|guaranies }}
                         </td>
                     </tr>
                 </tbody>
@@ -367,13 +367,13 @@
                             Totales en Guaraníes:
                         </td>
                         <td style="text-align: right; font-family: monospace; font-size: 14px;">
-                            Gs. {{ factura.base_imponible|floatformat:0 }}
+                            Gs. {{ factura.base_imponible|guaranies }}
                         </td>
                         <td style="text-align: right; font-family: monospace; font-size: 14px; color: #0284c7;">
-                            Gs. {{ factura.iva_liquidado|floatformat:0 }}
+                            Gs. {{ factura.iva_liquidado|guaranies }}
                         </td>
                         <td style="text-align: right; font-family: monospace; font-size: 16px; color: #065f46;">
-                            Gs. {{ factura.total_liquidado|floatformat:0 }}
+                            Gs. {{ factura.total_liquidado|guaranies }}
                         </td>
                     </tr>
                 </tfoot>

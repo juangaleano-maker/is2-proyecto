@@ -32,17 +32,19 @@
         background: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 12px;
-        overflow: hidden;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     .ops-table {
         width: 100%;
+        min-width: 1050px;
         border-collapse: collapse;
         font-size: 13.5px;
     }
     .ops-table th {
         background: #f8fafc;
-        padding: 12px 16px;
+        padding: 12px 10px;
         text-align: left;
         font-weight: 700;
         color: #475569;
@@ -50,7 +52,7 @@
         white-space: nowrap;
     }
     .ops-table td {
-        padding: 14px 16px;
+        padding: 12px 10px;
         border-bottom: 1px solid #f1f5f9;
         color: #1e293b;
         vertical-align: middle;
@@ -108,11 +110,47 @@
         font-size: 11.5px;
         font-weight: 700;
     }
+    /* Columna de acciones: responsive, nunca se corta */
+    .ops-table th.col-acciones,
+    .ops-table td.col-acciones {
+        text-align: right;
+        white-space: nowrap;
+        min-width: 190px;
+    }
+    /* Botones de acción: flex nowrap alineados a la derecha */
+    .accion-btns {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+    .btn-accion {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: opacity 0.15s;
+    }
+    .btn-accion:hover {
+        opacity: 0.9;
+    }
+    /* Números alineados a la derecha */
+    .ops-table th.col-num,
+    .ops-table td.col-num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container" style="max-width: 1200px; margin: 0 auto; padding: 10px 15px 40px 15px;">
+<div class="container" style="max-width: 1350px; margin: 0 auto; padding: 10px 15px 40px 15px;">
 
     <!-- HEADER -->
     <div class="list-header">
@@ -176,12 +214,12 @@
                     <th>Fecha</th>
                     <th>Cliente</th>
                     <th>Tipo</th>
-                    <th>Monto Divisa</th>
-                    <th>Tasa Aplicada</th>
-                    <th>Comisión</th>
-                    <th>Total Neto</th>
+                    <th class="col-num">Monto Divisa</th>
+                    <th class="col-num">Tasa Aplicada</th>
+                    <th class="col-num">Comisión</th>
+                    <th class="col-num">Total Neto</th>
                     <th>Estado</th>
-                    <th style="text-align: right;">Acciones</th>
+                    <th class="col-acciones">Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -200,15 +238,15 @@
                         <span class="badge-tipo-compra">🛒 COMPRA</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <strong>{{ op.monto|floatformat:2 }}</strong> {{ op.moneda.siglas }}
+                    <td class="col-num">
+                        <strong>{{ op.monto|punto_miles:2 }}</strong> {{ op.moneda.siglas }}
                     </td>
-                    <td>{{ op.tasa_aplicada|floatformat:2 }} PYG</td>
-                    <td style="color: #b45309; font-weight: 600;">
-                        {{ op.comision|floatformat:2 }} ₲
+                    <td class="col-num">{{ op.tasa_aplicada|punto_miles:2 }} PYG</td>
+                    <td class="col-num" style="color: #b45309; font-weight: 600;">
+                        {{ op.comision|punto_miles:2 }} ₲
                     </td>
-                    <td style="color: #047857; font-weight: 700;">
-                        {{ op.total_neto|floatformat:2 }} ₲
+                    <td class="col-num" style="color: #047857; font-weight: 700;">
+                        {{ op.total_neto|punto_miles:2 }} ₲
                     </td>
                     <td>
                         {% if op.estado == 'PENDIENTE' %}
@@ -226,27 +264,29 @@
                         </span>
                         {% endif %}
                     </td>
-                    <td style="text-align: right; white-space: nowrap;">
+                    <td class="col-acciones">
+                        <div class="accion-btns">
                         {% if op.estado == 'PENDIENTE' %}
                             {% if es_personal %}
-                            <a href="{% url 'confirmar_operacion_pago' op.id %}" style="display: inline-block; padding: 5px 12px; background: #059669; color: white; border: 1px solid #047857; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 700; margin-right: 5px;">
+                            <a href="{% url 'confirmar_operacion_pago' op.id %}" class="btn-accion" style="background: #059669; color: white; border: 1px solid #047857;">
                                 💵 Liquidar en Caja
                             </a>
                             {% elif op.tipo == 'COMPRA' %}
                                 {% if op.stripe_payment_intent_id %}
-                                <a href="{% url 'pagos:verificar_pago_stripe' op.id %}" style="display: inline-block; padding: 5px 12px; background: #7c3aed; color: white; border: 1px solid #6d28d9; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 700; margin-right: 5px;">
-                                    🔄 Verificar pago
+                                <a href="{% url 'pagos:verificar_pago_stripe' op.id %}" class="btn-accion" style="background: #7c3aed; color: white; border: 1px solid #6d28d9;">
+                                    🔄 Verificar
                                 </a>
                                 {% else %}
-                                <a href="{% url 'operacion_detalle' op.id %}" style="display: inline-block; padding: 5px 12px; background: #4f46e5; color: white; border: 1px solid #4338ca; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 700; margin-right: 5px;">
-                                    💳 Pagar Compra
+                                <a href="{% url 'operacion_detalle' op.id %}" class="btn-accion" style="background: #4f46e5; color: white; border: 1px solid #4338ca;">
+                                    💳 Pagar
                                 </a>
                                 {% endif %}
                             {% endif %}
                         {% endif %}
-                        <a href="{% url 'operacion_detalle' op.id %}" style="display: inline-block; padding: 5px 12px; background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; text-decoration: none; font-size: 12.5px; font-weight: 600;">
+                        <a href="{% url 'operacion_detalle' op.id %}" class="btn-accion" style="background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1;">
                             👁️ Ver Ficha
                         </a>
+                        </div>
                     </td>
 
                 </tr>

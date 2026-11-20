@@ -294,9 +294,9 @@
                 </span>
             </div>
 
-            <div class="result-calculated" id="res-monto-destino">
+            <div class="result-calculated" id="res-monto-destino" data-raw="{{ resultado.monto_destino }}">
                 {% if resultado %}
-                    {{ resultado.monto_destino }} {{ resultado.moneda_destino }}
+                    {{ resultado.monto_destino|punto_miles:2 }} {{ resultado.moneda_destino }}
                 {% endif %}
             </div>
 
@@ -411,7 +411,8 @@ document.addEventListener('DOMContentLoaded', function() {
             spinner.style.display = 'none';
             if (res.status === 200 && res.body.exito) {
                 const data = res.body;
-                resMontoDestino.textContent = `${data.monto_destino} ${data.moneda_destino}`;
+                const montoFormateado = (window.GX && window.GX.fmtDec) ? window.GX.fmtDec(data.monto_destino, 2) : data.monto_destino;
+                resMontoDestino.textContent = `${montoFormateado} ${data.moneda_destino}`;
                 resTasaDetalle.textContent = data.descripcion_tasa;
                 
                 if (resFecha && resFechaWrapper) {

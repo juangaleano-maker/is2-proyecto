@@ -240,16 +240,16 @@
   <div class="stat-grid">
     <div class="stat-card">
       <div class="stat-label">🟢 Total Ingresos</div>
-      <div class="stat-value green">+ Gs. {{ total_ingresos|floatformat:2 }}</div>
+      <div class="stat-value green">+ Gs. {{ total_ingresos|punto_miles:2 }}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">🔴 Total Egresos</div>
-      <div class="stat-value red">- Gs. {{ total_egresos|floatformat:2 }}</div>
+      <div class="stat-value red">- Gs. {{ total_egresos|punto_miles:2 }}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">⚖️ Balance Neto Filtrado</div>
       <div class="stat-value {% if balance_neto >= 0 %}green{% else %}red{% endif %}">
-        Gs. {{ balance_neto|floatformat:2 }}
+        Gs. {{ balance_neto|punto_miles:2 }}
       </div>
     </div>
   </div>
@@ -264,7 +264,7 @@
           <th>Cajero</th>
           <th>Tipo</th>
           <th>Concepto</th>
-          <th>Monto</th>
+          <th style="text-align: right;">Monto</th>
           <th>Operación</th>
         </tr>
       </thead>
@@ -286,11 +286,11 @@
             {% endif %}
           </td>
           <td>{{ mov.concepto }}</td>
-          <td>
+          <td style="text-align: right;">
             {% if mov.tipo == "INGRESO" %}
-              <strong style="color: #34d399;">+ Gs. {{ mov.monto|floatformat:2 }}</strong>
+              <strong style="color: #34d399;">+ Gs. {{ mov.monto|punto_miles:2 }}</strong>
             {% else %}
-              <strong style="color: #f87171;">- Gs. {{ mov.monto|floatformat:2 }}</strong>
+              <strong style="color: #f87171;">- Gs. {{ mov.monto|punto_miles:2 }}</strong>
             {% endif %}
           </td>
           <td>

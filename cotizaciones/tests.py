@@ -1035,8 +1035,8 @@ class CancelacionTransaccionCambioCotizacionTests(TestCase):
         self.assertEqual(resultado['diferencia'], Decimal('150.00'))
         self.assertIsNotNone(resultado['notificacion'])
         self.assertIn("cambió respecto al inicio de la operación", resultado['notificacion'])
-        self.assertIn("7500", resultado['notificacion'])
-        self.assertIn("7650", resultado['notificacion'])
+        self.assertTrue("7500" in resultado['notificacion'] or "7.500" in resultado['notificacion'])
+        self.assertTrue("7650" in resultado['notificacion'] or "7.650" in resultado['notificacion'])
 
     def test_criterio_3_cancelar_operacion_sin_cargos_ni_movimientos(self):
         """

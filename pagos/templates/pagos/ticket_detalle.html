@@ -282,23 +282,23 @@
                 <tbody>
                     <tr>
                         <td><strong>Monto Transaccionado</strong></td>
-                        <td>{{ ticket.monto|floatformat:2 }} {{ ticket.moneda_siglas }}</td>
-                        <td style="text-align: right; font-weight: 600;">{{ ticket.monto|floatformat:2 }} {{ ticket.moneda_siglas }}</td>
+                        <td>{{ ticket.monto|punto_miles:2 }} {{ ticket.moneda_siglas }}</td>
+                        <td style="text-align: right; font-weight: 600;">{{ ticket.monto|punto_miles:2 }} {{ ticket.moneda_siglas }}</td>
                     </tr>
                     <tr>
                         <td><strong>Tasa Aplicada</strong></td>
-                        <td>1 {{ ticket.moneda_siglas }} = {{ ticket.tasa_aplicada|floatformat:2 }} PYG</td>
-                        <td style="text-align: right; font-weight: 600;">{{ ticket.tasa_aplicada|floatformat:2 }}</td>
+                        <td>1 {{ ticket.moneda_siglas }} = {{ ticket.tasa_aplicada|punto_miles:2 }} PYG</td>
+                        <td style="text-align: right; font-weight: 600;">{{ ticket.tasa_aplicada|punto_miles:2 }}</td>
                     </tr>
                     <tr>
                         <td><strong>Comisión del Servicio</strong></td>
                         <td>Cargo administrativo por cambio de divisa</td>
-                        <td style="text-align: right; font-weight: 600; color: #b45309;">- {{ ticket.comision|floatformat:2 }} ₲</td>
+                        <td style="text-align: right; font-weight: 600; color: #b45309;">- {{ ticket.comision|punto_miles:2 }} ₲</td>
                     </tr>
                     <tr class="total-highlight">
                         <td><strong>TOTAL LIQUIDADO</strong></td>
                         <td style="font-size: 13px; font-weight: normal; color: #065f46;">Monto final acreditado/cobrado</td>
-                        <td style="text-align: right; font-weight: 800;">{{ ticket.total_neto|floatformat:2 }} ₲</td>
+                        <td style="text-align: right; font-weight: 800;">{{ ticket.total_neto|punto_miles:2 }} ₲</td>
                     </tr>
                 </tbody>
             </table>

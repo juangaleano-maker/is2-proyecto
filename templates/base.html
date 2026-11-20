@@ -413,6 +413,67 @@
     </script>
 
     {% block extra_js %}{% endblock %}
+
+    <!-- ═══════════════════════════════════════════════════════════
+         UTILIDAD GLOBAL: Separador de miles (es-PY)
+         Uso: GX.fmt(1250000)        → "1.250.000"
+              GX.fmtGs(1250000)      → "Gs. 1.250.000"
+              GX.fmtDec(1250000.5)   → "1.250.000,50"
+         Auto-formatea elementos con data-num="<valor>"
+    ═══════════════════════════════════════════════════════════ -->
+    <script>
+    (function() {
+        const locale = 'es-PY';
+        window.GX = {
+            parseNum: function(val) {
+                if (typeof val === 'number') return val;
+                let s = String(val).trim();
+                if (!s) return NaN;
+                // Si contiene ambos . y , (e.g. 1.250,50 o 1,250.50)
+                if (s.includes('.') && s.includes(',')) {
+                    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+                        s = s.replace(/\./g, '').replace(',', '.');
+                    } else {
+                        s = s.replace(/,/g, '');
+                    }
+                } else if (s.includes(',')) {
+                    s = s.replace(',', '.');
+                }
+                return parseFloat(s);
+            },
+            fmt: function(val) {
+                const n = GX.parseNum(val);
+                if (isNaN(n)) return val;
+                return Math.round(n).toLocaleString(locale);
+            },
+            fmtGs: function(val) {
+                const n = GX.parseNum(val);
+                if (isNaN(n)) return val;
+                return 'Gs. ' + Math.round(n).toLocaleString(locale);
+            },
+            fmtDec: function(val, decimals) {
+                const n = GX.parseNum(val);
+                if (isNaN(n)) return val;
+                const d = decimals !== undefined ? parseInt(decimals) : 2;
+                return n.toLocaleString(locale, { minimumFractionDigits: d, maximumFractionDigits: d });
+            },
+            /* Formatea todos los [data-num], [data-num-dec], [data-num-gs] en el DOM */
+            applyAll: function(root) {
+                const r = root || document;
+                r.querySelectorAll('[data-num]').forEach(function(el) {
+                    el.textContent = GX.fmt(el.dataset.num || el.textContent);
+                });
+                r.querySelectorAll('[data-num-gs]').forEach(function(el) {
+                    el.textContent = GX.fmtGs(el.dataset.numGs || el.textContent);
+                });
+                r.querySelectorAll('[data-num-dec]').forEach(function(el) {
+                    el.textContent = GX.fmtDec(el.dataset.numDec || el.textContent, el.dataset.numDecimals);
+                });
+            }
+        };
+        document.addEventListener('DOMContentLoaded', function() { GX.applyAll(); });
+    })();
+    </script>
 </body>
 
 </html>

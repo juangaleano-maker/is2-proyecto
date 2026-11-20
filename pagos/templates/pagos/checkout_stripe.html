@@ -113,19 +113,19 @@
                 </div>
                 <div class="summary-row">
                     <span style="color: #64748b;">Monto en Divisa:</span>
-                    <strong>{{ operacion.monto|floatformat:2 }} {{ operacion.moneda.siglas }}</strong>
+                    <strong>{{ operacion.monto|punto_miles:2 }} {{ operacion.moneda.siglas }}</strong>
                 </div>
                 <div class="summary-row">
                     <span style="color: #64748b;">Tasa Aplicada:</span>
-                    <span>1 {{ operacion.moneda.siglas }} = {{ operacion.tasa_aplicada|floatformat:2 }} PYG</span>
+                    <span>1 {{ operacion.moneda.siglas }} = {{ operacion.tasa_aplicada|punto_miles:2 }} PYG</span>
                 </div>
                 <div class="summary-row">
                     <span style="color: #64748b;">Liquidación en Guaraníes:</span>
-                    <span>{{ operacion.total_neto|floatformat:2 }} ₲</span>
+                    <span>{{ operacion.total_neto|punto_miles:2 }} ₲</span>
                 </div>
                 <div class="summary-row">
                     <span>Importe Stripe (USD):</span>
-                    <span>${{ monto_usd|floatformat:2 }} USD</span>
+                    <span>${{ monto_usd|punto_miles:2 }} USD</span>
                 </div>
             </div>
 

@@ -256,7 +256,7 @@
           <span class="mac-badge">{{ m.siglas }}</span>
         </div>
         <div class="esperado-tag">
-          Saldo Estimado del Sistema: <strong>{{ item.saldo_esperado|floatformat:2 }} {{ m.siglas }}</strong>
+          Saldo Estimado del Sistema: <strong>{{ item.saldo_esperado|punto_miles:2 }} {{ m.siglas }}</strong>
         </div>
       </div>
 
@@ -278,7 +278,7 @@
             {% for d_item in item.denominaciones %}
             <tr>
               <td>
-                <strong style="color: #f1f5f9;">Billete {{ d_item.denominacion.valor|floatformat:0 }}</strong>
+                <strong style="color: #f1f5f9;">Billete {{ d_item.denominacion.valor|punto_miles:0 }}</strong>
                 <span style="font-size: 0.78rem; color: #64748b; margin-left: 4px;">{{ m.siglas }}</span>
               </td>
               <td style="text-align: center;">

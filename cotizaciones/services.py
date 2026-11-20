@@ -468,10 +468,12 @@ def verificar_cambio_cotizacion(operacion) -> Dict[str, Any]:
 
     notificacion = None
     if ha_cambiado:
+        from .templatetags.formatos import _formatear_miles
         sentido = "subió" if diferencia > Decimal('0') else "bajó"
         notificacion = (
             f"La cotización de {operacion.moneda.siglas} cambió respecto al inicio de la operación: "
-            f"pasó de {tasa_inicial} a {tasa_vigente} ({sentido} {abs(diferencia)} / {abs(porcentaje)}%). "
+            f"pasó de {_formatear_miles(tasa_inicial, 2)} a {_formatear_miles(tasa_vigente, 2)} "
+            f"({sentido} {_formatear_miles(abs(diferencia), 2)} / {abs(porcentaje)}%). "
             f"Puedes cancelar la transacción sin ningún cargo o aceptar la nueva cotización."
         )
 
@@ -537,7 +539,7 @@ def confirmar_y_pagar_operacion(operacion, aceptar_cambio_tasa: bool = False):
     return operacion
 
 
-def obtener_metricas_tablero_ganancias(dias_serie: int = 14) -> Dict[str, Any]:
+def obtener_metricas_tablero_ganancias(dias_serie: int = 14, fecha_desde=None, fecha_hasta=None) -> Dict[str, Any]:
     """
     Calcula y estructura las métricas financieras para el Tablero de Control de Ganancias (IS2-67).
     Incluye:
@@ -546,6 +548,12 @@ def obtener_metricas_tablero_ganancias(dias_serie: int = 14) -> Dict[str, Any]:
     - Desglose de ganancias y operaciones por tipo (Compras vs Ventas).
     - Desglose de ganancias por moneda con totales y porcentajes.
     - Serie temporal diaria para gráficos interactivos (últimos N días).
+    
+    Parámetros opcionales:
+    - fecha_desde: date, filtra operaciones desde esta fecha (inclusive).
+    - fecha_hasta: date, filtra operaciones hasta esta fecha (inclusive).
+    Cuando se proporcionan, las métricas de período (día/semana/mes) son
+    reemplazadas por métricas del rango personalizado.
     """
     from datetime import timedelta
     from django.utils import timezone
@@ -557,7 +565,17 @@ def obtener_metricas_tablero_ganancias(dias_serie: int = 14) -> Dict[str, Any]:
     ayer = hoy - timedelta(days=1)
 
     # Base queryset: solo operaciones pagadas/completadas
-    qs_pagadas = Operacion.objects.filter(estado=Operacion.EstadoOperacion.PAGADA)
+    qs_base = Operacion.objects.filter(estado=Operacion.EstadoOperacion.PAGADA)
+
+    # Aplicar filtro de rango personalizado al queryset global si se indica
+    filtro_activo = fecha_desde is not None or fecha_hasta is not None
+    if filtro_activo:
+        if fecha_desde:
+            qs_base = qs_base.filter(fecha__date__gte=fecha_desde)
+        if fecha_hasta:
+            qs_base = qs_base.filter(fecha__date__lte=fecha_hasta)
+
+    qs_pagadas = qs_base
 
     # 1. DÍA ACTUAL vs AYER
     ops_hoy = qs_pagadas.filter(fecha__date=hoy)
@@ -687,13 +705,26 @@ def obtener_metricas_tablero_ganancias(dias_serie: int = 14) -> Dict[str, Any]:
             'porcentaje': round(float(pct), 2),
         })
 
-    # 6. SERIE TEMPORAL (ÚLTIMOS N DÍAS)
-    fecha_inicio_serie = hoy - timedelta(days=dias_serie - 1)
-    ops_serie = qs_pagadas.filter(fecha__date__gte=fecha_inicio_serie, fecha__date__lte=hoy)
+    # 6. SERIE TEMPORAL
+    # Si hay filtro personalizado, construir la serie en el rango indicado; si no, últimos N días.
+    if filtro_activo:
+        f_desde_serie = fecha_desde or (hoy - timedelta(days=dias_serie - 1))
+        f_hasta_serie = fecha_hasta or hoy
+    else:
+        f_desde_serie = hoy - timedelta(days=dias_serie - 1)
+        f_hasta_serie = hoy
+
+    # Limitar la serie a un máximo de 90 días para no sobrecargar el gráfico
+    delta_dias = (f_hasta_serie - f_desde_serie).days + 1
+    if delta_dias > 90:
+        f_desde_serie = f_hasta_serie - timedelta(days=89)
+        delta_dias = 90
+
+    ops_serie = qs_pagadas.filter(fecha__date__gte=f_desde_serie, fecha__date__lte=f_hasta_serie)
 
     serie_dict = {}
-    for i in range(dias_serie):
-        f = fecha_inicio_serie + timedelta(days=i)
+    for i in range(delta_dias):
+        f = f_desde_serie + timedelta(days=i)
         serie_dict[f] = {
             'fecha': f.strftime('%d/%m'),
             'fecha_iso': f.strftime('%Y-%m-%d'),
@@ -715,13 +746,16 @@ def obtener_metricas_tablero_ganancias(dias_serie: int = 14) -> Dict[str, Any]:
 
     serie_temporal = list(serie_dict.values())
 
-    # 7. ÚLTIMAS OPERACIONES (recientes pagadas)
+    # 7. ÚLTIMAS OPERACIONES (recientes pagadas dentro del rango)
     ultimas_operaciones = list(qs_pagadas.select_related('cliente', 'moneda').order_by('-fecha')[:8])
 
     return {
         'ahora': ahora,
         'hoy': hoy,
         'ayer': ayer,
+        'filtro_activo': filtro_activo,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
         'dia': {
             'ganancias': ganancias_hoy,
             'operaciones': total_ops_hoy,

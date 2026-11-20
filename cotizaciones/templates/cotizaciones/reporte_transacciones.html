@@ -225,7 +225,7 @@
                     <i class="bi bi-currency-dollar" style="color:#10b981;"></i>
                 </div>
                 <div class="metric-label">Total Ganancias / Comisiones</div>
-                <div class="metric-value" style="color:#10b981;">{{ total_comisiones|floatformat:2 }}</div>
+                <div class="metric-value" style="color:#10b981;">Gs. {{ total_comisiones|guaranies }}</div>
                 <div class="metric-sub">Suma de comisiones del período</div>
             </div>
         </div>
@@ -237,7 +237,7 @@
                 </div>
                 <div class="metric-label">Operaciones de Compra</div>
                 <div class="metric-value" style="color:#38bdf8;">{{ total_compras }}</div>
-                <div class="metric-sub">Comisiones: {{ comisiones_compras|floatformat:2 }}</div>
+                <div class="metric-sub">Comisiones: Gs. {{ comisiones_compras|guaranies }}</div>
             </div>
         </div>
         <!-- Ventas -->
@@ -248,7 +248,7 @@
                 </div>
                 <div class="metric-label">Operaciones de Venta</div>
                 <div class="metric-value" style="color:#c084fc;">{{ total_ventas }}</div>
-                <div class="metric-sub">Comisiones: {{ comisiones_ventas|floatformat:2 }}</div>
+                <div class="metric-sub">Comisiones: Gs. {{ comisiones_ventas|guaranies }}</div>
             </div>
         </div>
     </div>
@@ -326,11 +326,11 @@
                         <th>Cliente</th>
                         <th>Tipo</th>
                         <th>Moneda</th>
-                        <th>Monto</th>
-                        <th>Tasa</th>
-                        <th>Subtotal</th>
-                        <th>Comisión</th>
-                        <th>Total Neto</th>
+                        <th class="text-end">Monto</th>
+                        <th class="text-end">Tasa</th>
+                        <th class="text-end">Subtotal</th>
+                        <th class="text-end">Comisión</th>
+                        <th class="text-end">Total Neto</th>
                         <th>Estado</th>
                         <th>Canal</th>
                     </tr>
@@ -352,11 +352,11 @@
                             <span style="font-weight:600;">{{ op.moneda.siglas }}</span>
                             <span style="color:#64748b; font-size:0.75rem; display:block;">{{ op.moneda.nombre }}</span>
                         </td>
-                        <td style="font-weight:600;">{{ op.monto }}</td>
-                        <td style="font-size:0.8rem; color:#94a3b8;">{{ op.tasa_aplicada }}</td>
-                        <td>{{ op.subtotal }}</td>
-                        <td style="color:#10b981; font-weight:600;">{{ op.comision }}</td>
-                        <td style="font-weight:600;">{{ op.total_neto }}</td>
+                        <td class="text-end" style="font-weight:600;">{{ op.monto|punto_miles:2 }}</td>
+                        <td class="text-end" style="font-size:0.8rem; color:#94a3b8;">{{ op.tasa_aplicada|punto_miles:2 }}</td>
+                        <td class="text-end">{{ op.subtotal|punto_miles:2 }}</td>
+                        <td class="text-end" style="color:#10b981; font-weight:600;">{{ op.comision|punto_miles:2 }}</td>
+                        <td class="text-end" style="font-weight:600;">{{ op.total_neto|punto_miles:2 }}</td>
                         <td>
                             <span class="badge-estado estado-{{ op.estado }}">
                                 {{ op.get_estado_display }}

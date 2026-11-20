@@ -207,8 +207,8 @@
                         <th>ID</th>
                         <th>Cliente</th>
                         <th>Tipo</th>
-                        <th>Monto & Moneda</th>
-                        <th>Tasa / Comisión</th>
+                        <th class="text-end">Monto & Moneda</th>
+                        <th class="text-end">Tasa / Comisión</th>
                         <th>Fecha</th>
                         <th>Estado</th>
                         <th>Comprobante</th>
@@ -220,12 +220,12 @@
                         <td style="color:#475569; font-size:0.8rem;">#{{ op.id|stringformat:"05d" }}</td>
                         <td>{{ op.cliente }}</td>
                         <td class="tipo-{{ op.tipo }}">{{ op.get_tipo_display }}</td>
-                        <td style="font-weight: 600;">
-                            {{ op.monto }} <span style="color:#94a3b8; font-size:0.75rem;">{{ op.moneda.siglas }}</span>
+                        <td class="text-end" style="font-weight: 600;">
+                            {{ op.monto|punto_miles:2 }} <span style="color:#94a3b8; font-size:0.75rem;">{{ op.moneda.siglas }}</span>
                         </td>
-                        <td>
-                            <div style="font-size:0.8rem;">Tasa: {{ op.tasa_aplicada }}</div>
-                            <div style="color:#94a3b8; font-size:0.75rem;">Comisión: {{ op.comision }}</div>
+                        <td class="text-end">
+                            <div style="font-size:0.8rem;">Tasa: {{ op.tasa_aplicada|punto_miles:2 }}</div>
+                            <div style="color:#94a3b8; font-size:0.75rem;">Comisión: {{ op.comision|punto_miles:2 }}</div>
                         </td>
                         <td style="font-size:0.8rem;">
                             <div>{{ op.fecha|date:"d/m/Y" }}</div>

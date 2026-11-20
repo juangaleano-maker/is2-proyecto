@@ -2220,12 +2220,63 @@ def tablero_ganancias_view(request):
     - Total de ganancias acumuladas (comisiones).
     - Comparativas por período: día, semana y mes.
     - Desglose de ganancias por tipo de operación (compras vs. ventas) y por moneda.
+    - Filtro por rango de fechas personalizado.
     - Actualización directa de datos al recargar la página.
     Acceso exclusivo para usuarios con rol admin.
     """
     from .services import obtener_metricas_tablero_ganancias
 
-    metricas = obtener_metricas_tablero_ganancias()
+    # Leer parámetros de filtro de período
+    fecha_desde_str = request.GET.get('fecha_desde', '').strip()
+    fecha_hasta_str = request.GET.get('fecha_hasta', '').strip()
+    periodo_rapido = request.GET.get('periodo', '').strip()
+
+    fecha_desde = None
+    fecha_hasta = None
+
+    # Manejar atajos de período rápido
+    from datetime import date, timedelta
+    hoy = date.today()
+    if periodo_rapido == 'hoy':
+        fecha_desde = hoy
+        fecha_hasta = hoy
+    elif periodo_rapido == 'ayer':
+        fecha_desde = hoy - timedelta(days=1)
+        fecha_hasta = hoy - timedelta(days=1)
+    elif periodo_rapido == 'semana':
+        fecha_desde = hoy - timedelta(days=hoy.weekday())
+        fecha_hasta = hoy
+    elif periodo_rapido == 'mes':
+        fecha_desde = hoy.replace(day=1)
+        fecha_hasta = hoy
+    elif periodo_rapido == 'ultimos_7':
+        fecha_desde = hoy - timedelta(days=6)
+        fecha_hasta = hoy
+    elif periodo_rapido == 'ultimos_30':
+        fecha_desde = hoy - timedelta(days=29)
+        fecha_hasta = hoy
+    elif periodo_rapido == 'ultimos_90':
+        fecha_desde = hoy - timedelta(days=89)
+        fecha_hasta = hoy
+    else:
+        # Parsear fechas manuales del formulario
+        if fecha_desde_str:
+            try:
+                from datetime import datetime
+                fecha_desde = datetime.strptime(fecha_desde_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+        if fecha_hasta_str:
+            try:
+                from datetime import datetime
+                fecha_hasta = datetime.strptime(fecha_hasta_str, '%Y-%m-%d').date()
+            except ValueError:
+                pass
+
+    metricas = obtener_metricas_tablero_ganancias(
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+    )
 
     # Serializar datos JSON para los gráficos
     chart_series_json = json.dumps([
@@ -2253,6 +2304,9 @@ def tablero_ganancias_view(request):
         'metricas': metricas,
         'chart_series_json': chart_series_json,
         'tipo_operacion_json': tipo_operacion_json,
+        'fecha_desde_str': fecha_desde.strftime('%Y-%m-%d') if fecha_desde else '',
+        'fecha_hasta_str': fecha_hasta.strftime('%Y-%m-%d') if fecha_hasta else '',
+        'periodo_rapido': periodo_rapido,
     })
 
 

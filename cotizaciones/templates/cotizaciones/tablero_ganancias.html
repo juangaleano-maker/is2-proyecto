@@ -45,7 +45,7 @@
 
         /* Main layout */
         .main-content { margin-left: 260px; padding: 32px; }
-        .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
         .topbar h1 { color: #f8fafc; font-size: 1.5rem; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 10px; }
         .topbar p { color: #64748b; font-size: 0.875rem; margin: 4px 0 0; }
         
@@ -69,6 +69,96 @@
             transition: all 0.2s;
         }
         .btn-reload:hover { background: #334155; color: #fff; }
+
+        /* ── BARRA DE FILTROS DE PERÍODO ── */
+        .filter-bar {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 12px;
+        }
+        .filter-bar label {
+            color: #94a3b8;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .filter-bar input[type="date"] {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #f8fafc;
+            padding: 7px 10px;
+            font-size: 0.82rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .filter-bar input[type="date"]:focus { border-color: #38bdf8; }
+        .filter-bar input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+        .btn-filter-apply {
+            background: #0ea5e9;
+            border: none;
+            color: #fff;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-filter-apply:hover { background: #0284c7; }
+        .btn-filter-clear {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #94a3b8;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-filter-clear:hover { background: rgba(255,255,255,0.05); color: #f8fafc; }
+        .period-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .btn-period {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #94a3b8;
+            padding: 5px 11px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .btn-period:hover, .btn-period.active {
+            background: rgba(56, 189, 248, 0.15);
+            border-color: rgba(56, 189, 248, 0.4);
+            color: #38bdf8;
+        }
+        .filter-active-badge {
+            background: rgba(234, 179, 8, 0.15);
+            border: 1px solid rgba(234, 179, 8, 0.3);
+            color: #eab308;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
 
         /* Tarjeta Hero: Total Ganancias Acumuladas */
         .hero-banner {
@@ -161,6 +251,11 @@
             vertical-align: middle;
             font-size: 0.875rem;
         }
+        /* Números alineados a la derecha */
+        .table-dark-custom th.text-num,
+        .table-dark-custom td.text-num {
+            text-align: right;
+        }
         .table-dark-custom tbody tr:hover { background: rgba(56,189,248,0.03); }
 
         /* Progress bars */
@@ -240,19 +335,82 @@
         </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════
+         BARRA DE FILTROS DE PERÍODO
+    ══════════════════════════════════════════════════════ -->
+    <div class="filter-bar">
+        <!-- Atajos rápidos -->
+        <div>
+            <label><i class="bi bi-lightning-charge"></i> Período rápido</label>
+            <div class="period-shortcuts">
+                <a href="?periodo=hoy"       class="btn-period {% if periodo_rapido == 'hoy' %}active{% endif %}">Hoy</a>
+                <a href="?periodo=ayer"      class="btn-period {% if periodo_rapido == 'ayer' %}active{% endif %}">Ayer</a>
+                <a href="?periodo=semana"    class="btn-period {% if periodo_rapido == 'semana' %}active{% endif %}">Esta semana</a>
+                <a href="?periodo=mes"       class="btn-period {% if periodo_rapido == 'mes' %}active{% endif %}">Este mes</a>
+                <a href="?periodo=ultimos_7" class="btn-period {% if periodo_rapido == 'ultimos_7' %}active{% endif %}">Últimos 7d</a>
+                <a href="?periodo=ultimos_30"class="btn-period {% if periodo_rapido == 'ultimos_30' %}active{% endif %}">Últimos 30d</a>
+                <a href="?periodo=ultimos_90"class="btn-period {% if periodo_rapido == 'ultimos_90' %}active{% endif %}">Últimos 90d</a>
+                <a href="{% url 'tablero_ganancias' %}" class="btn-period {% if not periodo_rapido and not fecha_desde_str %}active{% endif %}">Todo</a>
+            </div>
+        </div>
+
+        <!-- Selector de rango personalizado -->
+        <form method="get" action="{% url 'tablero_ganancias' %}" class="d-flex align-items-end gap-3 flex-wrap">
+            <div>
+                <label for="fecha_desde"><i class="bi bi-calendar-event"></i> Desde</label>
+                <input type="date" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde_str }}">
+            </div>
+            <div>
+                <label for="fecha_hasta"><i class="bi bi-calendar-event-fill"></i> Hasta</label>
+                <input type="date" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta_str }}">
+            </div>
+            <button type="submit" class="btn-filter-apply">
+                <i class="bi bi-funnel-fill"></i> Filtrar
+            </button>
+            {% if metricas.filtro_activo %}
+            <a href="{% url 'tablero_ganancias' %}" class="btn-filter-clear">
+                <i class="bi bi-x-circle"></i> Limpiar
+            </a>
+            {% endif %}
+        </form>
+
+        <!-- Indicador de filtro activo -->
+        {% if metricas.filtro_activo %}
+        <div class="filter-active-badge">
+            <i class="bi bi-funnel-fill"></i>
+            Filtro activo:
+            {% if metricas.fecha_desde %}{{ metricas.fecha_desde|date:"d/m/Y" }}{% else %}inicio{% endif %}
+            →
+            {% if metricas.fecha_hasta %}{{ metricas.fecha_hasta|date:"d/m/Y" }}{% else %}hoy{% endif %}
+        </div>
+        {% endif %}
+    </div>
+
     <!-- CRITERIO 1: TOTAL DE GANANCIAS ACUMULADAS (COMISIONES) -->
     <div class="hero-banner">
         <div class="hero-left">
-            <h6><i class="bi bi-cash-coin"></i> Total de Ganancias Acumuladas (Comisiones)</h6>
-            <div class="hero-val">
+            <h6>
+                <i class="bi bi-cash-coin"></i>
+                {% if metricas.filtro_activo %}
+                    Ganancias del Período Filtrado
+                {% else %}
+                    Total de Ganancias Acumuladas (Comisiones)
+                {% endif %}
+            </h6>
+            <div class="hero-val" id="hero-total">
                 Gs. {{ metricas.total.ganancias|floatformat:0 }}
             </div>
             <div class="hero-sub">
                 Comisiones generadas en un total de <strong>{{ metricas.total.operaciones }}</strong> operaciones pagadas
+                {% if metricas.filtro_activo %}
+                <span class="ms-2 filter-active-badge" style="font-size:0.7rem;">
+                    <i class="bi bi-funnel"></i> Período personalizado
+                </span>
+                {% endif %}
             </div>
         </div>
         <div class="text-end">
-            <a href="{% url 'reporte_transacciones' %}" class="btn btn-outline-light btn-sm" style="font-size: 0.8rem; font-weight: 600;">
+            <a href="{% url 'reporte_transacciones' %}{% if fecha_desde_str or fecha_hasta_str %}?fecha_desde={{ fecha_desde_str }}&fecha_hasta={{ fecha_hasta_str }}{% endif %}" class="btn btn-outline-light btn-sm" style="font-size: 0.8rem; font-weight: 600;">
                 <i class="bi bi-file-earmark-text me-1"></i> Ver Reporte Detallado
             </a>
         </div>
@@ -267,7 +425,7 @@
                     <div class="metric-card-header">
                         <div>
                             <div class="metric-label-title">Período: Día (Hoy)</div>
-                            <div class="metric-large-val" style="color: #38bdf8;">
+                            <div class="metric-large-val num-fmt" data-value="{{ metricas.dia.ganancias|floatformat:0 }}" style="color: #38bdf8;">
                                 Gs. {{ metricas.dia.ganancias|floatformat:0 }}
                             </div>
                         </div>
@@ -285,7 +443,7 @@
                             <span class="text-danger fw-bold"><i class="bi bi-arrow-down"></i>{{ metricas.dia.variacion_pct }}%</span>
                         {% else %}
                             <span class="text-muted">0.0%</span>
-                        {% endif %} vs. ayer (Gs. {{ metricas.dia.ganancias_ayer|floatformat:0 }})
+                        {% endif %} vs. ayer (Gs. <span class="num-fmt" data-value="{{ metricas.dia.ganancias_ayer|floatformat:0 }}">{{ metricas.dia.ganancias_ayer|floatformat:0 }}</span>)
                     </span>
                 </div>
             </div>
@@ -298,7 +456,7 @@
                     <div class="metric-card-header">
                         <div>
                             <div class="metric-label-title">Período: Esta Semana</div>
-                            <div class="metric-large-val" style="color: #10b981;">
+                            <div class="metric-large-val num-fmt" data-value="{{ metricas.semana.ganancias|floatformat:0 }}" style="color: #10b981;">
                                 Gs. {{ metricas.semana.ganancias|floatformat:0 }}
                             </div>
                         </div>
@@ -329,7 +487,7 @@
                     <div class="metric-card-header">
                         <div>
                             <div class="metric-label-title">Período: Este Mes</div>
-                            <div class="metric-large-val" style="color: #c084fc;">
+                            <div class="metric-large-val num-fmt" data-value="{{ metricas.mes.ganancias|floatformat:0 }}" style="color: #c084fc;">
                                 Gs. {{ metricas.mes.ganancias|floatformat:0 }}
                             </div>
                         </div>
@@ -361,7 +519,13 @@
             <div class="panel-card h-100 mb-0">
                 <div class="panel-card-header">
                     <h6><i class="bi bi-graph-up text-info"></i> Evolución de Ganancias Diarias</h6>
-                    <span class="text-muted" style="font-size: 0.75rem;">Últimos 14 días</span>
+                    <span class="text-muted" style="font-size: 0.75rem;">
+                        {% if metricas.filtro_activo %}
+                            Período filtrado
+                        {% else %}
+                            Últimos 14 días
+                        {% endif %}
+                    </span>
                 </div>
                 <div class="panel-body-padded">
                     <div class="chart-box">
@@ -394,7 +558,7 @@
                             </div>
                         </div>
                         <div class="text-end">
-                            <div style="font-weight: 700; color: #38bdf8; font-size: 0.95rem;">
+                            <div style="font-weight: 700; color: #38bdf8; font-size: 0.95rem;" class="num-fmt" data-value="{{ metricas.tipo_operacion.compras_comision|floatformat:0 }}">
                                 Gs. {{ metricas.tipo_operacion.compras_comision|floatformat:0 }}
                             </div>
                             <div style="font-size: 0.75rem; color: #94a3b8;">
@@ -414,7 +578,7 @@
                             </div>
                         </div>
                         <div class="text-end">
-                            <div style="font-weight: 700; color: #c084fc; font-size: 0.95rem;">
+                            <div style="font-weight: 700; color: #c084fc; font-size: 0.95rem;" class="num-fmt" data-value="{{ metricas.tipo_operacion.ventas_comision|floatformat:0 }}">
                                 Gs. {{ metricas.tipo_operacion.ventas_comision|floatformat:0 }}
                             </div>
                             <div style="font-size: 0.75rem; color: #94a3b8;">
@@ -441,11 +605,11 @@
                 <thead>
                     <tr>
                         <th>Moneda</th>
-                        <th>Ganancias (Comisiones)</th>
+                        <th class="text-num">Ganancias (Comisiones)</th>
                         <th>Participación</th>
-                        <th>Operaciones</th>
+                        <th class="text-num">Operaciones</th>
                         <th>Compras / Ventas</th>
-                        <th>Volumen Operado</th>
+                        <th class="text-num">Volumen Operado</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -457,8 +621,8 @@
                                 <div style="color: #64748b; font-size: 0.75rem;">{{ m.nombre }}</div>
                             </a>
                         </td>
-                        <td>
-                            <div style="color: #10b981; font-weight: 700; font-size: 0.95rem;">
+                        <td class="text-num">
+                            <div style="color: #10b981; font-weight: 700; font-size: 0.95rem;" class="num-fmt" data-value="{{ m.total_comisiones|floatformat:0 }}">
                                 Gs. {{ m.total_comisiones|floatformat:0 }}
                             </div>
                         </td>
@@ -470,7 +634,7 @@
                                 <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">{{ m.porcentaje }}%</span>
                             </div>
                         </td>
-                        <td>
+                        <td class="text-num">
                             <span class="badge bg-dark border border-secondary" style="font-size: 0.8rem;">
                                 {{ m.total_ops }} ops
                             </span>
@@ -479,8 +643,9 @@
                             <span class="text-info">{{ m.total_compras }} compras</span> &bull; 
                             <span style="color: #c084fc;">{{ m.total_ventas }} ventas</span>
                         </td>
-                        <td style="font-weight: 600; font-size: 0.85rem;">
-                            {{ m.volumen_divisa|floatformat:2 }} <span style="color: #64748b; font-size: 0.75rem;">{{ m.siglas }}</span>
+                        <td class="text-num" style="font-weight: 600; font-size: 0.85rem;">
+                            <span class="num-fmt-dec" data-value="{{ m.volumen_divisa|floatformat:2 }}">{{ m.volumen_divisa|floatformat:2 }}</span>
+                            <span style="color: #64748b; font-size: 0.75rem;"> {{ m.siglas }}</span>
                         </td>
                     </tr>
                     {% empty %}
@@ -503,7 +668,39 @@
 <script id="data-tipo" type="application/json">{{ tipo_operacion_json|safe }}</script>
 
 <script>
+    // ── Separador de miles (punto) para Paraguay ──────────────────────────────
+    function fmtGs(val) {
+        const n = parseFloat(String(val).replace(/\./g, '').replace(',', '.'));
+        if (isNaN(n)) return val;
+        return 'Gs. ' + Math.round(n).toLocaleString('es-PY');
+    }
+    function fmtDec(val) {
+        const n = parseFloat(String(val).replace(/\./g, '').replace(',', '.'));
+        if (isNaN(n)) return val;
+        return n.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+
+        // Formatear todos los elementos marcados con .num-fmt (enteros Guaraní)
+        document.querySelectorAll('.num-fmt').forEach(el => {
+            const raw = el.dataset.value || el.textContent;
+            el.textContent = fmtGs(raw);
+        });
+
+        // Formatear valores decimales (volumen)
+        document.querySelectorAll('.num-fmt-dec').forEach(el => {
+            const raw = el.dataset.value || el.textContent;
+            el.textContent = fmtDec(raw);
+        });
+
+        // Hero total (ya viene renderizado por Django — lo re-formateamos)
+        const heroEl = document.getElementById('hero-total');
+        if (heroEl) {
+            const rawHero = heroEl.textContent.replace('Gs.', '').trim();
+            heroEl.textContent = fmtGs(rawHero);
+        }
+
         // 1. Gráfico de Evolución
         const series = JSON.parse(document.getElementById('data-series').textContent || '[]');
         const ctxEvolucion = document.getElementById('chartEvolucion').getContext('2d');
@@ -549,7 +746,7 @@
                     },
                     tooltip: {
                         callbacks: {
-                            label: ctx => ctx.dataset.label + ': Gs. ' + Number(ctx.parsed.y).toLocaleString('es-PY')
+                            label: ctx => ctx.dataset.label + ': ' + Number(ctx.parsed.y).toLocaleString('es-PY', { minimumFractionDigits: 0 }) + ' Gs.'
                         }
                     }
                 },
@@ -563,7 +760,7 @@
                         grid: { color: 'rgba(255, 255, 255, 0.05)' },
                         ticks: {
                             color: '#64748b',
-                            callback: v => 'Gs. ' + Number(v).toLocaleString('es-PY')
+                            callback: v => Number(v).toLocaleString('es-PY') + ' Gs.'
                         }
                     }
                 }
@@ -592,7 +789,7 @@
                     tooltip: {
                         enabled: tieneData,
                         callbacks: {
-                            label: ctx => ctx.label + ': Gs. ' + Number(ctx.raw).toLocaleString('es-PY')
+                            label: ctx => ctx.label + ': ' + Number(ctx.raw).toLocaleString('es-PY') + ' Gs.'
                         }
                     }
                 },

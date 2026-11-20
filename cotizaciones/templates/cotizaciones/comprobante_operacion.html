@@ -131,15 +131,15 @@
         </tr>
         <tr>
             <th>Tasa Aplicada</th>
-            <td>{{ operacion.tasa_aplicada }}</td>
+            <td>{{ operacion.tasa_aplicada|punto_miles:2 }}</td>
         </tr>
         <tr>
             <th>Comisión</th>
-            <td>{{ operacion.comision }}</td>
+            <td>{{ operacion.comision|punto_miles:2 }}</td>
         </tr>
         <tr class="total-row">
             <th>Monto Total ({{ operacion.moneda.siglas }})</th>
-            <td>{{ operacion.monto }}</td>
+            <td>{{ operacion.monto|punto_miles:2 }}</td>
         </tr>
         <tr>
             <th>Canal de Atención</th>

@@ -455,16 +455,16 @@
                     <td>
                         Servicio de intermediación y cambio de divisas<br>
                         <span style="font-size: 9.5px; color: #475569;">
-                            {{ operacion.get_tipo_display }} de {{ factura.monto|floatformat:2 }} {{ factura.moneda_siglas }} (Tasa: {{ factura.tasa_aplicada|floatformat:0 }})
+                            {{ operacion.get_tipo_display }} de {{ factura.monto|punto_miles:2 }} {{ factura.moneda_siglas }} (Tasa: {{ factura.tasa_aplicada|punto_miles:2 }})
                         </span>
                     </td>
                     <td style="text-align: center;">Unid</td>
                     <td style="text-align: center;">1</td>
-                    <td class="num">{{ factura.total_liquidado|floatformat:0 }}</td>
+                    <td class="num">{{ factura.total_liquidado|guaranies }}</td>
                     <td class="num">0</td>
                     <td class="num">0</td>
                     <td class="num">0</td>
-                    <td class="num" style="font-weight: bold;">{{ factura.total_liquidado|floatformat:0 }}</td>
+                    <td class="num" style="font-weight: bold;">{{ factura.total_liquidado|guaranies }}</td>
                 </tr>
             </tbody>
             <tfoot>
@@ -472,25 +472,25 @@
                     <td colspan="6" style="text-align: right; text-transform: uppercase;">SUBTOTAL:</td>
                     <td class="num">0</td>
                     <td class="num">0</td>
-                    <td class="num">{{ factura.total_liquidado|floatformat:0 }}</td>
+                    <td class="num">{{ factura.total_liquidado|guaranies }}</td>
                 </tr>
                 <tr class="summary-row">
                     <td colspan="8" style="text-align: right; text-transform: uppercase;">TOTAL DE LA OPERACIÓN:</td>
-                    <td class="num" style="font-size: 11px;">{{ factura.total_liquidado|floatformat:0 }}</td>
+                    <td class="num" style="font-size: 11px;">{{ factura.total_liquidado|guaranies }}</td>
                 </tr>
                 <tr class="summary-row">
                     <td colspan="6" style="text-align: left; font-size: 10px;">
                         <strong>TOTAL EN GUARANÍES EN LETRAS:</strong> SON: GUARANÍES {{ total_en_letras }}
                     </td>
                     <td colspan="2" style="text-align: right; text-transform: uppercase;">TOTAL EN GUARANÍES:</td>
-                    <td class="num" style="font-size: 11.5px; font-weight: bold;">{{ factura.total_liquidado|floatformat:0 }}</td>
+                    <td class="num" style="font-size: 11.5px; font-weight: bold;">{{ factura.total_liquidado|guaranies }}</td>
                 </tr>
                 <tr class="summary-row">
                     <td colspan="9" style="font-size: 10px; background: #ffffff;">
                         <strong>LIQUIDACIÓN IVA / LIQUIDACIÓN DEL IMPUESTO AL VALOR AGREGADO:</strong> &nbsp;&nbsp;&nbsp;&nbsp;
                         <strong>(5%)</strong> 0 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                        <strong>(10%)</strong> {{ factura.iva_liquidado|floatformat:0 }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                        <strong>TOTAL IVA:</strong> {{ factura.iva_liquidado|floatformat:0 }}
+                        <strong>(10%)</strong> {{ factura.iva_liquidado|guaranies }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        <strong>TOTAL IVA:</strong> {{ factura.iva_liquidado|guaranies }}
                     </td>
                 </tr>
             </tfoot>

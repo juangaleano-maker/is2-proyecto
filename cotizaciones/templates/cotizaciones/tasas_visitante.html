@@ -367,12 +367,12 @@
                 <div class="rate-box">
                     <div class="rate-item rate-buy">
                         <div class="rate-label">Compra (Recibís)</div>
-                        <div class="rate-val">{{ t.compra }}</div>
+                        <div class="rate-val">{{ t.compra|punto_miles:2 }}</div>
                         <div style="font-size: 11px; color: #047857; margin-top: 2px;">{{ t.moneda_destino.siglas }}</div>
                     </div>
                     <div class="rate-item rate-sell">
                         <div class="rate-label">Venta (Entregás)</div>
-                        <div class="rate-val">{{ t.venta }}</div>
+                        <div class="rate-val">{{ t.venta|punto_miles:2 }}</div>
                         <div style="font-size: 11px; color: #1d4ed8; margin-top: 2px;">{{ t.moneda_destino.siglas }}</div>
                     </div>
                 </div>
@@ -381,7 +381,7 @@
                 {% if t.spread %}
                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 8px; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
                     <span>Spread Cambiario:</span>
-                    <strong>{{ t.spread }} {{ t.moneda_destino.siglas }}</strong>
+                    <strong>{{ t.spread|punto_miles:2 }} {{ t.moneda_destino.siglas }}</strong>
                 </div>
                 {% endif %}
                 <div class="rate-footer">

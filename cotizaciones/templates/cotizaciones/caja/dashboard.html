@@ -192,19 +192,19 @@
       </div>
       <div class="msc-row">
         <span class="msc-label">Fondo Inicial:</span>
-        <span class="msc-val">{{ s.monto_inicial|floatformat:2 }}</span>
+        <span class="msc-val">{{ s.monto_inicial|punto_miles:2 }}</span>
       </div>
       <div class="msc-row">
         <span class="msc-label">Ingresos del Turno:</span>
-        <span class="msc-val green">+ {{ s.ingresos|floatformat:2 }}</span>
+        <span class="msc-val green">+ {{ s.ingresos|punto_miles:2 }}</span>
       </div>
       <div class="msc-row">
         <span class="msc-label">Egresos del Turno:</span>
-        <span class="msc-val red">- {{ s.egresos|floatformat:2 }}</span>
+        <span class="msc-val red">- {{ s.egresos|punto_miles:2 }}</span>
       </div>
       <div class="msc-saldo-box">
         <span class="msc-saldo-label">Saldo Estimado</span>
-        <span class="msc-saldo-val">{{ s.saldo_esperado|floatformat:2 }} <span style="font-size: 0.8rem; font-weight: 600;">{{ s.moneda.siglas }}</span></span>
+        <span class="msc-saldo-val">{{ s.saldo_esperado|punto_miles:2 }} <span style="font-size: 0.8rem; font-weight: 600;">{{ s.moneda.siglas }}</span></span>
       </div>
     </div>
     {% endfor %}
@@ -220,8 +220,8 @@
           <th>Hora</th>
           <th>Cliente</th>
           <th>Tipo</th>
-          <th>Monto Divisa</th>
-          <th>Total Local</th>
+          <th style="text-align: right;">Monto Divisa</th>
+          <th style="text-align: right;">Total Local</th>
           <th>Estado</th>
           <th>Comprobante</th>
         </tr>
@@ -239,10 +239,10 @@
               <span class="badge-sobrante">VENTA</span>
             {% endif %}
           </td>
-          <td><strong>{{ op.monto|floatformat:2 }} {{ op.moneda.siglas }}</strong></td>
-          <td>
+          <td style="text-align: right;"><strong>{{ op.monto|punto_miles:2 }} {{ op.moneda.siglas }}</strong></td>
+          <td style="text-align: right;">
             {% if op.monto_moneda_local %}
-              Gs. {{ op.monto_moneda_local|floatformat:0 }}
+              Gs. {{ op.monto_moneda_local|guaranies }}
             {% else %}
               —
             {% endif %}

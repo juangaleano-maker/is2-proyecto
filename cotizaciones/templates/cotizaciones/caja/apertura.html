@@ -199,7 +199,7 @@
           {% for d in m.denominaciones.all %}
           <div class="billete-item">
             <span class="billete-label">
-              Billete <strong>{{ d.valor|floatformat:0 }}</strong>
+              Billete <strong>{{ d.valor|punto_miles:0 }}</strong>
             </span>
             <input type="number" min="0" step="1" name="cant_billete_{{ d.id }}"
                    class="input-cant js-billete-input"
