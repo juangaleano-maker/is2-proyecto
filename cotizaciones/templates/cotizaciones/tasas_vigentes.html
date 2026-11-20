@@ -360,12 +360,12 @@
                 <div class="rate-box">
                     <div class="rate-item rate-buy">
                         <div class="rate-label">Compra (Recibís)</div>
-                        <div class="rate-val rate-val-compra">{{ t.compra|punto_miles:2 }}</div>
+                        <div class="rate-val rate-val-compra">{{ t.compra|punto_miles }}</div>
                         <div style="font-size: 11px; color: #047857; margin-top: 2px;">{{ t.moneda_destino.siglas }}</div>
                     </div>
                     <div class="rate-item rate-sell">
                         <div class="rate-label">Venta (Entregás)</div>
-                        <div class="rate-val rate-val-venta">{{ t.venta|punto_miles:2 }}</div>
+                        <div class="rate-val rate-val-venta">{{ t.venta|punto_miles }}</div>
                         <div style="font-size: 11px; color: #1d4ed8; margin-top: 2px;">{{ t.moneda_destino.siglas }}</div>
                     </div>
                 </div>
@@ -375,7 +375,7 @@
                 {% if t.spread %}
                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 8px; background: #f8fafc; padding: 4px 8px; border-radius: 4px;">
                     <span>Spread Cambiario:</span>
-                    <strong>{{ t.spread|punto_miles:2 }} {{ t.moneda_destino.siglas }}</strong>
+                    <strong>{{ t.spread|punto_miles }} {{ t.moneda_destino.siglas }}</strong>
                 </div>
                 {% endif %}
 
@@ -473,8 +473,8 @@
         const operation = opSelect.value;
         let appliedRate = (operation === 'compra') ? venta : compra;
         let total = amount * appliedRate;
-        resultText.innerText = total.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + destino;
-        rateAppliedText.innerText = `1 ${origen} = ${appliedRate.toLocaleString('es-PY', { minimumFractionDigits: 2 })} ${destino}`;
+        resultText.innerText = Math.round(total).toLocaleString('es-PY') + ' ' + destino;
+        rateAppliedText.innerText = `1 ${origen} = ${Math.round(appliedRate).toLocaleString('es-PY')} ${destino}`;
     }
 
     if (pairSelect && amountInput && opSelect) {
@@ -535,8 +535,8 @@
         const compraEl = card.querySelector('.rate-val-compra');
         const ventaEl = card.querySelector('.rate-val-venta');
         const fechaEl = card.querySelector('.rate-fecha');
-        if (compraEl) compraEl.textContent = parseFloat(compra).toLocaleString('es-PY', { minimumFractionDigits: 2 });
-        if (ventaEl) ventaEl.textContent = parseFloat(venta).toLocaleString('es-PY', { minimumFractionDigits: 2 });
+        if (compraEl) compraEl.textContent = Math.round(parseFloat(compra)).toLocaleString('es-PY');
+        if (ventaEl) ventaEl.textContent = Math.round(parseFloat(venta)).toLocaleString('es-PY');
         if (fechaEl && fecha) {
             const d = new Date(fecha);
             fechaEl.textContent = '🕒 Actualizado: ' + d.toLocaleDateString('es-PY') + ' ' + d.toLocaleTimeString('es-PY', {hour:'2-digit', minute:'2-digit'});

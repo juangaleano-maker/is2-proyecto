@@ -49,10 +49,10 @@
                     {% for d in denominaciones %}
                     <tr>
                         <td style="padding: 12px 14px; border-bottom: 1px solid #e2e8f0; font-size: 15px; font-weight: 700; color: #0f172a;">
-                            {{ d.valor|floatformat:2 }}
+                            {{ d.valor|punto_miles }}
                         </td>
                         <td style="padding: 12px 14px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #334155;">
-                            Billete de <strong>{{ moneda.siglas }} {{ d.valor|floatformat:0 }}</strong>
+                            Billete de <strong>{{ moneda.siglas }} {{ d.valor|punto_miles }}</strong>
                         </td>
                         <td style="padding: 12px 14px; border-bottom: 1px solid #e2e8f0;">
                             {% if d.activo %}

@@ -344,11 +344,11 @@
                         <td>
                             <strong>Operación de Cambio de Divisas</strong>
                             <div style="font-size: 12px; color: #64748b;">
-                                {{ operacion.get_tipo_display }} de {{ factura.monto|punto_miles:2 }} {{ factura.moneda_siglas }}
+                                {{ operacion.get_tipo_display }} de {{ factura.monto|punto_miles }} {{ factura.moneda_siglas }}
                             </div>
                         </td>
                         <td style="text-align: right; font-weight: 600;">
-                            {{ factura.monto|punto_miles:2 }} × {{ factura.tasa_aplicada|punto_miles:2 }}
+                            {{ factura.monto|punto_miles }} × {{ factura.tasa_aplicada|punto_miles }}
                         </td>
                         <td style="text-align: right; font-family: monospace; font-size: 14.5px;">
                             Gs. {{ factura.base_imponible|guaranies }}

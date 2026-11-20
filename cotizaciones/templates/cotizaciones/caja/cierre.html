@@ -256,7 +256,7 @@
           <span class="mac-badge">{{ m.siglas }}</span>
         </div>
         <div class="esperado-tag">
-          Saldo Estimado del Sistema: <strong>{{ item.saldo_esperado|punto_miles:2 }} {{ m.siglas }}</strong>
+          Saldo Estimado del Sistema: <strong>{{ item.saldo_esperado|punto_miles }} {{ m.siglas }}</strong>
         </div>
       </div>
 
@@ -278,7 +278,7 @@
             {% for d_item in item.denominaciones %}
             <tr>
               <td>
-                <strong style="color: #f1f5f9;">Billete {{ d_item.denominacion.valor|punto_miles:0 }}</strong>
+                <strong style="color: #f1f5f9;">Billete {{ d_item.denominacion.valor|punto_miles }}</strong>
                 <span style="font-size: 0.78rem; color: #64748b; margin-left: 4px;">{{ m.siglas }}</span>
               </td>
               <td style="text-align: center;">
@@ -369,7 +369,7 @@
       if (denomId) {
         const subDisplay = document.getElementById(`subtotal-billete-${denomId}`);
         if (subDisplay) {
-          subDisplay.textContent = subtotal.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          subDisplay.textContent = Math.round(subtotal).toLocaleString('es-PY');
         }
         const difSpan = document.getElementById(`dif-piezas-${denomId}`);
         if (difSpan) {
@@ -396,7 +396,7 @@
 
     const display = document.getElementById(`cierre-display-${monedaId}`);
     if (display) {
-      display.textContent = total.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      display.textContent = Math.round(total).toLocaleString('es-PY');
     }
 
     const difIndicator = document.getElementById(`dif-indicator-${monedaId}`);
@@ -408,10 +408,10 @@
         difIndicator.textContent = '✅ Saldo EXACTO';
       } else if (dif > 0) {
         difIndicator.className = 'diferencia-indicator dif-sobrante';
-        difIndicator.textContent = `⚠️ SOBRANTE: +${dif.toLocaleString('es-PY', { minimumFractionDigits: 2 })}`;
+        difIndicator.textContent = `⚠️ SOBRANTE: +${Math.round(dif).toLocaleString('es-PY')}`;
       } else {
         difIndicator.className = 'diferencia-indicator dif-faltante';
-        difIndicator.textContent = `🚨 FALTANTE: ${dif.toLocaleString('es-PY', { minimumFractionDigits: 2 })}`;
+        difIndicator.textContent = `🚨 FALTANTE: ${Math.round(dif).toLocaleString('es-PY')}`;
       }
     }
 

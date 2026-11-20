@@ -239,14 +239,14 @@
                         {% endif %}
                     </td>
                     <td class="col-num">
-                        <strong>{{ op.monto|punto_miles:2 }}</strong> {{ op.moneda.siglas }}
+                        <strong>{{ op.monto|punto_miles }}</strong> {{ op.moneda.siglas }}
                     </td>
-                    <td class="col-num">{{ op.tasa_aplicada|punto_miles:2 }} PYG</td>
+                    <td class="col-num">{{ op.tasa_aplicada|punto_miles }} PYG</td>
                     <td class="col-num" style="color: #b45309; font-weight: 600;">
-                        {{ op.comision|punto_miles:2 }} ₲
+                        {{ op.comision|punto_miles }} ₲
                     </td>
                     <td class="col-num" style="color: #047857; font-weight: 700;">
-                        {{ op.total_neto|punto_miles:2 }} ₲
+                        {{ op.total_neto|punto_miles }} ₲
                     </td>
                     <td>
                         {% if op.estado == 'PENDIENTE' %}

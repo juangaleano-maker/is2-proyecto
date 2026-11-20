@@ -352,11 +352,11 @@
                             <span style="font-weight:600;">{{ op.moneda.siglas }}</span>
                             <span style="color:#64748b; font-size:0.75rem; display:block;">{{ op.moneda.nombre }}</span>
                         </td>
-                        <td class="text-end" style="font-weight:600;">{{ op.monto|punto_miles:2 }}</td>
-                        <td class="text-end" style="font-size:0.8rem; color:#94a3b8;">{{ op.tasa_aplicada|punto_miles:2 }}</td>
-                        <td class="text-end">{{ op.subtotal|punto_miles:2 }}</td>
-                        <td class="text-end" style="color:#10b981; font-weight:600;">{{ op.comision|punto_miles:2 }}</td>
-                        <td class="text-end" style="font-weight:600;">{{ op.total_neto|punto_miles:2 }}</td>
+                        <td class="text-end" style="font-weight:600;">{{ op.monto|punto_miles }}</td>
+                        <td class="text-end" style="font-size:0.8rem; color:#94a3b8;">{{ op.tasa_aplicada|punto_miles }}</td>
+                        <td class="text-end">{{ op.subtotal|punto_miles }}</td>
+                        <td class="text-end" style="color:#10b981; font-weight:600;">{{ op.comision|punto_miles }}</td>
+                        <td class="text-end" style="font-weight:600;">{{ op.total_neto|punto_miles }}</td>
                         <td>
                             <span class="badge-estado estado-{{ op.estado }}">
                                 {{ op.get_estado_display }}

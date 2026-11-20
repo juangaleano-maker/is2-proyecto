@@ -113,19 +113,19 @@
                 </div>
                 <div class="summary-row">
                     <span style="color: #64748b;">Monto en Divisa:</span>
-                    <strong>{{ operacion.monto|punto_miles:2 }} {{ operacion.moneda.siglas }}</strong>
+                    <strong>{{ operacion.monto|punto_miles }} {{ operacion.moneda.siglas }}</strong>
                 </div>
                 <div class="summary-row">
                     <span style="color: #64748b;">Tasa Aplicada:</span>
-                    <span>1 {{ operacion.moneda.siglas }} = {{ operacion.tasa_aplicada|punto_miles:2 }} PYG</span>
+                    <span>1 {{ operacion.moneda.siglas }} = {{ operacion.tasa_aplicada|punto_miles }} PYG</span>
                 </div>
                 <div class="summary-row">
                     <span style="color: #64748b;">Liquidación en Guaraníes:</span>
-                    <span>{{ operacion.total_neto|punto_miles:2 }} ₲</span>
+                    <span>{{ operacion.total_neto|punto_miles }} ₲</span>
                 </div>
                 <div class="summary-row">
                     <span>Importe Stripe (USD):</span>
-                    <span>${{ monto_usd|punto_miles:2 }} USD</span>
+                    <span>${{ monto_usd|punto_miles }} USD</span>
                 </div>
             </div>
 
@@ -147,7 +147,7 @@
             <form method="post" action="{% url 'pagos:iniciar_pago_stripe' operacion.id %}" style="margin-bottom: 12px;">
                 {% csrf_token %}
                 <button type="submit" class="btn" style="width: 100%; background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%); color: white; border: none; padding: 14px 24px; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35); transition: all 0.2s ease;">
-                    <span>🔒 Pagar ${{ monto_usd|floatformat:2 }} USD en Stripe Checkout</span>
+                    <span>🔒 Pagar ${{ monto_usd|punto_miles }} USD en Stripe Checkout</span>
                     <span>→</span>
                 </button>
             </form>

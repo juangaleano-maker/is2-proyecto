@@ -192,19 +192,19 @@
       </div>
       <div class="msc-row">
         <span class="msc-label">Fondo Inicial:</span>
-        <span class="msc-val">{{ s.monto_inicial|punto_miles:2 }}</span>
+        <span class="msc-val">{{ s.monto_inicial|punto_miles }}</span>
       </div>
       <div class="msc-row">
         <span class="msc-label">Ingresos del Turno:</span>
-        <span class="msc-val green">+ {{ s.ingresos|punto_miles:2 }}</span>
+        <span class="msc-val green">+ {{ s.ingresos|punto_miles }}</span>
       </div>
       <div class="msc-row">
         <span class="msc-label">Egresos del Turno:</span>
-        <span class="msc-val red">- {{ s.egresos|punto_miles:2 }}</span>
+        <span class="msc-val red">- {{ s.egresos|punto_miles }}</span>
       </div>
       <div class="msc-saldo-box">
         <span class="msc-saldo-label">Saldo Estimado</span>
-        <span class="msc-saldo-val">{{ s.saldo_esperado|punto_miles:2 }} <span style="font-size: 0.8rem; font-weight: 600;">{{ s.moneda.siglas }}</span></span>
+        <span class="msc-saldo-val">{{ s.saldo_esperado|punto_miles }} <span style="font-size: 0.8rem; font-weight: 600;">{{ s.moneda.siglas }}</span></span>
       </div>
     </div>
     {% endfor %}
@@ -239,7 +239,7 @@
               <span class="badge-sobrante">VENTA</span>
             {% endif %}
           </td>
-          <td style="text-align: right;"><strong>{{ op.monto|punto_miles:2 }} {{ op.moneda.siglas }}</strong></td>
+          <td style="text-align: right;"><strong>{{ op.monto|punto_miles }} {{ op.moneda.siglas }}</strong></td>
           <td style="text-align: right;">
             {% if op.monto_moneda_local %}
               Gs. {{ op.monto_moneda_local|guaranies }}
@@ -314,17 +314,17 @@
           <td>{{ mov.fecha|date:"d/m/Y H:i:s" }}</td>
           <td>
             {% if mov.tipo == "INGRESO" %}
-              <span class="badge-abierta">🟢 + Gs. {{ mov.monto|floatformat:2 }}</span>
+              <span class="badge-abierta">🟢 + Gs. {{ mov.monto|punto_miles }}</span>
             {% else %}
-              <span class="badge-sobrante">🔴 - Gs. {{ mov.monto|floatformat:2 }}</span>
+              <span class="badge-sobrante">🔴 - Gs. {{ mov.monto|punto_miles }}</span>
             {% endif %}
           </td>
           <td>
             {% if mov.moneda and mov.monto_divisa %}
               {% if mov.tipo_divisa == "INGRESO" %}
-                <span style="color: #34d399; font-weight: 700;">🟢 + {{ mov.monto_divisa|floatformat:2 }} {{ mov.moneda.siglas }}</span>
+                <span style="color: #34d399; font-weight: 700;">🟢 + {{ mov.monto_divisa|punto_miles }} {{ mov.moneda.siglas }}</span>
               {% else %}
-                <span style="color: #f87171; font-weight: 700;">🔴 - {{ mov.monto_divisa|floatformat:2 }} {{ mov.moneda.siglas }}</span>
+                <span style="color: #f87171; font-weight: 700;">🔴 - {{ mov.monto_divisa|punto_miles }} {{ mov.moneda.siglas }}</span>
               {% endif %}
             {% else %}
               <span style="color: #64748b;">—</span>
@@ -379,15 +379,15 @@
         <td><strong>{{ s.nombre_caja }}</strong></td>
         <td>{{ s.fecha_apertura|date:"d/m/Y H:i" }}</td>
         <td>{{ s.fecha_cierre|date:"d/m/Y H:i" }}</td>
-        <td>Gs. {{ s.monto_inicial|floatformat:2 }}</td>
-        <td>Gs. {{ s.monto_final_declarado|floatformat:2 }}</td>
+        <td>Gs. {{ s.monto_inicial|punto_miles }}</td>
+        <td>Gs. {{ s.monto_final_declarado|punto_miles }}</td>
         <td>
           {% if s.tipo_diferencia == 'EXACTO' %}
             <span style="color: #34d399; font-weight: 700;">✅ Exacto</span>
           {% elif s.tipo_diferencia == 'SOBRANTE' %}
-            <span style="color: #fbbf24; font-weight: 700;">⚠️ +Gs. {{ s.diferencia|floatformat:2 }}</span>
+            <span style="color: #fbbf24; font-weight: 700;">⚠️ +Gs. {{ s.diferencia|punto_miles }}</span>
           {% else %}
-            <span style="color: #f87171; font-weight: 700;">🚨 -Gs. {{ s.diferencia|floatformat:2 }}</span>
+            <span style="color: #f87171; font-weight: 700;">🚨 -Gs. {{ s.diferencia|punto_miles }}</span>
           {% endif %}
         </td>
       </tr>

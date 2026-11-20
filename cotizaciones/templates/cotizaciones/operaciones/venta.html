@@ -593,10 +593,7 @@
 
     function formatearNumero(val, decimales = 0) {
         if (isNaN(val) || val === null || val === undefined) return '0';
-        return Number(val).toLocaleString('es-PY', {
-            minimumFractionDigits: decimales,
-            maximumFractionDigits: decimales
-        });
+        return Math.round(Number(val)).toLocaleString('es-PY');
     }
 
     // Renderiza la tarjeta de cotización obtenida
@@ -606,14 +603,14 @@
             tasaInput.value = Number(tasaAplicada).toFixed(2);
             cotizacionParTexto.textContent = info.par || 'Divisa a PYG';
             cotizacionFechaTexto.textContent = info.fecha ? `Vigente al: ${info.fecha}` : 'Cotización Vigente';
-            cotizacionCompraValor.textContent = `${formatearNumero(info.compra, 2)} PYG`;
-            cotizacionVentaValor.textContent = `${formatearNumero(info.venta, 2)} PYG`;
-            cotizacionTasaAplicadaTexto.textContent = `${formatearNumero(tasaAplicada, 2)} PYG (Precio Compra Entidad)`;
+            cotizacionCompraValor.textContent = `${formatearNumero(info.compra)} PYG`;
+            cotizacionVentaValor.textContent = `${formatearNumero(info.venta)} PYG`;
+            cotizacionTasaAplicadaTexto.textContent = `${formatearNumero(tasaAplicada)} PYG (Precio Compra Entidad)`;
             
             cotizacionCard.style.display = 'block';
             sinCotizacionAlert.style.display = 'none';
             btnSubmit.disabled = false;
-            monedaTasaHint.innerHTML = `<span>⚡</span> Cotización vigente cargada: <strong>${formatearNumero(tasaAplicada, 2)} PYG</strong>`;
+            monedaTasaHint.innerHTML = `<span>⚡</span> Cotización vigente cargada: <strong>${formatearNumero(tasaAplicada)} PYG</strong>`;
         } else {
             mostrarSinCotizacion();
         }
@@ -716,8 +713,8 @@
         // Actualizar resumen visual
         resumenCliente.textContent = clienteNombre;
         resumenSegmento.innerHTML = `<span style="color: #047857; font-weight: 700;">${segmentoNombre}</span> (${pctComision}%)`;
-        resumenMonto.textContent = monto > 0 ? `${formatearNumero(monto, 2)} ${monedaSiglas}` : '—';
-        resumenTasa.textContent = tasa > 0 ? `${formatearNumero(tasa, 2)} PYG` : '—';
+        resumenMonto.textContent = monto > 0 ? `${formatearNumero(monto)} ${monedaSiglas}` : '—';
+        resumenTasa.textContent = tasa > 0 ? `${formatearNumero(tasa)} PYG` : '—';
         resumenSubtotal.textContent = `${formatearNumero(subtotal, 0)} ₲`;
         resumenComisionLabel.textContent = `Comisión (${pctComision}%):`;
         resumenComision.textContent = `- ${formatearNumero(comision, 0)} ₲`;

@@ -259,7 +259,7 @@
                         <div style="display: flex; gap: 12px; align-items: flex-start;">
                             <span style="font-size: 24px;">💳</span>
                             <div style="font-size: 13.5px; color: #1e40af; line-height: 1.5;">
-                                <strong>Operación de Compra Pendiente de Pago:</strong> Para recibir la divisa adquirida, debés abonar <strong>{{ operacion.total_neto|punto_miles:2 }} PYG</strong>. Podés pagar mediante pasarela digital Stripe o adjuntar tu comprobante de transferencia bancaria SIPAP.
+                                <strong>Operación de Compra Pendiente de Pago:</strong> Para recibir la divisa adquirida, debés abonar <strong>{{ operacion.total_neto|punto_miles }} PYG</strong>. Podés pagar mediante pasarela digital Stripe o adjuntar tu comprobante de transferencia bancaria SIPAP.
                             </div>
                         </div>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -278,7 +278,7 @@
                         <div style="display: flex; gap: 12px; align-items: flex-start;">
                             <span style="font-size: 24px;">💵</span>
                             <div style="font-size: 13.5px; color: #065f46; line-height: 1.5;">
-                                <strong>Operación de Venta Registrada:</strong> El cliente entrega <strong>{{ operacion.monto|punto_miles:2 }} {{ operacion.moneda.siglas }}</strong> y recibirá un total neto de <strong>{{ operacion.total_neto|punto_miles:2 }} PYG</strong>. Pendiente de desembolso y liquidación en ventanilla / caja.
+                                <strong>Operación de Venta Registrada:</strong> El cliente entrega <strong>{{ operacion.monto|punto_miles }} {{ operacion.moneda.siglas }}</strong> y recibirá un total neto de <strong>{{ operacion.total_neto|punto_miles }} PYG</strong>. Pendiente de desembolso y liquidación en ventanilla / caja.
                             </div>
                         </div>
                         {% if es_personal %}
@@ -387,7 +387,7 @@
                             <strong>{% if operacion.tipo == 'COMPRA' %}Monto de Divisa Adquirida{% else %}Monto de Divisa Entregado{% endif %}</strong>
                         </td>
                         <td>
-                            {{ operacion.monto|punto_miles:2 }} {{ operacion.moneda.siglas }} ({{ operacion.moneda.nombre }})
+                            {{ operacion.monto|punto_miles }} {{ operacion.moneda.siglas }} ({{ operacion.moneda.nombre }})
                         </td>
                         <td class="amount">
                             —
@@ -398,7 +398,7 @@
                             <strong>Tasa de Cambio Aplicada</strong>
                         </td>
                         <td>
-                            1 {{ operacion.moneda.siglas }} = {{ operacion.tasa_aplicada|punto_miles:2 }} PYG
+                            1 {{ operacion.moneda.siglas }} = {{ operacion.tasa_aplicada|punto_miles }} PYG
                         </td>
                         <td class="amount">
                             —
@@ -409,10 +409,10 @@
                             <strong>Subtotal Bruto</strong>
                         </td>
                         <td>
-                            {{ operacion.monto|punto_miles:2 }} × {{ operacion.tasa_aplicada|punto_miles:2 }}
+                            {{ operacion.monto|punto_miles }} × {{ operacion.tasa_aplicada|punto_miles }}
                         </td>
                         <td class="amount">
-                            {{ operacion.subtotal|punto_miles:2 }} ₲
+                            {{ operacion.subtotal|punto_miles }} ₲
                         </td>
                     </tr>
                     <tr>
@@ -423,7 +423,7 @@
                             Retención correspondiente al segmento {{ operacion.cliente.get_segmento_display }}
                         </td>
                         <td class="amount" style="color: #b45309;">
-                            {% if operacion.tipo == 'COMPRA' %}+{% else %}-{% endif %} {{ operacion.comision|punto_miles:2 }} ₲
+                            {% if operacion.tipo == 'COMPRA' %}+{% else %}-{% endif %} {{ operacion.comision|punto_miles }} ₲
                         </td>
                     </tr>
                     <tr class="total-row">
@@ -438,7 +438,7 @@
                             {% endif %}
                         </td>
                         <td class="amount">
-                            {{ operacion.total_neto|punto_miles:2 }} ₲
+                            {{ operacion.total_neto|punto_miles }} ₲
                         </td>
                     </tr>
                 </tbody>

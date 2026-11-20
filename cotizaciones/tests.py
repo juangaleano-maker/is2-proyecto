@@ -2409,7 +2409,51 @@ class TableroControlGananciasTestCase(TestCase):
         # Al recargar la página (nueva petición GET), refleja los datos actualizados
         resp2 = self.client.get(self.url_tablero)
         self.assertEqual(resp2.status_code, 200)
-        self.assertContains(resp2, '50000')
+        self.assertTrue("50000" in resp2.content.decode() or "50.000" in resp2.content.decode())
+
+
+from django.test import SimpleTestCase
+
+class FormatosMonedaSinComasTests(SimpleTestCase):
+    """Pruebas unitarias para formateo de monedas con separador de miles y sin comas decimales."""
+
+    def test_formatear_miles_sin_comas(self):
+        from cotizaciones.templatetags.formatos import _formatear_miles, punto_miles, guaranies, formato_gs
+        from django.template import Template, Context
+
+        # Separador de miles con punto y sin comas
+        self.assertEqual(_formatear_miles(1250000), '1.250.000')
+        self.assertEqual(_formatear_miles(Decimal('1250000.00')), '1.250.000')
+        self.assertEqual(_formatear_miles('5800.00'), '5.800')
+        self.assertEqual(_formatear_miles(115160), '115.160')
+        self.assertEqual(_formatear_miles(0), '0')
+        self.assertEqual(_formatear_miles(None), '')
+        self.assertEqual(_formatear_miles(''), '')
+
+        # Filtro punto_miles
+        self.assertEqual(punto_miles(1250000), '1.250.000')
+        self.assertEqual(punto_miles(1250000, 2), '1.250.000')
+        self.assertEqual(punto_miles(Decimal('7500.00')), '7.500')
+        self.assertNotIn(',', punto_miles(1250000))
+
+        # Filtros guaranies y formato_gs
+        self.assertEqual(guaranies(1250000), '1.250.000')
+        self.assertEqual(formato_gs(1250000), 'Gs. 1.250.000')
+        self.assertNotIn(',', guaranies(1250000))
+        self.assertNotIn(',', formato_gs(1250000))
+
+        # Renderizado en templates Django
+        t1 = Template('{% load formatos %}{{ monto|punto_miles }}')
+        self.assertEqual(t1.render(Context({'monto': 1250000})), '1.250.000')
+        t2 = Template('{% load formatos %}{{ monto|punto_miles:2 }}')
+        self.assertEqual(t2.render(Context({'monto': 1250000})), '1.250.000')
+        t3 = Template('{% load formatos %}{{ tasa|punto_miles }}')
+        self.assertEqual(t3.render(Context({'tasa': Decimal('7500.00')})), '7.500')
+        t4 = Template('{% load formatos %}{{ monto|guaranies }}')
+        self.assertEqual(t4.render(Context({'monto': 115160})), '115.160')
+        t5 = Template('{% load formatos %}{{ monto|formato_gs }}')
+        self.assertEqual(t5.render(Context({'monto': 5800})), 'Gs. 5.800')
+
 
 
 

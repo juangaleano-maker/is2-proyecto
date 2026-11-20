@@ -472,8 +472,8 @@ def verificar_cambio_cotizacion(operacion) -> Dict[str, Any]:
         sentido = "subió" if diferencia > Decimal('0') else "bajó"
         notificacion = (
             f"La cotización de {operacion.moneda.siglas} cambió respecto al inicio de la operación: "
-            f"pasó de {_formatear_miles(tasa_inicial, 2)} a {_formatear_miles(tasa_vigente, 2)} "
-            f"({sentido} {_formatear_miles(abs(diferencia), 2)} / {abs(porcentaje)}%). "
+            f"pasó de {_formatear_miles(tasa_inicial)} a {_formatear_miles(tasa_vigente)} "
+            f"({sentido} {_formatear_miles(abs(diferencia))} / {abs(porcentaje)}%). "
             f"Puedes cancelar la transacción sin ningún cargo o aceptar la nueva cotización."
         )
 

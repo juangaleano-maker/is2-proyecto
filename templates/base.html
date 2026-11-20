@@ -451,11 +451,10 @@
                 if (isNaN(n)) return val;
                 return 'Gs. ' + Math.round(n).toLocaleString(locale);
             },
-            fmtDec: function(val, decimals) {
+            fmtDec: function(val) {
                 const n = GX.parseNum(val);
                 if (isNaN(n)) return val;
-                const d = decimals !== undefined ? parseInt(decimals) : 2;
-                return n.toLocaleString(locale, { minimumFractionDigits: d, maximumFractionDigits: d });
+                return Math.round(n).toLocaleString(locale);
             },
             /* Formatea todos los [data-num], [data-num-dec], [data-num-gs] en el DOM */
             applyAll: function(root) {

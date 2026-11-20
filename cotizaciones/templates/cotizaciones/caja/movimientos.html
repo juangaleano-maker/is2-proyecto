@@ -240,16 +240,16 @@
   <div class="stat-grid">
     <div class="stat-card">
       <div class="stat-label">🟢 Total Ingresos</div>
-      <div class="stat-value green">+ Gs. {{ total_ingresos|punto_miles:2 }}</div>
+      <div class="stat-value green">+ Gs. {{ total_ingresos|punto_miles }}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">🔴 Total Egresos</div>
-      <div class="stat-value red">- Gs. {{ total_egresos|punto_miles:2 }}</div>
+      <div class="stat-value red">- Gs. {{ total_egresos|punto_miles }}</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">⚖️ Balance Neto Filtrado</div>
       <div class="stat-value {% if balance_neto >= 0 %}green{% else %}red{% endif %}">
-        Gs. {{ balance_neto|punto_miles:2 }}
+        Gs. {{ balance_neto|punto_miles }}
       </div>
     </div>
   </div>
@@ -288,9 +288,9 @@
           <td>{{ mov.concepto }}</td>
           <td style="text-align: right;">
             {% if mov.tipo == "INGRESO" %}
-              <strong style="color: #34d399;">+ Gs. {{ mov.monto|punto_miles:2 }}</strong>
+              <strong style="color: #34d399;">+ Gs. {{ mov.monto|punto_miles }}</strong>
             {% else %}
-              <strong style="color: #f87171;">- Gs. {{ mov.monto|punto_miles:2 }}</strong>
+              <strong style="color: #f87171;">- Gs. {{ mov.monto|punto_miles }}</strong>
             {% endif %}
           </td>
           <td>

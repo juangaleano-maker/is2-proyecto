@@ -296,7 +296,7 @@
 
             <div class="result-calculated" id="res-monto-destino" data-raw="{{ resultado.monto_destino }}">
                 {% if resultado %}
-                    {{ resultado.monto_destino|punto_miles:2 }} {{ resultado.moneda_destino }}
+                    {{ resultado.monto_destino|punto_miles }} {{ resultado.moneda_destino }}
                 {% endif %}
             </div>
 

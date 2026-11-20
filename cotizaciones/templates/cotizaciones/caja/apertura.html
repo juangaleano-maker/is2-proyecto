@@ -199,7 +199,7 @@
           {% for d in m.denominaciones.all %}
           <div class="billete-item">
             <span class="billete-label">
-              Billete <strong>{{ d.valor|punto_miles:0 }}</strong>
+              Billete <strong>{{ d.valor|punto_miles }}</strong>
             </span>
             <input type="number" min="0" step="1" name="cant_billete_{{ d.id }}"
                    class="input-cant js-billete-input"
@@ -250,7 +250,7 @@
 
     const display = document.getElementById(`total-display-${monedaId}`);
     if (display) {
-      display.textContent = total.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      display.textContent = Math.round(total).toLocaleString('es-PY');
     }
 
     const legacyPyg = document.getElementById('legacy_monto_inicial');

@@ -644,7 +644,7 @@
                             <span style="color: #c084fc;">{{ m.total_ventas }} ventas</span>
                         </td>
                         <td class="text-num" style="font-weight: 600; font-size: 0.85rem;">
-                            <span class="num-fmt-dec" data-value="{{ m.volumen_divisa|floatformat:2 }}">{{ m.volumen_divisa|floatformat:2 }}</span>
+                            <span class="num-fmt-dec" data-value="{{ m.volumen_divisa|punto_miles }}">{{ m.volumen_divisa|punto_miles }}</span>
                             <span style="color: #64748b; font-size: 0.75rem;"> {{ m.siglas }}</span>
                         </td>
                     </tr>
@@ -677,7 +677,7 @@
     function fmtDec(val) {
         const n = parseFloat(String(val).replace(/\./g, '').replace(',', '.'));
         if (isNaN(n)) return val;
-        return n.toLocaleString('es-PY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return Math.round(n).toLocaleString('es-PY');
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -746,7 +746,7 @@
                     },
                     tooltip: {
                         callbacks: {
-                            label: ctx => ctx.dataset.label + ': ' + Number(ctx.parsed.y).toLocaleString('es-PY', { minimumFractionDigits: 0 }) + ' Gs.'
+                            label: ctx => ctx.dataset.label + ': ' + Math.round(Number(ctx.parsed.y)).toLocaleString('es-PY') + ' Gs.'
                         }
                     }
                 },
@@ -760,7 +760,7 @@
                         grid: { color: 'rgba(255, 255, 255, 0.05)' },
                         ticks: {
                             color: '#64748b',
-                            callback: v => Number(v).toLocaleString('es-PY') + ' Gs.'
+                            callback: v => Math.round(Number(v)).toLocaleString('es-PY') + ' Gs.'
                         }
                     }
                 }
@@ -789,7 +789,7 @@
                     tooltip: {
                         enabled: tieneData,
                         callbacks: {
-                            label: ctx => ctx.label + ': ' + Number(ctx.raw).toLocaleString('es-PY') + ' Gs.'
+                            label: ctx => ctx.label + ': ' + Math.round(Number(ctx.raw)).toLocaleString('es-PY') + ' Gs.'
                         }
                     }
                 },
