@@ -1,8 +1,9 @@
 """
 URL configuration for global_exchange project.
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.1/topics/http/urls/
+The `urlpatterns` list routes URLs to views. For more information please see
+https://docs.djangoproject.com/en/6.1/topics/http/urls/
+
 Examples:
 
 Function views::

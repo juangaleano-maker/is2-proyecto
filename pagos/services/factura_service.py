@@ -2,11 +2,13 @@
 Servicio de Facturación Electrónica SIFEN / e-Kuatia (IS2-63).
 
 Implementa la lógica de negocio para:
+
 - RF33: Generar la factura electrónica asociada a una operación pagada.
 - RF34: Gestionar los estados (PENDIENTE → EMITIDA / RECHAZADA; EMITIDA → ANULADA).
 - RNF37: Completar la emisión simulada en ≤ 5 segundos (sin I/O externo o con timeout rápido).
 
 Integración con Factura Segura:
+
 - Si se configura FACTURA_SEGURA_PASSWORD o FACTURA_SEGURA_AUTH_TOKEN en .env:
     Realiza la llamada HTTP oficial a la API ESI (https://apitest.facturasegura.com.py/misife00/v1/esi).
 - Si no se han ingresado las credenciales en .env:

@@ -46,6 +46,14 @@ cotizaciones.services module
    :show-inheritance:
    :undoc-members:
 
+cotizaciones.signals module
+---------------------------
+
+.. automodule:: cotizaciones.signals
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 cotizaciones.urls module
 ------------------------
 

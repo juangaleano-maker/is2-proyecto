@@ -10,4 +10,5 @@ is2-proyecto
    cotizaciones
    global_exchange
    monedas
+   pagos
    usuarios

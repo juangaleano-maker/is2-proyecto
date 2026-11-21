@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 def notificar_variacion_tasa(sender, instance, created, **kwargs):
     """
     Criterios de Aceptación IS2-58:
+
     1. Cuando un administrador o el sistema actualice la cotización de una moneda,
        se debe verificar si cumple con la condición de alguna alerta configurada.
     2. Si se cumple la condición, el sistema debe enviar una notificación al usuario.
@@ -158,6 +159,7 @@ def registrar_movimiento_caja_operacion(sender, instance, created, **kwargs):
     """
     Cada vez que una Operacion pasa al estado PAGADA, registra automáticamente
     un MovimientoCaja en la sesión de caja activa del cajero responsable (IS2-61).
+
     - COMPRA: el cliente entrega divisas y la casa entrega guaraníes (o viceversa según modelo de negocio).
       En el sistema actual, COMPRA = ingreso al arqueo de caja local (subtotal).
       VENTA = egreso de fondos de caja local (subtotal).

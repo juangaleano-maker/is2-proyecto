@@ -289,6 +289,7 @@ class FacturaElectronica(models.Model):
     Registro de la factura electrónica simulada asociada a una operación pagada.
 
     Criterios IS2-63:
+
     - RF33: El sistema permitirá generar facturas electrónicas asociadas a las
       transacciones realizadas.
     - RF34: El sistema permitirá gestionar el estado de las facturas electrónicas,
@@ -296,6 +297,7 @@ class FacturaElectronica(models.Model):
     - RNF37: La simulación de emisión (e-Kuatia) debe completarse en ≤ 5 segundos.
 
     Estados:
+
     - PENDIENTE: Generada pero aún no procesada por el simulador SIFEN.
     - EMITIDA:   Procesada y aprobada por el simulador (CDC asignado).
     - ANULADA:   Anulada manualmente por un admin/cajero.

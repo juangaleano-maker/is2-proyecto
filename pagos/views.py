@@ -558,6 +558,7 @@ def retorno_pago_stripe(request, operacion_id):
     Punto de retorno tras la interacción del cliente en la pasarela de Stripe Checkout.
 
     Verifica de forma inmediata y automática con la API de Stripe:
+
     - Si el pago fue aprobado/confirmado ('paid'), transiciona la operación
       a PAGADA, emite el TicketTransaccion oficial y redirige al detalle.
     - Si el pago fue rechazado, cancelado o falló, transiciona la operación

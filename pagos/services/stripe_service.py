@@ -129,7 +129,7 @@ class StripePasarela(PasarelaPago):
         Consulta el estado de un PaymentIntent en Stripe.
 
         Args:
-            referencia: Stripe Payment Intent ID (pi_...).
+            referencia: Stripe Payment Intent ID (``pi_...``).
 
         Returns:
             Diccionario con ``estado`` del intent.

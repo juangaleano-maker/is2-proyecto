@@ -9,7 +9,7 @@ ROLES_KEYCLOAK = ['admin', 'operador', 'supervisor', 'empleado', 'cliente', 'ana
 
 def rol_requerido(*roles_permitidos):
     """
-    Uso:
+    Uso::
 
         @rol_requerido('admin', 'supervisor')
         def mi_vista(request):

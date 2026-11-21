@@ -286,8 +286,9 @@ def obtener_tasa_sugerida(moneda, tipo='VENTA'):
 def calcular_comision_operacion(cliente, monto, tasa_aplicada, tipo='VENTA') -> dict:
     """
     Calcula de forma automática la comisión y liquidación de una operación de cambio (Venta o Compra).
-    
+
     Criterios:
+
     1. Subtotal = Monto * Tasa Aplicada.
     2. Porcentaje de comisión segmentado por cliente:
        - VIP: 0.5%

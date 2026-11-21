@@ -15,10 +15,11 @@ django.setup()
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'is2-proyecto'
+project = 'Global Exchange'
 copyright = '2026, grupo 1'
 author = 'grupo 1'
-release = '2'
+version = '6.0'
+release = '6.0.1'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
